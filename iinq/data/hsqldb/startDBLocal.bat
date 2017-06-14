@@ -1,0 +1,1 @@
+cmd /k java -Xmx500M -Xms500M -cp c:/eclipse/workspace/UnityJDBC_Live/jars/hsqldb.jar  org.hsqldb.Server -database.0 file:mydb -dbname.0 xdb -database.1 file:emptydb -dbname.1 emptydb -database.2 file:tpch -dbname.2 tpch
