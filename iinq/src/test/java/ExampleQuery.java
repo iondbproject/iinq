@@ -106,8 +106,8 @@ public class ExampleQuery
      			if (!(gq.getExecutionTree() instanceof ResultSetScan) && hasOneSubquery)
      				fail("Query should have nothing executed at UnityJDBC level.");
      			else if (!hasOneSubquery && gq.getExecutionTree() instanceof ResultSetScan)
-     				fail("Query should have more than one subquery.");  
-                         
+     				fail("Query should have more than one subquery.");
+
      		 ResultSet rst = stmt.executeQuery(gq);
      		 
              // Validate that execution result is as expected

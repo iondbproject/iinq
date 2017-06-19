@@ -47,7 +47,7 @@ public class TestIinq
 			IinqQuery query = builder.toQuery();
 			
 			// Validate that code is generated as expected
-			String code = query.generateCode();			
+			String code = query.generateCode();
 			System.out.println(code);
 			assertEquals(answer, code);
 		} 

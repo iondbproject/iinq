@@ -156,7 +156,7 @@ public class IinqBuilder extends QueryBuilder
 	/**
 	 * Builds a condition node.  
 	 * 
-	 * @param node	
+	 * @param condition
 	 *     condition node
 	 * @throws SQLException
 	 *     if an error occurs 
@@ -496,7 +496,6 @@ public class IinqBuilder extends QueryBuilder
 	{
 		if (this.fromSeen) // join exception.
 			throw new SQLException("Two tables were received. The driver only supports single table queries.");
-		
 		this.fromSeen = true;
 	
 		GQTableRef tref = (GQTableRef) node.getContent();
@@ -504,7 +503,68 @@ public class IinqBuilder extends QueryBuilder
 		tableName = StringFunc.undelimitName(tableName, '"');
 		
 		// TODO: Fill this in
-		
+		StringBuilder fromCode = new StringBuilder();
+		fromCode.append(
+				/* FROM(0, IINQTestSO) */
+				"\t\tion_iinq_cleanup_t *first;\n" +
+				"\t\tion_iinq_cleanup_t *last;\n" +
+				"\t\tion_iinq_cleanup_t *ref_cursor;\n" +
+				"\t\tion_iinq_cleanup_t *last_cursor;\n" +
+				"\t\tfirst = NULL;\n" +
+				"\t\tlast = NULL;\n" +
+				"\t\tref_cursor = NULL;\n" +
+				"\t\tlast_cursor = NULL;\n" +
+
+				/* FROM_SOURCES(IINQTestSO) , FROM_SOURCE_SINGLE(IINQTestSO) */
+				"\t\tion_iinq_source_t " + tableName + ";\n" +
+				"\t\t" + tableName + ".cleanup.next = NULL;\n" +
+				"\t\t" + tableName + ".cleanup.last = last;\n" +
+				"\t\t" + tableName + ".cleanup.reference = &" + tableName + ";\n" +
+				"\t\tif (NULL == first) { first = &" + tableName + ".cleanup; }\n" +
+				"\t\tif (NULL != last) { last->next = &" + tableName + ".cleanup; }\n" +
+				"\t\tlast = &" + tableName + ".cleanup;\n" +
+				"\t\t" + tableName + ".cleanup.next = NULL;\n" +
+				"\t\t" + tableName + ".dictionary.handler = &" + tableName + ".handler;\n" +
+				"\t\terror = iinq_open_source(\"" + tableName + "\" \".inq\", &(" + tableName + ".dictionary), &(" + tableName + ".handler));\n" +
+				"\t\tif (err_ok != error) { break; }\n" +
+				"\t\tresult.raw_record_size += " + tableName + ".dictionary.instance->record.key_size;\n" +
+				"\t\tresult.raw_record_size += " + tableName + ".dictionary.instance->record.value_size;\n" +
+				"\t\tresult.num_bytes += " + tableName + ".dictionary.instance->record.key_size;\n" +
+				"\t\tresult.num_bytes += IINQTestSO.dictionary.instance->record.value_size;\n" +
+				"\t\terror = dictionary_build_predicate(&(" + tableName + ".predicate), predicate_all_records);\n" +
+				"\t\tif (err_ok != error) { break; }\n" +
+				"\t\tdictionary_find(&" + tableName + ".dictionary, &" + tableName + ".predicate, &" + tableName + ".cursor);\n" +
+
+				/* FROM(0, IINQTestSO) continued */
+				"\t\tresult.data = alloca(result.raw_record_size);\n" +
+				"\t\tresult.processed = result.data;\n" +
+
+				/* _FROM_SETUP_POINTERS(__VA_ARGS__), _FROM_GET_OVERRIDE(__VA_ARGS__), _FROM_SETUP_POINTERS_SINGLE(IINQTestSO) */
+				"\t\t" + tableName +".key = result.processed;\n" +
+				"\t\tresult.processed += " + tableName + ".dictionary.instance->record.key_size;\n" +
+				"\t\t" + tableName + ".value = result.processed;\n" +
+				"\t\tresult.processed += " + tableName + ".dictionary.instance->record.value_size;\n" +
+				"\t\t" + tableName +".ion_record.key = " + tableName + ".key;\n" +
+				"\t\t" + tableName + ".ion_record.value = IINQTestSO.value;\n" +
+				"\t\tstruct iinq_" + tableName +"_schema *" + tableName + "_tuple;\n" +
+				"\t\t" + tableName + "_tuple = " + tableName + ".value;\n"
+		);
+
+		fromCode.append(
+				"\t\tref_cursor = first;\n" +
+				"\t\twhile (ref_cursor != last) {\n" +
+				"\t\t\tif (NULL == ref_cursor || (cs_cursor_active !=\n" +
+				"\t\t\t\t\t\t\t\t\t\t\t   (ref_cursor->reference->cursor_status = ref_cursor->reference->cursor->next(\n" +
+				"\t\t\t\t\t\t\t\t\t\t\t\t\t   ref_cursor->reference->cursor,\n" +
+				"\t\t\t\t\t\t\t\t\t\t\t\t\t   &ref_cursor->reference->ion_record)) && cs_cursor_initialized !=\n" +
+				"\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t   ref_cursor->reference->cursor_status)) { break; }\n" +
+				"\t\t\tref_cursor = ref_cursor->next;\n" +
+				"\t\t}\n" +
+				"\t\tref_cursor = last;\n"
+		);
+
+		query.setParameter("from", fromCode.toString());
+
 		// Set the table
 		this.table = tref.getTable();			  
 	}
