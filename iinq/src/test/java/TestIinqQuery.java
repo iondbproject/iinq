@@ -3,6 +3,14 @@ import static org.junit.Assert.fail;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
+import unity.annotation.GlobalSchema;
+import unity.jdbc.UnityConnection;
+import unity.jdbc.UnityStatement;
+
+import java.sql.Connection;
+import java.sql.DatabaseMetaData;
+import java.sql.DriverManager;
+import java.sql.SQLException;
 
 
 /**
@@ -11,7 +19,9 @@ import org.junit.Test;
 @SuppressWarnings("nls")
 public class TestIinqQuery 
 {
-    public static String url = "";    	
+    private static GlobalSchema metadata = null;
+    private static Connection con = null;
+    private static String url="jdbc:unity://data/xspec/IonDBDemo.xml";
 
 	/**
 	 * Initializes a IINQ JDBC connection.
@@ -20,20 +30,32 @@ public class TestIinqQuery
 	 *             if an error occurs
 	 */
 	@BeforeClass
-	public static void init() throws Exception 
-	{
-		
-	}
+	public static void init() throws Exception {
 
-	/**
-	 * Closes the IINQ JDBC connection.
-	 * 
-	 * @throws Exception
-	 *             if an error occurs
-	 */
+        System.out.println("\nRegistering driver.");
+        Class.forName("unity.jdbc.UnityDriver");
+
+        System.out.println("\nGetting connection:  " + url);
+        con = DriverManager.getConnection(url);
+        System.out.println("\nConnection successful for " + url);
+        System.out.println("\nGetting Metadata");
+        metadata = ((UnityConnection )con).getGlobalSchema();
+
+    }
+
+
+        /**
+         * Closes the IINQ JDBC connection.
+         *
+         * @throws Exception
+         *             if an error occurs
+         */
 	@AfterClass
 	public static void end() throws Exception 
 	{
+	    if (null != con) {
+	        con.close();
+        }
 	
 	}
 
@@ -41,9 +63,9 @@ public class TestIinqQuery
 	 * Test SELECT * FROM Table
 	 */
 	@Test
-	public void testSelectAll() 
-	{	  
-	    String answer =
+	public void testSelectAll()
+	{
+        String answer =
                 "\tdo {\n" +
                 "\t\tion_err_t error;\n" +
                 "\t\tion_iinq_result_t result;\n" +
@@ -59,34 +81,34 @@ public class TestIinqQuery
                 "\t\tlast = NULL;\n" +
                 "\t\tref_cursor = NULL;\n" +
                 "\t\tlast_cursor = NULL;\n" +
-                "\t\tion_iinq_source_t IINQTestSO;\n" +
-                "\t\tIINQTestSO.cleanup.next = NULL;\n" +
-                "\t\tIINQTestSO.cleanup.last = last;\n" +
-                "\t\tIINQTestSO.cleanup.reference = &IINQTestSO;\n" +
-                "\t\tif (NULL == first) { first = &IINQTestSO.cleanup; }\n" +
-                "\t\tif (NULL != last) { last->next = &IINQTestSO.cleanup; }\n" +
-                "\t\tlast = &IINQTestSO.cleanup;\n" +
-                "\t\tIINQTestSO.cleanup.next = NULL;\n" +
-                "\t\tIINQTestSO.dictionary.handler = &IINQTestSO.handler;\n" +
-                "\t\terror = iinq_open_source(\"IINQTestSO\" \".inq\", &(IINQTestSO.dictionary), &(IINQTestSO.handler));\n" +
+                "\t\tion_iinq_source_t test1;\n" +
+                "\t\ttest1.cleanup.next = NULL;\n" +
+                "\t\ttest1.cleanup.last = last;\n" +
+                "\t\ttest1.cleanup.reference = &test1;\n" +
+                "\t\tif (NULL == first) { first = &test1.cleanup; }\n" +
+                "\t\tif (NULL != last) { last->next = &test1.cleanup; }\n" +
+                "\t\tlast = &test1.cleanup;\n" +
+                "\t\ttest1.cleanup.next = NULL;\n" +
+                "\t\ttest1.dictionary.handler = &test1.handler;\n" +
+                "\t\terror = iinq_open_source(\"test1\" \".inq\", &(test1.dictionary), &(test1.handler));\n" +
                 "\t\tif (err_ok != error) { break; }\n" +
-                "\t\tresult.raw_record_size += IINQTestSO.dictionary.instance->record.key_size;\n" +
-                "\t\tresult.raw_record_size += IINQTestSO.dictionary.instance->record.value_size;\n" +
-                "\t\tresult.num_bytes += IINQTestSO.dictionary.instance->record.key_size;\n" +
-                "\t\tresult.num_bytes += IINQTestSO.dictionary.instance->record.value_size;\n" +
-                "\t\terror = dictionary_build_predicate(&(IINQTestSO.predicate), predicate_all_records);\n" +
+                "\t\tresult.raw_record_size += test1.dictionary.instance->record.key_size;\n" +
+                "\t\tresult.raw_record_size += test1.dictionary.instance->record.value_size;\n" +
+                "\t\tresult.num_bytes += test1.dictionary.instance->record.key_size;\n" +
+                "\t\tresult.num_bytes += test1.dictionary.instance->record.value_size;\n" +
+                "\t\terror = dictionary_build_predicate(&(test1.predicate), predicate_all_records);\n" +
                 "\t\tif (err_ok != error) { break; }\n" +
-                "\t\tdictionary_find(&IINQTestSO.dictionary, &IINQTestSO.predicate, &IINQTestSO.cursor);\n" +
+                "\t\tdictionary_find(&test1.dictionary, &test1.predicate, &test1.cursor);\n" +
                 "\t\tresult.data = alloca(result.raw_record_size);\n" +
                 "\t\tresult.processed = result.data;\n" +
-                "\t\tIINQTestSO.key = result.processed;\n" +
-                "\t\tresult.processed += IINQTestSO.dictionary.instance->record.key_size;\n" +
-                "\t\tIINQTestSO.value = result.processed;\n" +
-                "\t\tresult.processed += IINQTestSO.dictionary.instance->record.value_size;\n" +
-                "\t\tIINQTestSO.ion_record.key = IINQTestSO.key;\n" +
-                "\t\tIINQTestSO.ion_record.value = IINQTestSO.value;\n" +
-                "\t\tstruct iinq_IINQTestSO_schema *IINQTestSO_tuple;\n" +
-                "\t\tIINQTestSO_tuple = IINQTestSO.value;\n" +
+                "\t\ttest1.key = result.processed;\n" +
+                "\t\tresult.processed += test1.dictionary.instance->record.key_size;\n" +
+                "\t\ttest1.value = result.processed;\n" +
+                "\t\tresult.processed += test1.dictionary.instance->record.value_size;\n" +
+                "\t\ttest1.ion_record.key = test1.key;\n" +
+                "\t\ttest1.ion_record.value = test1.value;\n" +
+                "\t\tstruct iinq_test1_schema *test1_tuple;\n" +
+                "\t\ttest1_tuple = test1.value;\n" +
                 "\t\tref_cursor = first;\n" +
                 "\t\twhile (ref_cursor != last) {\n" +
                 "\t\t\tif (NULL == ref_cursor || (cs_cursor_active !=\n" +
@@ -132,8 +154,8 @@ public class TestIinqQuery
                 "\t\t}\n" +
                 "\t}\n" +
                 "\twhile (0);";
-	    					
-		TestIinq.runSQLQuery("SELECT * FROM \"IINQTestSO\";", answer);
+
+		TestIinq.runSQLQuery("SELECT * FROM test1;", answer, metadata);
 	}
 
 	/**
@@ -145,7 +167,7 @@ public class TestIinqQuery
 		String answer = "Al 'Adliyah, 498.75, 21.0"
 		                +"\nTotal results: 3458";
 		
-		TestIinq.runSQLQuery("SELECT city, \"Gross Sales\", \"Unit Price\" FROM \"IINQTestSO\";", answer);
+		TestIinq.runSQLQuery("SELECT city, \"Gross Sales\", \"Unit Price\" FROM test1;", answer);
 	}
 
 	/**
@@ -177,7 +199,7 @@ public class TestIinqQuery
                 +"\n8, Albuquerque"
                 +"\nTotal results: 2";
                 
-        TestIinq.runSQLQuery("SELECT 4*2 as val, City FROM \"IINQTestSO\" LIMIT 2;", answer);
+        TestIinq.runSQLQuery("SELECT 4*2 as val, City FROM test1 LIMIT 2;", answer);
         
         // SELECT string expression with other field 
         answer = "Total columns: 2"
@@ -186,13 +208,13 @@ public class TestIinqQuery
                 +"\nX, Albuquerque"
                 +"\nTotal results: 2";
                 
-        TestIinq.runSQLQuery("SELECT 'X' as val, City FROM \"IINQTestSO\" LIMIT 2;", answer);
+        TestIinq.runSQLQuery("SELECT 'X' as val, City FROM test1 LIMIT 2;", answer);
         
         /*
         // TODO: Does not behave as would expect (only returns one row)
         // SELECT 1 FROM table
-        TestIinq.runSQLQuery("SELECT 1 FROM \"IINQTestSO\";", answer,
-                "http://209.136.222.21/IINQ10/cgi-bin/IINQisapi.dll/IINQTestSO Parameters: {fields=[Store Type, Planned Gross Sales, Planned Profit, Profit, Quantity, Sales Cost, Sales Date, Sales per transaction, Unit Price, City, Department, Product Line, Product Type, Discount, Gross Sales, Items per transaction, Manufacturing Cost, Country, No of customers, State]}", null);
+        TestIinq.runSQLQuery("SELECT 1 FROM test1;", answer,
+                "http://209.136.222.21/IINQ10/cgi-bin/IINQisapi.dll/test1 Parameters: {fields=[Store Type, Planned Gross Sales, Planned Profit, Profit, Quantity, Sales Cost, Sales Date, Sales per transaction, Unit Price, City, Department, Product Line, Product Type, Discount, Gross Sales, Items per transaction, Manufacturing Cost, Country, No of customers, State]}", null);
         */     
     }
     
@@ -212,7 +234,7 @@ public class TestIinqQuery
     public void testSelectFieldListFieldDNE() 
     {        
         String answer = "";        
-        TestIinq.runSQLQuery("SELECT cityDNE, \"Gross Sales\", \"Unit Price\" FROM \"IINQTestSO\";", answer);
+        TestIinq.runSQLQuery("SELECT cityDNE, \"Gross Sales\", \"Unit Price\" FROM test1;", answer);
     }
     
     /**
@@ -235,7 +257,7 @@ public class TestIinqQuery
 	    String answer = "Total columns: 3"
 	                    +"\nC, grossSales, Unit Price";
         
-        TestIinq.runSQLQuery("SELECT city as C, \"Gross Sales\" AS grossSales, \"Unit Price\" FROM \"IINQTestSO\";", answer);
+        TestIinq.runSQLQuery("SELECT city as C, \"Gross Sales\" AS grossSales, \"Unit Price\" FROM test1;", answer);
 	}
 
 	/**
@@ -247,7 +269,7 @@ public class TestIinqQuery
         String answer = "Total columns: 3"
                 +"\nC, grossSales, unitPrice";
         
-        TestIinq.runSQLQuery("SELECT city as C, \"Gross Sales\" AS grossSales, \"Unit Price\" unitPrice FROM  \"IINQTestSO\";", answer);
+        TestIinq.runSQLQuery("SELECT city as C, \"Gross Sales\" AS grossSales, \"Unit Price\" unitPrice FROM  test1;", answer);
     }
     
 	/**
@@ -259,11 +281,11 @@ public class TestIinqQuery
         String answer = "Total results: 292";
                
         // String filter
-        TestIinq.runSQLQuery("SELECT city, country, \"Gross Sales\", \"Unit Price\" FROM \"IINQTestSO\" WHERE country = 'United Kingdom';", answer);
+        TestIinq.runSQLQuery("SELECT city, country, \"Gross Sales\", \"Unit Price\" FROM test1 WHERE country = 'United Kingdom';", answer);
         
         // Number filter
         answer = "Total results: 1";
-        TestIinq.runSQLQuery("SELECT city, country, \"Gross Sales\", \"Unit Price\" FROM \"IINQTestSO\" WHERE \"Gross Sales\" = 31.02;", answer);
+        TestIinq.runSQLQuery("SELECT city, country, \"Gross Sales\", \"Unit Price\" FROM test1 WHERE \"Gross Sales\" = 31.02;", answer);
     }
         
     /**
@@ -275,26 +297,26 @@ public class TestIinqQuery
         String answer = "Total results: 1724";
         
         // >
-        TestIinq.runSQLQuery("SELECT city, country, \"Gross Sales\", \"Unit Price\" FROM \"IINQTestSO\" WHERE country > 'United Kingdom';", answer);
+        TestIinq.runSQLQuery("SELECT city, country, \"Gross Sales\", \"Unit Price\" FROM test1 WHERE country > 'United Kingdom';", answer);
  
         // >=
         answer = "Total results: 2016";
-        TestIinq.runSQLQuery("SELECT city, country, \"Gross Sales\", \"Unit Price\" FROM \"IINQTestSO\" WHERE country >= 'United Kingdom';", answer);
+        TestIinq.runSQLQuery("SELECT city, country, \"Gross Sales\", \"Unit Price\" FROM test1 WHERE country >= 'United Kingdom';", answer);
  
         // <
         answer = "Total results: 1442";
-        TestIinq.runSQLQuery("SELECT city, country, \"Gross Sales\", \"Unit Price\" FROM \"IINQTestSO\" WHERE country < 'United Kingdom';", answer);
+        TestIinq.runSQLQuery("SELECT city, country, \"Gross Sales\", \"Unit Price\" FROM test1 WHERE country < 'United Kingdom';", answer);
  
         // <=
         answer = "Total results: 1734";
-        TestIinq.runSQLQuery("SELECT city, country, \"Gross Sales\", \"Unit Price\" FROM \"IINQTestSO\" WHERE country <= 'United Kingdom';", answer);
+        TestIinq.runSQLQuery("SELECT city, country, \"Gross Sales\", \"Unit Price\" FROM test1 WHERE country <= 'United Kingdom';", answer);
  
         // !=
         answer = "Total results: 3166";
-        TestIinq.runSQLQuery("SELECT city, country, \"Gross Sales\", \"Unit Price\" FROM \"IINQTestSO\" WHERE country <> 'United Kingdom';", answer);
+        TestIinq.runSQLQuery("SELECT city, country, \"Gross Sales\", \"Unit Price\" FROM test1 WHERE country <> 'United Kingdom';", answer);
         
         answer = "Total results: 3166";
-        TestIinq.runSQLQuery("SELECT city, country, \"Gross Sales\", \"Unit Price\" FROM \"IINQTestSO\" WHERE country != 'United Kingdom';", answer);
+        TestIinq.runSQLQuery("SELECT city, country, \"Gross Sales\", \"Unit Price\" FROM test1 WHERE country != 'United Kingdom';", answer);
     }
     
     /**
@@ -311,7 +333,7 @@ public class TestIinqQuery
                 +"\nLafayette, United States, 44157.33, 6783.0"
                 +"\nSandy Springs, United States, 29055.38, 881.0"                
                 +"\nTotal results: 2";
-        TestIinq.runSQLQuery("SELECT city, country, \"Gross Sales\", \"Unit Price\" FROM \"IINQTestSO\" WHERE \"Gross Sales\" > 27300;", answer);
+        TestIinq.runSQLQuery("SELECT city, country, \"Gross Sales\", \"Unit Price\" FROM test1 WHERE \"Gross Sales\" > 27300;", answer);
  
         // >=
         answer = "Total columns: 4"
@@ -320,7 +342,7 @@ public class TestIinqQuery
                 +"\nLausanne, Switzerland, 27300.0, 600.0"
                 +"\nSandy Springs, United States, 29055.38, 881.0"
                 +"\nTotal results: 3";
-        TestIinq.runSQLQuery("SELECT city, country, \"Gross Sales\", \"Unit Price\" FROM \"IINQTestSO\" WHERE \"Gross Sales\" >= 27300;", answer);
+        TestIinq.runSQLQuery("SELECT city, country, \"Gross Sales\", \"Unit Price\" FROM test1 WHERE \"Gross Sales\" >= 27300;", answer);
  
         // <
         answer = "Total columns: 4"
@@ -328,16 +350,16 @@ public class TestIinqQuery
                 +"\nCoconut Grove, United States, 1.9, 2.0"
                 +"\nMorges, Switzerland, 0.99, 1.0"
                 +"\nTotal results: 2";
-        TestIinq.runSQLQuery("SELECT city, country, \"Gross Sales\", \"Unit Price\" FROM \"IINQTestSO\" WHERE \"Gross Sales\" < 2.1;", answer);
+        TestIinq.runSQLQuery("SELECT city, country, \"Gross Sales\", \"Unit Price\" FROM test1 WHERE \"Gross Sales\" < 2.1;", answer);
  
         // <=        
-        TestIinq.runSQLQuery("SELECT city, country, \"Gross Sales\", \"Unit Price\" FROM \"IINQTestSO\" WHERE \"Gross Sales\" <= 1.9;", answer);
+        TestIinq.runSQLQuery("SELECT city, country, \"Gross Sales\", \"Unit Price\" FROM test1 WHERE \"Gross Sales\" <= 1.9;", answer);
  
         // !=
         answer = "Total results: 3457";
-        TestIinq.runSQLQuery("SELECT city, country, \"Gross Sales\", \"Unit Price\" FROM \"IINQTestSO\" WHERE \"Gross Sales\" <> 4;", answer);
+        TestIinq.runSQLQuery("SELECT city, country, \"Gross Sales\", \"Unit Price\" FROM test1 WHERE \"Gross Sales\" <> 4;", answer);
                 
-        TestIinq.runSQLQuery("SELECT city, country, \"Gross Sales\", \"Unit Price\" FROM \"IINQTestSO\" WHERE \"Gross Sales\" != 4;", answer);
+        TestIinq.runSQLQuery("SELECT city, country, \"Gross Sales\", \"Unit Price\" FROM test1 WHERE \"Gross Sales\" != 4;", answer);
     }
     
 	/**
@@ -357,7 +379,7 @@ public class TestIinqQuery
                 +"\nSandy Springs, United States, 29055.38, 881.0"
                 +"\nLafayette, United States, 44157.33, 6783.0"
                 +"\nTotal results: 6";
-        TestIinq.runSQLQuery("SELECT city, country, \"Gross Sales\", \"Unit Price\" FROM \"IINQTestSO\" WHERE \"Gross Sales\" > 26000 ORDER BY \"Gross Sales\" ASC;", answer);
+        TestIinq.runSQLQuery("SELECT city, country, \"Gross Sales\", \"Unit Price\" FROM test1 WHERE \"Gross Sales\" > 26000 ORDER BY \"Gross Sales\" ASC;", answer);
        
 		// DESC
         answer = "Total columns: 4"
@@ -370,7 +392,7 @@ public class TestIinqQuery
                  +"\nCheltenham, United Kingdom, 26600.0, 3500.0"
                  +"\nTotal results: 6";
         
-        TestIinq.runSQLQuery("SELECT city, country, \"Gross Sales\", \"Unit Price\" FROM \"IINQTestSO\" WHERE \"Gross Sales\" > 26000 ORDER BY city DESC;", answer);
+        TestIinq.runSQLQuery("SELECT city, country, \"Gross Sales\", \"Unit Price\" FROM test1 WHERE \"Gross Sales\" > 26000 ORDER BY city DESC;", answer);
 	}
 
 
@@ -391,7 +413,7 @@ public class TestIinqQuery
                 +"\nSandy Springs, United States, 29055.38, 881.0"
                 +"\nLafayette, United States, 44157.33, 6783.0"
                 +"\nTotal results: 6";
-        TestIinq.runSQLQuery("SELECT city, country, \"Gross Sales\", \"Unit Price\" FROM \"IINQTestSO\" WHERE \"Gross Sales\" > 26000 ORDER BY country ASC, \"Gross Sales\" ASC;", answer);
+        TestIinq.runSQLQuery("SELECT city, country, \"Gross Sales\", \"Unit Price\" FROM test1 WHERE \"Gross Sales\" > 26000 ORDER BY country ASC, \"Gross Sales\" ASC;", answer);
          
         // DESC
         answer = "Total columns: 4"
@@ -403,7 +425,7 @@ public class TestIinqQuery
                 +"\nVesenaz, Switzerland, 26496.0, 600.0"
                 +"\nRed Deer, Canada, 26880.0, 3500.0"
                 +"\nTotal results: 6";
-        TestIinq.runSQLQuery("SELECT city, country, \"Gross Sales\", \"Unit Price\" FROM \"IINQTestSO\" WHERE \"Gross Sales\" > 26000 ORDER BY country DESC, \"Gross Sales\" DESC;", answer);
+        TestIinq.runSQLQuery("SELECT city, country, \"Gross Sales\", \"Unit Price\" FROM test1 WHERE \"Gross Sales\" > 26000 ORDER BY country DESC, \"Gross Sales\" DESC;", answer);
     }
     
     /**
@@ -415,7 +437,7 @@ public class TestIinqQuery
         String answer = "Navan, 28"
                         +"\nTotal results: 161";
         
-        TestIinq.runSQLQuery("SELECT city, COUNT(\"Gross Sales\") from \"IINQTestSO\" GROUP BY city ORDER BY COUNT(\"Gross Sales\") DESC", answer);
+        TestIinq.runSQLQuery("SELECT city, COUNT(\"Gross Sales\") from test1 GROUP BY city ORDER BY COUNT(\"Gross Sales\") DESC", answer);
     }
     
 	/**
@@ -432,7 +454,7 @@ public class TestIinqQuery
                 +"\nCheltenham, United Kingdom, 26600.0, 3500.0"
                 +"\nRed Deer, Canada, 26880.0, 3500.0"
                 +"\nTotal results: 3";
-        TestIinq.runSQLQuery("SELECT city, country, \"Gross Sales\", \"Unit Price\" FROM \"IINQTestSO\" WHERE \"Gross Sales\" > 26000 ORDER BY \"Gross Sales\" ASC LIMIT 3;", answer);
+        TestIinq.runSQLQuery("SELECT city, country, \"Gross Sales\", \"Unit Price\" FROM test1 WHERE \"Gross Sales\" > 26000 ORDER BY \"Gross Sales\" ASC LIMIT 3;", answer);
 
 	}
 		
@@ -450,7 +472,7 @@ public class TestIinqQuery
                 +"\nLausanne, Switzerland, 27300.0, 600.0"
                 +"\nSandy Springs, United States, 29055.38, 881.0"
                 +"\nTotal results: 3";
-        TestIinq.runSQLQuery("SELECT city, country, \"Gross Sales\", \"Unit Price\" FROM \"IINQTestSO\" WHERE \"Gross Sales\" > 26000 ORDER BY \"Gross Sales\" ASC LIMIT 3 OFFSET 2;", answer);
+        TestIinq.runSQLQuery("SELECT city, country, \"Gross Sales\", \"Unit Price\" FROM test1 WHERE \"Gross Sales\" > 26000 ORDER BY \"Gross Sales\" ASC LIMIT 3 OFFSET 2;", answer);
 
     }
     
@@ -479,7 +501,7 @@ public class TestIinqQuery
 	{	    
 	    String answer = "";
                         	    
-        TestIinq.runSQLQuery("SELECT * from \"IINQTestSO\" WHERE 1 = 1", answer);
+        TestIinq.runSQLQuery("SELECT * from test1 WHERE 1 = 1", answer);
     }
 	
 	/**
@@ -491,7 +513,7 @@ public class TestIinqQuery
         String answer = "London, United Kingdom, 177.65, 11.0"
                         +"\nLondon, United Kingdom, 209.52, 6.0"
                         +"\nTotal results: 18";
-        TestIinq.runSQLQuery("SELECT city, country, \"Gross Sales\", \"Unit Price\" FROM \"IINQTestSO\" WHERE country = 'United Kingdom' and city = 'London';", answer);
+        TestIinq.runSQLQuery("SELECT city, country, \"Gross Sales\", \"Unit Price\" FROM test1 WHERE country = 'United Kingdom' and city = 'London';", answer);
     }
        
     
@@ -503,11 +525,11 @@ public class TestIinqQuery
     {
         String answer = "Total results: 2016";
     
-        TestIinq.runSQLQuery("SELECT city, country, \"Gross Sales\", \"Unit Price\" FROM \"IINQTestSO\" WHERE country = 'United Kingdom' OR country = 'United States';", answer);
+        TestIinq.runSQLQuery("SELECT city, country, \"Gross Sales\", \"Unit Price\" FROM test1 WHERE country = 'United Kingdom' OR country = 'United States';", answer);
 
         answer = "Total results: 318";
         
-        TestIinq.runSQLQuery("SELECT city, country, \"Gross Sales\", \"Unit Price\" FROM \"IINQTestSO\" WHERE country = 'United Kingdom' OR city = 'New York';", answer);
+        TestIinq.runSQLQuery("SELECT city, country, \"Gross Sales\", \"Unit Price\" FROM test1 WHERE country = 'United Kingdom' OR city = 'New York';", answer);
     }
     
     /**
@@ -520,7 +542,7 @@ public class TestIinqQuery
         
         answer = "Total results: 48";
         
-        TestIinq.runSQLQuery("SELECT city, country, \"Gross Sales\", \"Unit Price\" FROM \"IINQTestSO\" WHERE country = 'United States' and (city = 'Albuquerque' OR city = 'New York');", answer);
+        TestIinq.runSQLQuery("SELECT city, country, \"Gross Sales\", \"Unit Price\" FROM test1 WHERE country = 'United States' and (city = 'Albuquerque' OR city = 'New York');", answer);
     }
     
     /**
@@ -533,7 +555,7 @@ public class TestIinqQuery
         
         answer = "Total results: 1734";
         
-        TestIinq.runSQLQuery("SELECT city, country, \"Gross Sales\", \"Unit Price\" FROM \"IINQTestSO\" WHERE NOT country = 'United States';", answer);
+        TestIinq.runSQLQuery("SELECT city, country, \"Gross Sales\", \"Unit Price\" FROM test1 WHERE NOT country = 'United States';", answer);
     }
     
     /**
@@ -546,7 +568,7 @@ public class TestIinqQuery
         
         answer = "Total results: 322";
         
-        TestIinq.runSQLQuery("SELECT city, country, \"Gross Sales\", \"Unit Price\" FROM \"IINQTestSO\" WHERE country = 'United States' and (city = 'Albuquerque' OR city = 'New York') or (country = 'United Kingdom' and NOT city = 'London');", answer);
+        TestIinq.runSQLQuery("SELECT city, country, \"Gross Sales\", \"Unit Price\" FROM test1 WHERE country = 'United States' and (city = 'Albuquerque' OR city = 'New York') or (country = 'United Kingdom' and NOT city = 'London');", answer);
      }      
             
     /**
@@ -561,10 +583,10 @@ public class TestIinqQuery
                 +"\nTotal results: 1";
         
         // IS NULL
-        TestIinq.runSQLQuery("SELECT COUNT(\"Gross Sales\") as GrossSales from \"IINQTestSO\" WHERE city IS NULL", answer);
+        TestIinq.runSQLQuery("SELECT COUNT(\"Gross Sales\") as GrossSales from test1 WHERE city IS NULL", answer);
                         
         // IS NOT NULL
-        TestIinq.runSQLQuery("SELECT COUNT(\"Gross Sales\") as GrossSales from \"IINQTestSO\" WHERE city IS NOT NULL", answer);
+        TestIinq.runSQLQuery("SELECT COUNT(\"Gross Sales\") as GrossSales from test1 WHERE city IS NOT NULL", answer);
     }
     
     /**
@@ -578,7 +600,7 @@ public class TestIinqQuery
                 +"\n3454"
                 +"\nTotal results: 1";
         
-        TestIinq.runSQLQuery("SELECT COUNT(\"Gross Sales\") as GrossSales from (SELECT country, city, \"Gross Sales\" FROM \"IINQTestSO\") S", answer);
+        TestIinq.runSQLQuery("SELECT COUNT(\"Gross Sales\") as GrossSales from (SELECT country, city, \"Gross Sales\" FROM test1) S", answer);
     }
         
     /**
@@ -589,7 +611,7 @@ public class TestIinqQuery
     {   
         String answer = "";
         
-        TestIinq.runSQLQuery("SELECT COUNT(*) from \"IINQTestSO\"", answer);
+        TestIinq.runSQLQuery("SELECT COUNT(*) from test1", answer);
     }
     
     /**
@@ -603,7 +625,7 @@ public class TestIinqQuery
                         +"\n3458"
                         +"\nTotal results: 1";
         
-        TestIinq.runSQLQuery("SELECT COUNT(\"Gross Sales\") from \"IINQTestSO\"", answer);
+        TestIinq.runSQLQuery("SELECT COUNT(\"Gross Sales\") from test1", answer);
     }
     
     /**
@@ -617,7 +639,7 @@ public class TestIinqQuery
                         +"\n6109678.72"
                         +"\nTotal results: 1";
         
-        TestIinq.runSQLQuery("SELECT SUM(\"Gross Sales\") from \"IINQTestSO\"", answer);
+        TestIinq.runSQLQuery("SELECT SUM(\"Gross Sales\") from test1", answer);
     }
     
     /**
@@ -631,7 +653,7 @@ public class TestIinqQuery
                         +"\n1766.82438404"
                         +"\nTotal results: 1";
         
-        TestIinq.runSQLQuery("SELECT AVG(\"Gross Sales\") from \"IINQTestSO\"", answer);
+        TestIinq.runSQLQuery("SELECT AVG(\"Gross Sales\") from test1", answer);
     }
     
     /**
@@ -645,21 +667,21 @@ public class TestIinqQuery
                         +"\n44157.33"
                         +"\nTotal results: 1";
        
-        TestIinq.runSQLQuery("SELECT MAX(\"Gross Sales\") from \"IINQTestSO\"", answer);
+        TestIinq.runSQLQuery("SELECT MAX(\"Gross Sales\") from test1", answer);
         
         answer = "Total columns: 1"
                 +"\nExpr0"
                 +"\n0.99"
                 +"\nTotal results: 1";
         
-        TestIinq.runSQLQuery("SELECT MIN(\"Gross Sales\") from \"IINQTestSO\"", answer);
+        TestIinq.runSQLQuery("SELECT MIN(\"Gross Sales\") from test1", answer);
 
         // MIN and MAX together
         answer = "Total columns: 2"
                 +"\nExpr0, Expr1"
                 +"\n0.99, 44157.33"
                 +"\nTotal results: 1";
-        TestIinq.runSQLQuery("SELECT MIN(\"Gross Sales\"),  MAX(\"Gross Sales\") from \"IINQTestSO\"", answer);
+        TestIinq.runSQLQuery("SELECT MIN(\"Gross Sales\"),  MAX(\"Gross Sales\") from test1", answer);
     }
        
     
@@ -674,7 +696,7 @@ public class TestIinqQuery
                         +"\n425.46"
                         +"\nTotal results: 1";
         
-        TestIinq.runSQLQuery("SELECT MEDIAN(\"Gross Sales\") from \"IINQTestSO\"", answer);
+        TestIinq.runSQLQuery("SELECT MEDIAN(\"Gross Sales\") from test1", answer);
     }
     
     /**
@@ -685,7 +707,7 @@ public class TestIinqQuery
     {   
         String answer = "";
         
-        TestIinq.runSQLQuery("SELECT city, country, COUNT(*) from \"IINQTestSO\" GROUP BY city, country", answer);
+        TestIinq.runSQLQuery("SELECT city, country, COUNT(*) from test1 GROUP BY city, country", answer);
     }
     
     /**
@@ -697,7 +719,7 @@ public class TestIinqQuery
         String answer = "Baton Rouge, 20"
                         +"\nTotal results: 161";
         
-        TestIinq.runSQLQuery("SELECT city, COUNT(\"Gross Sales\") from \"IINQTestSO\" GROUP BY city", answer);
+        TestIinq.runSQLQuery("SELECT city, COUNT(\"Gross Sales\") from test1 GROUP BY city", answer);
     }
     
     /**
@@ -710,7 +732,7 @@ public class TestIinqQuery
                         +"\nBelleville, Canada, 39576.35"
                         +"\nTotal results: 161";
         
-        TestIinq.runSQLQuery("SELECT city, country, SUM(\"Gross Sales\") from \"IINQTestSO\" GROUP BY city, country", answer);
+        TestIinq.runSQLQuery("SELECT city, country, SUM(\"Gross Sales\") from test1 GROUP BY city, country", answer);
     }
     
     /**
@@ -723,7 +745,7 @@ public class TestIinqQuery
                         +"\nIreland, 1744.69856115"
                         +"\nTotal results: 24";
         
-        TestIinq.runSQLQuery("SELECT country, AVG(\"Gross Sales\") from \"IINQTestSO\" GROUP BY country", answer);
+        TestIinq.runSQLQuery("SELECT country, AVG(\"Gross Sales\") from test1 GROUP BY country", answer);
     }
     
     /**
@@ -736,20 +758,20 @@ public class TestIinqQuery
                         +"\nIreland, 16412.76"
                         +"\nTotal results: 24";
        
-        TestIinq.runSQLQuery("SELECT country, MAX(\"Gross Sales\") from \"IINQTestSO\" GROUP BY country", answer);
+        TestIinq.runSQLQuery("SELECT country, MAX(\"Gross Sales\") from test1 GROUP BY country", answer);
 
         answer = "India, 22.75"
                  +"\nIreland, 7.44"
                  +"\nTotal results: 24";
         
-        TestIinq.runSQLQuery("SELECT country, MIN(\"Gross Sales\") from \"IINQTestSO\" GROUP BY country", answer);
+        TestIinq.runSQLQuery("SELECT country, MIN(\"Gross Sales\") from test1 GROUP BY country", answer);
           
         // MIN and MAX together
         answer = "Alliston, Canada, 58.24, 6349.7"
                  +"\nBelleville, Canada, 14.4, 18000.0"
                  +"\nTotal results: 161";
         
-       TestIinq.runSQLQuery("SELECT city, country, MIN(\"Gross Sales\"),  MAX(\"Gross Sales\") from \"IINQTestSO\" GROUP BY city, country", answer);
+       TestIinq.runSQLQuery("SELECT city, country, MIN(\"Gross Sales\"),  MAX(\"Gross Sales\") from test1 GROUP BY city, country", answer);
     }
     
     /**
@@ -772,7 +794,7 @@ public class TestIinqQuery
                         +"\n16412.76"
                         +"\nTotal results: 24";
        
-        TestIinq.runSQLQuery("SELECT MAX(\"Gross Sales\") as maxGrossSales from \"IINQTestSO\" GROUP BY country", answer);
+        TestIinq.runSQLQuery("SELECT MAX(\"Gross Sales\") as maxGrossSales from test1 GROUP BY country", answer);
     }
     
     /**
@@ -785,7 +807,7 @@ public class TestIinqQuery
                         +"\nIreland, 478.8"
                         +"\nTotal results: 24";
         
-        TestIinq.runSQLQuery("SELECT country, MEDIAN(\"Gross Sales\") from \"IINQTestSO\" GROUP BY country", answer);
+        TestIinq.runSQLQuery("SELECT country, MEDIAN(\"Gross Sales\") from test1 GROUP BY country", answer);
     }
                         
     /**
@@ -800,7 +822,7 @@ public class TestIinqQuery
                         +"\nBahrain, 8905.26, 4.0, 1960.12953333, 1757.0"
                         +"\nBelgium, 6485.08, 1.0, 1478.52304762, 3915.0"
                         +"\nTotal results: 3";
-        TestIinq.runSQLQuery("SELECT country, MAX(\"Gross Sales\") as maxGrossSales, MIN(quantity) as minQuantity, AVG(profit) as avgProfit, SUM(\"Unit Price\") as sumUnitPrice from \"IINQTestSO\" GROUP BY country LIMIT 3", answer);
+        TestIinq.runSQLQuery("SELECT country, MAX(\"Gross Sales\") as maxGrossSales, MIN(quantity) as minQuantity, AVG(profit) as avgProfit, SUM(\"Unit Price\") as sumUnitPrice from test1 GROUP BY country LIMIT 3", answer);
     }       
     
     
@@ -817,7 +839,7 @@ public class TestIinqQuery
                 +"\n44157.33, 1.0, 1616.71726009, 143596.0"
                 +"\nTotal results: 3";
 
-        TestIinq.runSQLQuery("SELECT MAX(\"Gross Sales\") as maxGrossSales, MIN(quantity) as minQuantity, AVG(profit) as avgProfit, SUM(\"Unit Price\") as sumUnitPrice from \"IINQTestSO\" GROUP BY country HAVING sumUnitPrice > 20000", answer);
+        TestIinq.runSQLQuery("SELECT MAX(\"Gross Sales\") as maxGrossSales, MIN(quantity) as minQuantity, AVG(profit) as avgProfit, SUM(\"Unit Price\") as sumUnitPrice from test1 GROUP BY country HAVING sumUnitPrice > 20000", answer);
     }
        
     /**
@@ -833,7 +855,7 @@ public class TestIinqQuery
                         +"\nUnited States"
                         +"\nTotal results: 3";
         
-        TestIinq.runSQLQuery("SELECT country FROM \"IINQTestSO\" WHERE country IN ('Canada', 'United Kingdom', 'United States');", answer);
+        TestIinq.runSQLQuery("SELECT country FROM test1 WHERE country IN ('Canada', 'United Kingdom', 'United States');", answer);
     }
     
     /*
@@ -848,10 +870,10 @@ public class TestIinqQuery
         String answer = "Al 'AdliyahA, 498.75, 121.0"
                         +"\nTotal results: 3458";
      
-        TestIinq.runSQLQuery("SELECT \"Unit Price\"+100  as UnitPricePlus100 FROM \"IINQTestSO\";", answer);
+        TestIinq.runSQLQuery("SELECT \"Unit Price\"+100  as UnitPricePlus100 FROM test1;", answer);
     
         
-        TestIinq.runSQLQuery("SELECT city+'A', \"Gross Sales\", \"Unit Price\" +100 as UnitPricePlus100 FROM \"IINQTestSO\";", answer);
+        TestIinq.runSQLQuery("SELECT city+'A', \"Gross Sales\", \"Unit Price\" +100 as UnitPricePlus100 FROM test1;", answer);
 
     }
     
@@ -866,7 +888,7 @@ public class TestIinqQuery
                         +"\n3603.143310549774, 621676.0"
                         +"\nTotal results: 1";
         
-        TestIinq.runSQLQuery("SELECT AVG(\"Gross Sales\"*2) as avgSales, SUM(\"Unit Price\" +100) as UnitPricePlus100 FROM \"IINQTestSO\";", answer);
+        TestIinq.runSQLQuery("SELECT AVG(\"Gross Sales\"*2) as avgSales, SUM(\"Unit Price\" +100) as UnitPricePlus100 FROM test1;", answer);
     }
     
     /**
@@ -883,13 +905,13 @@ public class TestIinqQuery
                         +"\nTotal results: 3";
         
         // Expression with math operators
-        TestIinq.runSQLQuery("SELECT \"Gross Sales\", \"Unit Price\" FROM \"IINQTestSO\" WHERE \"Gross Sales\" * 2 - 100 < 1000 LIMIT 3;", answer);
+        TestIinq.runSQLQuery("SELECT \"Gross Sales\", \"Unit Price\" FROM test1 WHERE \"Gross Sales\" * 2 - 100 < 1000 LIMIT 3;", answer);
         
         // Expression with math operators with multiple attributes
-        TestIinq.runSQLQuery("SELECT \"Gross Sales\", \"Unit Price\" FROM \"IINQTestSO\" WHERE \"Gross Sales\" * \"Unit Price\" - 100 < 1000 LIMIT 3;", answer);
+        TestIinq.runSQLQuery("SELECT \"Gross Sales\", \"Unit Price\" FROM test1 WHERE \"Gross Sales\" * \"Unit Price\" - 100 < 1000 LIMIT 3;", answer);
         
         // Expression with functions (number)
-        TestIinq.runSQLQuery("SELECT \"Gross Sales\", \"Unit Price\" FROM \"IINQTestSO\" WHERE abs(\"Gross Sales\") * \"Unit Price\" - 100 < 1000 LIMIT 3;", answer);
+        TestIinq.runSQLQuery("SELECT \"Gross Sales\", \"Unit Price\" FROM test1 WHERE abs(\"Gross Sales\") * \"Unit Price\" - 100 < 1000 LIMIT 3;", answer);
        
         answer = "Total columns: 3"
                  +"\nCity, Gross Sales, Unit Price"
@@ -899,6 +921,6 @@ public class TestIinqQuery
                  +"\nTotal results: 3";
         
         // Expression with functions (string)
-        TestIinq.runSQLQuery("SELECT City, \"Gross Sales\", \"Unit Price\" FROM \"IINQTestSO\" WHERE left(city,3) > 'F' LIMIT 3;", answer);
+        TestIinq.runSQLQuery("SELECT City, \"Gross Sales\", \"Unit Price\" FROM test1 WHERE left(city,3) > 'F' LIMIT 3;", answer);
     }
 }

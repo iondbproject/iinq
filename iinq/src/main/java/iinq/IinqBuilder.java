@@ -494,9 +494,9 @@ public class IinqBuilder extends QueryBuilder
 	@Override
 	protected void buildFrom(LQNode node, WebQuery query) throws SQLException 
 	{
-		if (this.fromSeen) // join exception.
+/*		if (this.fromSeen) // join exception.
 			throw new SQLException("Two tables were received. The driver only supports single table queries.");
-		this.fromSeen = true;
+		this.fromSeen = true;*/
 	
 		GQTableRef tref = (GQTableRef) node.getContent();
 		String tableName = tref.getTable().getTableName();		
@@ -505,7 +505,7 @@ public class IinqBuilder extends QueryBuilder
 		// TODO: Fill this in
 		StringBuilder fromCode = new StringBuilder();
 		fromCode.append(
-				/* FROM(0, IINQTestSO) */
+				/* FROM(0, test1) */
 				"\t\tion_iinq_cleanup_t *first;\n" +
 				"\t\tion_iinq_cleanup_t *last;\n" +
 				"\t\tion_iinq_cleanup_t *ref_cursor;\n" +
@@ -515,7 +515,7 @@ public class IinqBuilder extends QueryBuilder
 				"\t\tref_cursor = NULL;\n" +
 				"\t\tlast_cursor = NULL;\n" +
 
-				/* FROM_SOURCES(IINQTestSO) , FROM_SOURCE_SINGLE(IINQTestSO) */
+				/* FROM_SOURCES(test1) , FROM_SOURCE_SINGLE(test1) */
 				"\t\tion_iinq_source_t " + tableName + ";\n" +
 				"\t\t" + tableName + ".cleanup.next = NULL;\n" +
 				"\t\t" + tableName + ".cleanup.last = last;\n" +
@@ -530,22 +530,22 @@ public class IinqBuilder extends QueryBuilder
 				"\t\tresult.raw_record_size += " + tableName + ".dictionary.instance->record.key_size;\n" +
 				"\t\tresult.raw_record_size += " + tableName + ".dictionary.instance->record.value_size;\n" +
 				"\t\tresult.num_bytes += " + tableName + ".dictionary.instance->record.key_size;\n" +
-				"\t\tresult.num_bytes += IINQTestSO.dictionary.instance->record.value_size;\n" +
+				"\t\tresult.num_bytes += " + tableName + ".dictionary.instance->record.value_size;\n" +
 				"\t\terror = dictionary_build_predicate(&(" + tableName + ".predicate), predicate_all_records);\n" +
 				"\t\tif (err_ok != error) { break; }\n" +
 				"\t\tdictionary_find(&" + tableName + ".dictionary, &" + tableName + ".predicate, &" + tableName + ".cursor);\n" +
 
-				/* FROM(0, IINQTestSO) continued */
+				/* FROM(0, test1) continued */
 				"\t\tresult.data = alloca(result.raw_record_size);\n" +
 				"\t\tresult.processed = result.data;\n" +
 
-				/* _FROM_SETUP_POINTERS(__VA_ARGS__), _FROM_GET_OVERRIDE(__VA_ARGS__), _FROM_SETUP_POINTERS_SINGLE(IINQTestSO) */
+				/* _FROM_SETUP_POINTERS(__VA_ARGS__), _FROM_GET_OVERRIDE(__VA_ARGS__), _FROM_SETUP_POINTERS_SINGLE(test1) */
 				"\t\t" + tableName +".key = result.processed;\n" +
 				"\t\tresult.processed += " + tableName + ".dictionary.instance->record.key_size;\n" +
 				"\t\t" + tableName + ".value = result.processed;\n" +
 				"\t\tresult.processed += " + tableName + ".dictionary.instance->record.value_size;\n" +
 				"\t\t" + tableName +".ion_record.key = " + tableName + ".key;\n" +
-				"\t\t" + tableName + ".ion_record.value = IINQTestSO.value;\n" +
+				"\t\t" + tableName + ".ion_record.value = test1.value;\n" +
 				"\t\tstruct iinq_" + tableName +"_schema *" + tableName + "_tuple;\n" +
 				"\t\t" + tableName + "_tuple = " + tableName + ".value;\n"
 		);

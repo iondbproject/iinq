@@ -1,0 +1,9 @@
+<SOURCES>
+	<DATABASE>
+		<URL>jdbc:hsqldb:hsql://localhost/tpch</URL>
+		<USER>sa</USER>
+		<PASSWORD></PASSWORD>
+		<DRIVER>org.hsqldb.jdbcDriver</DRIVER>
+		<SCHEMA>IonDBTest.xml</SCHEMA>
+	</DATABASE>	
+</SOURCES>

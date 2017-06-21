@@ -1,0 +1,186 @@
+<?xml version = "1.0"?>
+
+<XSPEC xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="xspec.xsd">
+    <semanticDatabaseName></semanticDatabaseName>
+    <databaseName>IonDB</databaseName>
+    <databaseSystemName></databaseSystemName>
+    <databaseId>95020200</databaseId>
+    <databaseProductName>HSQL Database Engine</databaseProductName>
+    <databaseProductVersion>2.2.0</databaseProductVersion>
+    <urlJDBC>jdbc:hsqldb:hsql://localhost/tpch</urlJDBC>
+    <userid>sa</userid>
+    <driverName>HSQL Database Engine Driver</driverName>
+    <delimitId>"</delimitId>
+
+   <TABLE>
+        <semanticTableName>IonDB.test1</semanticTableName>
+        <tableName>test1</tableName>
+        <schemaName></schemaName>
+        <catalogName></catalogName>
+        <comment></comment>
+        <numTuples>1500</numTuples>
+     <FIELD>
+        <semanticFieldName>test.col1</semanticFieldName>
+        <fieldName>col1</fieldName>
+        <dataType>3</dataType>
+        <dataTypeName>DECIMAL</dataTypeName>
+        <fieldSize>15</fieldSize>
+        <decimalDigits>2</decimalDigits>
+        <numberRadixPrecision>10</numberRadixPrecision>
+        <remarks></remarks>
+        <defaultValue></defaultValue>
+        <characterOctetLength>0</characterOctetLength>
+        <ordinalPosition>6</ordinalPosition>
+        <isNullable>NO</isNullable>
+        <numDistinctValues>1499</numDistinctValues>
+     </FIELD>
+
+     <FIELD>
+        <semanticFieldName>test1.col2</semanticFieldName>
+        <fieldName>col2</fieldName>
+        <dataType>12</dataType>
+        <dataTypeName>VARCHAR</dataTypeName>
+        <fieldSize>40</fieldSize>
+        <decimalDigits>0</decimalDigits>
+        <numberRadixPrecision>0</numberRadixPrecision>
+        <remarks></remarks>
+        <defaultValue></defaultValue>
+        <characterOctetLength>80</characterOctetLength>
+        <ordinalPosition>3</ordinalPosition>
+        <isNullable>NO</isNullable>
+        <numDistinctValues>1500</numDistinctValues>
+	</FIELD>
+
+
+     <FIELD>
+        <semanticFieldName>test1.col3</semanticFieldName>
+        <fieldName>col3</fieldName>
+        <dataType>4</dataType>
+        <dataTypeName>INTEGER</dataTypeName>
+        <fieldSize>0</fieldSize>
+        <decimalDigits>0</decimalDigits>
+        <numberRadixPrecision>10</numberRadixPrecision>
+        <remarks></remarks>
+        <defaultValue></defaultValue>
+        <characterOctetLength>0</characterOctetLength>
+        <ordinalPosition>1</ordinalPosition>
+        <isNullable>NO</isNullable>
+        <numDistinctValues>1500</numDistinctValues>
+     </FIELD>
+
+     <FIELD>
+        <semanticFieldName>test1.col4</semanticFieldName>
+        <fieldName>col4</fieldName>
+        <dataType>1</dataType>
+        <dataTypeName>CHAR</dataTypeName>
+        <fieldSize>10</fieldSize>
+        <decimalDigits>0</decimalDigits>
+        <numberRadixPrecision>0</numberRadixPrecision>
+        <remarks></remarks>
+        <defaultValue></defaultValue>
+        <characterOctetLength>20</characterOctetLength>
+        <ordinalPosition>7</ordinalPosition>
+        <isNullable>NO</isNullable>
+        <numDistinctValues>5</numDistinctValues>
+     </FIELD>
+
+     <PRIMARYKEY>
+        <keyScope>0</keyScope>
+        <keyScopeName></keyScopeName>
+        <keyName>SYS_IDX_80</keyName>
+        <keyType>1</keyType>
+        <FIELDS>
+        <fieldName>col1</fieldName>
+		<fieldName>col2</fieldName>
+		<fieldName>col3</fieldName>
+		<fieldName>col4</fieldName>
+        </FIELDS>
+     </PRIMARYKEY>
+
+   </TABLE>
+
+   <TABLE>
+        <semanticTableName>IonDB.test2</semanticTableName>
+        <tableName>test2</tableName>
+        <schemaName></schemaName>
+        <catalogName></catalogName>
+        <comment></comment>
+        <numTuples>58511</numTuples>
+     <FIELD>
+        <semanticFieldName>test2.col1</semanticFieldName>
+        <fieldName>col1</fieldName>
+        <dataType>12</dataType>
+        <dataTypeName>VARCHAR</dataTypeName>
+        <fieldSize>40</fieldSize>
+        <decimalDigits>0</decimalDigits>
+        <numberRadixPrecision>0</numberRadixPrecision>
+        <remarks></remarks>
+        <defaultValue></defaultValue>
+        <characterOctetLength>88</characterOctetLength>
+        <ordinalPosition>16</ordinalPosition>
+        <isNullable>NO</isNullable>
+        <numDistinctValues>58511</numDistinctValues>
+     </FIELD>
+
+     <FIELD>
+        <semanticFieldName>test2.col2</semanticFieldName>
+        <fieldName>col2</fieldName>
+        <dataType>3</dataType>
+        <dataTypeName>DECIMAL</dataTypeName>
+        <fieldSize>15</fieldSize>
+        <decimalDigits>2</decimalDigits>
+        <numberRadixPrecision>10</numberRadixPrecision>
+        <remarks></remarks>
+        <defaultValue></defaultValue>
+        <characterOctetLength>0</characterOctetLength>
+        <ordinalPosition>7</ordinalPosition>
+        <isNullable>NO</isNullable>
+        <numDistinctValues>11</numDistinctValues>
+     </FIELD>
+
+	 <FIELD>
+        <semanticFieldName>test2.col3</semanticFieldName>
+        <fieldName>col3</fieldName>
+        <dataType>1</dataType>
+        <dataTypeName>CHAR</dataTypeName>
+        <fieldSize>10</fieldSize>
+        <decimalDigits>0</decimalDigits>
+        <numberRadixPrecision>0</numberRadixPrecision>
+        <remarks></remarks>
+        <defaultValue></defaultValue>
+        <characterOctetLength>2</characterOctetLength>
+        <ordinalPosition>10</ordinalPosition>
+        <isNullable>NO</isNullable>
+        <numDistinctValues>2</numDistinctValues>
+     </FIELD>
+	 
+     <FIELD>
+        <semanticFieldName>test2.col4</semanticFieldName>
+        <fieldName>col4</fieldName>
+        <dataType>4</dataType>
+        <dataTypeName>INTEGER</dataTypeName>
+        <fieldSize>0</fieldSize>
+        <decimalDigits>0</decimalDigits>
+        <numberRadixPrecision>10</numberRadixPrecision>
+        <remarks></remarks>
+        <defaultValue></defaultValue>
+        <characterOctetLength>0</characterOctetLength>
+        <ordinalPosition>4</ordinalPosition>
+        <isNullable>NO</isNullable>
+        <numDistinctValues>7</numDistinctValues>
+     </FIELD>
+
+     <PRIMARYKEY>
+        <keyScope>0</keyScope>
+        <keyScopeName></keyScopeName>
+        <keyName>SYS_IDX_92</keyName>
+        <keyType>1</keyType>
+        <FIELDS>
+        <fieldName>col1</fieldName>
+        <fieldName>col2</fieldName>
+		<fieldName>col3</fieldName>
+        <fieldName>col4</fieldName>
+        </FIELDS>
+     </PRIMARYKEY>
+	</TABLE>
+</XSPEC>

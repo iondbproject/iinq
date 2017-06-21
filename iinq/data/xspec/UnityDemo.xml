@@ -13,4 +13,11 @@
 		<DRIVER>org.hsqldb.jdbcDriver</DRIVER>
 		<SCHEMA>UnityDemoOrder.xml</SCHEMA>
 	</DATABASE>	
+	<DATABASE>
+		<URL>jdbc:hsqldb:hsql://localhost/tpch</URL>
+		<USER>sa</USER>
+		<PASSWORD></PASSWORD>
+		<DRIVER>org.hsqldb.jdbcDriver</DRIVER>
+		<SCHEMA>IonDBTest.xml</SCHEMA>
+	</DATABASE>	
 </SOURCES>

@@ -1,6 +1,7 @@
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
+import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 
 import iinq.IinqBuilder;
@@ -16,7 +17,10 @@ import unity.util.StringFunc;
  * Test method for queries executed using IINQ.
  */
 public class TestIinq
-{		
+{
+	public static void runSQLQuery(String sql, String answer) {
+		runSQLQuery(sql, answer, null);
+	}
 	/**
 	 * Converts a SQL query into C code and compares with expected value.
 	 * 
@@ -27,16 +31,16 @@ public class TestIinq
 	 * @param metadata 
 	 *     expected value for metadata
 	 **/
-	public static void runSQLQuery(String sql, String answer) 
+	public static void runSQLQuery(String sql, String answer, GlobalSchema metadata)
 	{
 		System.out.println("\nTesting query: \n" + sql);		
 		try 
 		{
 			sql = StringFunc.verifyTerminator(sql);	// Make sure SQL is terminated by semi-colon properly
-	    	
+
 	    	// Parse semantic query string into a parse tree
-	        GlobalParser kingParser = new GlobalParser(false, false);		// TODO: 2nd parameter true for schema validation?
-	        GlobalQuery gq = kingParser.parse(sql, new GlobalSchema());		// TODO: Will need a schema	        
+	        GlobalParser kingParser = new GlobalParser(false, true);
+	        GlobalQuery gq = kingParser.parse(sql, metadata);
 	        gq.setQueryString(sql);
 	        
 	        // Optimize logical query tree before execution
