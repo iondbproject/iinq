@@ -62,7 +62,7 @@ public class IinqQuery extends WebQuery {
 				"int i_agg = 0;");
 
 		/* from_clause */
-		code.append(this.getParameter("from"));
+		code.append(generateFromCode());
 
 		/* _ORDERING_DECLARE(groupby) */
 		code.append(generateOrderingDeclare("groupby"));

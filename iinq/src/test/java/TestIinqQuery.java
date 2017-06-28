@@ -62,7 +62,11 @@ public class TestIinqQuery
 					ArrayList<SourceField> fields = table.getSourceFieldList();
 					for (SourceField field: fields) {
 						System.out.print("\t\t");
-						System.out.println(field.toShortString());
+						if (field.getDataTypeName().contains("CHAR")) {
+							System.out.printf("%s[%d]\n", field.toShortString(), field.getColumnSize());
+						} else {
+							System.out.println(field.toShortString());
+						}
 					}
 				}
 				System.out.println();
@@ -93,96 +97,8 @@ public class TestIinqQuery
 	@Test
 	public void testSelectAll()
 	{
-		/* TODO: fix answer so that it is for a materialized query */
         String answer =
-                "\tdo {\n" +
-                "\t\tion_err_t error;\n" +
-                "\t\tion_iinq_result_t result;\n" +
-                "\t\tint jmp_r;\n" +
-                "\t\tjmp_buf selectbuf;\n" +
-                "\t\tresult.raw_record_size = 0;\n" +
-                "\t\tresult.num_bytes = 0;\n" +
-                "\t\tion_iinq_cleanup_t *first;\n" +
-                "\t\tion_iinq_cleanup_t *last;\n" +
-                "\t\tion_iinq_cleanup_t *ref_cursor;\n" +
-                "\t\tion_iinq_cleanup_t *last_cursor;\n" +
-                "\t\tfirst = NULL;\n" +
-                "\t\tlast = NULL;\n" +
-                "\t\tref_cursor = NULL;\n" +
-                "\t\tlast_cursor = NULL;\n" +
-                "\t\tion_iinq_source_t test1;\n" +
-                "\t\ttest1.cleanup.next = NULL;\n" +
-                "\t\ttest1.cleanup.last = last;\n" +
-                "\t\ttest1.cleanup.reference = &test1;\n" +
-                "\t\tif (NULL == first) { first = &test1.cleanup; }\n" +
-                "\t\tif (NULL != last) { last->next = &test1.cleanup; }\n" +
-                "\t\tlast = &test1.cleanup;\n" +
-                "\t\ttest1.cleanup.next = NULL;\n" +
-                "\t\ttest1.dictionary.handler = &test1.handler;\n" +
-                "\t\terror = iinq_open_source(\"test1\" \".inq\", &(test1.dictionary), &(test1.handler));\n" +
-                "\t\tif (err_ok != error) { break; }\n" +
-                "\t\tresult.raw_record_size += test1.dictionary.instance->record.key_size;\n" +
-                "\t\tresult.raw_record_size += test1.dictionary.instance->record.value_size;\n" +
-                "\t\tresult.num_bytes += test1.dictionary.instance->record.key_size;\n" +
-                "\t\tresult.num_bytes += test1.dictionary.instance->record.value_size;\n" +
-                "\t\terror = dictionary_build_predicate(&(test1.predicate), predicate_all_records);\n" +
-                "\t\tif (err_ok != error) { break; }\n" +
-                "\t\tdictionary_find(&test1.dictionary, &test1.predicate, &test1.cursor);\n" +
-                "\t\tresult.data = alloca(result.raw_record_size);\n" +
-                "\t\tresult.processed = result.data;\n" +
-                "\t\ttest1.key = result.processed;\n" +
-                "\t\tresult.processed += test1.dictionary.instance->record.key_size;\n" +
-                "\t\ttest1.value = result.processed;\n" +
-                "\t\tresult.processed += test1.dictionary.instance->record.value_size;\n" +
-                "\t\ttest1.ion_record.key = test1.key;\n" +
-                "\t\ttest1.ion_record.value = test1.value;\n" +
-                "\t\tstruct iinq_test1_schema *test1_tuple;\n" +
-                "\t\ttest1_tuple = test1.value;\n" +
-                "\t\tref_cursor = first;\n" +
-                "\t\twhile (ref_cursor != last) {\n" +
-                "\t\t\tif (NULL == ref_cursor || (cs_cursor_active !=\n" +
-                "\t\t\t\t\t\t\t\t\t\t\t   (ref_cursor->reference->cursor_status = ref_cursor->reference->cursor->next(\n" +
-                "\t\t\t\t\t\t\t\t\t\t\t\t\t   ref_cursor->reference->cursor,\n" +
-                "\t\t\t\t\t\t\t\t\t\t\t\t\t   &ref_cursor->reference->ion_record)) && cs_cursor_initialized !=\n" +
-                "\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t   ref_cursor->reference->cursor_status)) { break; }\n" +
-                "\t\t\tref_cursor = ref_cursor->next;\n" +
-                "\t\t}\n" +
-                "\t\tref_cursor = last;\n" +
-                "\t\tgoto SKIP_COMPUTE_SELECT;\n" +
-                "\t\tCOMPUTE_SELECT:;\n" +
-                "\t\tmemcpy(result.processed, result.data, result.num_bytes);\n" +
-                "\t\tgoto DONE_COMPUTE_SELECT;\n" +
-                "\t\tSKIP_COMPUTE_SELECT:;\n" +
-                "\t\twhile (1) {\n" +
-                "\t\t\tif (NULL == ref_cursor) { break; }\n" +
-                "\t\t\tlast_cursor = ref_cursor;\n" +
-                "\t\t\twhile (NULL != ref_cursor && (cs_cursor_active !=\n" +
-                "\t\t\t\t\t\t\t\t\t\t\t\t  (ref_cursor->reference->cursor_status = ref_cursor->reference->cursor->next(\n" +
-                "\t\t\t\t\t\t\t\t\t\t\t\t\t\t  ref_cursor->reference->cursor,\n" +
-                "\t\t\t\t\t\t\t\t\t\t\t\t\t\t  &ref_cursor->reference->ion_record)) &&\n" +
-                "\t\t\t\t\t\t\t\t\t\t\t\t  cs_cursor_initialized != ref_cursor->reference->cursor_status)) {\n" +
-                "\t\t\t\tref_cursor->reference->cursor->destroy(&ref_cursor->reference->cursor);\n" +
-                "\t\t\t\tdictionary_find(&ref_cursor->reference->dictionary, &ref_cursor->reference->predicate,\n" +
-                "\t\t\t\t\t\t\t\t&ref_cursor->reference->cursor);\n" +
-                "\t\t\t\tif ((cs_cursor_active != (ref_cursor->reference->cursor_status = ref_cursor->reference->cursor->next(\n" +
-                "\t\t\t\t\t\tref_cursor->reference->cursor, &ref_cursor->reference->ion_record)) &&\n" +
-                "\t\t\t\t\t cs_cursor_initialized != ref_cursor->reference->cursor_status)) { goto IINQ_QUERY_CLEANUP; }\n" +
-                "\t\t\t\tref_cursor = ref_cursor->last;\n" +
-                "\t\t\t}\n" +
-                "\t\t\tif (NULL == ref_cursor) { break; } else if (last_cursor != ref_cursor) { ref_cursor = last; }\n" +
-                "\t\t\tjmp_r = setjmp(selectbuf);\n" +
-                "\t\t\tgoto COMPUTE_SELECT;\n" +
-                "\t\t\tDONE_COMPUTE_SELECT:;\n" +
-                "\t\t\t(&processor)->execute(&result, (&processor)->state);\n" +
-                "\t\t}\n" +
-                "\t\tIINQ_QUERY_CLEANUP:\n" +
-                "\t\twhile (NULL != first) {\n" +
-                "\t\t\tfirst->reference->cursor->destroy(&first->reference->cursor);\n" +
-                "\t\t\tion_close_dictionary(&first->reference->dictionary);\n" +
-                "\t\t\tfirst = first->next;\n" +
-                "\t\t}\n" +
-                "\t}\n" +
-                "\twhile (0);";
+                "";
 
         TestIinq.runSQLQuery("SELECT * FROM test1;", answer, metadata);
         TestIinq.runSQLQuery("SELECT * FROM test1;", answer);
