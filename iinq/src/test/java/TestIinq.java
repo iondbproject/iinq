@@ -39,8 +39,16 @@ public class TestIinq
 			sql = StringFunc.verifyTerminator(sql);	// Make sure SQL is terminated by semi-colon properly
 
 	    	// Parse semantic query string into a parse tree
-	        GlobalParser kingParser = new GlobalParser(false, true);
-	        GlobalQuery gq = kingParser.parse(sql, metadata);
+			GlobalParser kingParser;
+			GlobalQuery gq;
+			if (null != metadata) {
+				kingParser = new GlobalParser(false, true);
+				gq = kingParser.parse(sql, metadata);
+			}
+			else {
+				kingParser = new GlobalParser(false, false);
+				gq = kingParser.parse(sql, new GlobalSchema());
+			}
 	        gq.setQueryString(sql);
 	        
 	        // Optimize logical query tree before execution
@@ -53,7 +61,12 @@ public class TestIinq
 			// Validate that code is generated as expected
 			String code = query.generateCode();
 			System.out.println(code);
-			assertEquals(answer, code);
+
+			/* Tabs are a nightmare at this point.
+			 * I am only keeping them so the code is easier to debug. I am removing them for testing */
+			/* TODO: make a function to autoformat code */
+			;
+			assertEquals(answer.replace("\t", ""), code.toString().replace("\t", ""));
 		} 
 		catch (Exception e) 
 		{

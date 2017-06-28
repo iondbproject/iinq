@@ -505,7 +505,10 @@ public class IinqBuilder extends QueryBuilder
 		// TODO: Fill this in
 		StringBuilder fromCode = new StringBuilder();
 		fromCode.append(
-				/* FROM(0, test1) */
+				/* FROM(0, test1)
+				 * first argument is with_schemas but the query macro would check for with_schema
+				 * the IF_ELSE macro always substituted as (),
+				 * pretty sure there was a typo in the macro */
 				"\t\tion_iinq_cleanup_t *first;\n" +
 				"\t\tion_iinq_cleanup_t *last;\n" +
 				"\t\tion_iinq_cleanup_t *ref_cursor;\n" +
@@ -566,25 +569,25 @@ public class IinqBuilder extends QueryBuilder
 		query.setParameter("from", fromCode.toString());
 
 		// Set the table
-		this.table = tref.getTable();			  
+		this.table = tref.getTable();
 	}
-	
-	
+
+
 	/**
 	 * Builds LIMIT clause.
-	 * 
+	 *
 	 * @param node
 	 *     LIMIT node
 	 * @param query
 	 *     query being built
-	 * @throws SQLException 
+	 * @throws SQLException
      *     if an error occurs
 	 */
 	@Override
 	protected void buildLimit(LQLimitNode node, WebQuery query) throws SQLException
 	{
-	    // IINQ supports LIMIT/OFFSET using count and offset parameters 
-	    if(node.hasOffset()) 
+	    // IINQ supports LIMIT/OFFSET using count and offset parameters
+	    if(node.hasOffset())
         {   // Offset works for Jobs exported as XML/JSON but not for CSV it seems.  Not sure why.  So, force OFFSET to be promoted.
 	        int start = node.getStart();
 	        int count = node.getCount();
