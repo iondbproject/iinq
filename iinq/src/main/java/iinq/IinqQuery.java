@@ -15,6 +15,29 @@ import java.util.jar.Attributes;
  * Stores a representation of an IINQ query.
  */
 public class IinqQuery extends WebQuery {
+	// Enables comments with in code output
+	private static final boolean DEBUG = true;
+
+
+	/**
+	 * Checks whether the query contains an GROUP BY clause
+	 *
+	 * @return true if it contains an GROUP BY clause, false if it does not
+	 */
+	public boolean hasGroupBy() {
+		/* TODO: implement check for GROUP BY clause */
+		return false;
+	}
+
+	/**
+	 * Checks whether the query contains an ORDER BY clause
+	 *
+	 * @return true if it contains an ORDER BY clause, false if it does not
+	 */
+	public boolean hasOrderBy() {
+		return this.parameters.containsKey("sort");
+	}
+
 	/**
 	 * Checks whether a schema was given for the query.
 	 *
@@ -48,46 +71,63 @@ public class IinqQuery extends WebQuery {
 				"\t\tion_err_t error;\n" +
 				"\t\tion_iinq_result_t result;\n" +
 				"\t\tint jmp_r;\n" +
+				/* selectbuf not used for materialized queries*/
 				"\t\tjmp_buf selectbuf;\n" +
 				"\t\tresult.raw_record_size = 0;\n" +
 				"\t\tresult.num_bytes = 0;\n"
 		);
 
+		/* Original macros required the schema to be declared prior to the macro call
+		 * We will add it here */
+		if (hasSchema()) {
+			code.append(generateSchemaDefinition());
+		}
+
 		/* additional code for materialized queries */
-		code.append("int read_page_remaining = IINQ_PAGE_SIZE;\n" +
-				"int write_page_remaining = IINQ_PAGE_SIZE;\n" +
-				"FILE *input_file;" +
-				"FILE *output_file;" +
-				"int agg_n = 0;" +
-				"int i_agg = 0;");
+		code.append("\t\tint read_page_remaining = IINQ_PAGE_SIZE;\n" +
+				"\t\tint write_page_remaining = IINQ_PAGE_SIZE;\n" +
+				"\t\tFILE *input_file;\n" +
+				"\t\tFILE *output_file;\n");
+
+		/* for aggregate expressions,
+		 * probably will not need */
+		/*code.append("\t\tint agg_n = 0;\n" +
+				"\t\tint i_agg = 0;\n");*/
 
 		/* from_clause */
 		code.append(generateFromCode());
 
 		/* _ORDERING_DECLARE(groupby) */
-		code.append(generateOrderingDeclare("groupby"));
+		/* GROUP BY not supported */
+		/*code.append(generateOrderingDeclare("groupby"));*/
 
 		/* _ORDERING_DECLARE(orderby) */
-		code.append(generateOrderingDeclare("orderby"));
+		/* if ORDER BY was in query, "sort" parameter exist */
+		if (hasOrderBy())
+			code.append(generateOrderingDeclare("orderby"));
 
-		/* aggregate_exprs */
-		code.append(generateAggregateExprsCode());
+		/* aggregate_exprs
+		 * not supported */
+		/*code.append(generateAggregateExprsCode());*/
 
 		/* select_clause */
 		code.append(generateSelectCode());
 
-		/* groupby_clause */
-		code.append(generateGroupByCode());
+		/* groupby_clause
+		 * not supported */
+		/*code.append(generateGroupByCode());*/
 
 		/* orderby_clause */
-		code.append(generateOrderByCode());
+		if (hasOrderBy())
+			code.append(generateOrderByCode());
 
 		/* Wrap from in do-while loop */
-		code.append("\t\tdo {\n" +
+		code.append("\t\tdo {\n"
 				/* GROUP BY and aggregates
-				* TODO: remove these if statements (only generate needed code)*/
-				"\t\t\tif (agg_n > 0 || groupby_n > 0) {\n" +
-				/* _OPEN_ORDERING_FILE_WRITE(groupby, 0, 1, 0, result, groupby) */
+				 * not supported yet
+				 * TODO: remove these if statements (only generate needed code)*/
+				/*"\t\t\tif (agg_n > 0 || groupby_n > 0) {\n" +
+				*//* _OPEN_ORDERING_FILE_WRITE(groupby, 0, 1, 0, result, groupby) *//*
 				"\t\t\t\toutput_file = fopen(\"groupby\", \"wb\");\n" +
 				"\t\t\t\tif (NULL == output_file) {\n" +
 				"\t\t\t\t\terror = err_file_open_error;\n" +
@@ -100,48 +140,61 @@ public class IinqQuery extends WebQuery {
 				"\t\t\t\t}\n" +
 				"\t\t\t}\n" +
 
-				/* Just GROUP BY, invalid query */
-				/* TODO: why is this even an else if? Doesn't the first if make sure this is never a case */
+				*//* Just GROUP BY, invalid query *//*
+				*//* TODO: why is this even an else if? Doesn't the first if make sure this is never a case *//*
 				"\t\t\telse if (groupby_n > 0) {\n" +
 				"\t\t\t\terror = err_illegal_state;\n" +
 				"\t\t\t\tgoto IINQ_QUERY_END;\n" +
-				"\t\t\t}\n" +
+				"\t\t\t}\n"*/);
 
 				/* Just ORDER BY */
-				"\t\t\telse if (orderby_n > 0) {\n" +
-				/* _OPEN_ORDERING_FILE_WRITE(orderby, 0, 1, 0, result, orderby) */
-				"\t\t\t\toutput_file = fopen(\"orderby\", \"wb\");\n" +
-				"\t\t\t\tif (NULL == output_file) {\n" +
-				"\t\t\t\t\terror = err_file_open_error;\n" +
-				"\t\t\t\t\tgoto IINQ_QUERY_END;\n" +
-				"\t\t\t\t}\n" +
-				"\t\t\t\twrite_page_remaining = IINQ_PAGE_SIZE;\n" +
-				"\t\t\t\tif ((int) write_page_remaining < (int) (total_orderby_size + (result.raw_record_size))) {\n" +
-				"\t\t\t\t\terror = err_record_size_too_large;\n" +
-				"\t\t\t\t\tgoto IINQ_QUERY_END;\n" +
-				"\t\t\t\t}\n" +
-				"\t\t\t}\n");
+		if (hasOrderBy()) {
+			code.append("\t\t\t{\n");
+			if (this.DEBUG) code.append("\t\t\t\t/* _OPEN_ORDERING_FILE_WRITE(orderby, 0, 1, 0, result, orderby) */\n");
+			code.append("\t\t\t\toutput_file = fopen(\"orderby\", \"wb\");\n" +
+					"\t\t\t\tif (NULL == output_file) {\n" +
+					"\t\t\t\t\terror = err_file_open_error;\n" +
+					"\t\t\t\t\tgoto IINQ_QUERY_END;\n" +
+					"\t\t\t\t}\n" +
+					"\t\t\t\twrite_page_remaining = IINQ_PAGE_SIZE;\n" +
+					"\t\t\t\tif ((int) write_page_remaining < (int) (total_orderby_size + (result.raw_record_size))) {\n" +
+					"\t\t\t\t\terror = err_record_size_too_large;\n" +
+					"\t\t\t\t\tgoto IINQ_QUERY_END;\n" +
+					"\t\t\t\t}\n" +
+					"\t\t\t}\n");
+		}
 
-		code.append(
-				"\t\twhile (1) {\n" +
-						/* _FROM_ADVANCE_CURSORS */
-						"\t\t\tif (NULL == ref_cursor) { break; }\n" +
-						"\t\t\tlast_cursor = ref_cursor;\n" +
-						"\t\t\twhile (NULL != ref_cursor && (cs_cursor_active !=\n" +
-						"\t\t\t\t\t\t\t\t\t\t\t\t  (ref_cursor->reference->cursor_status = ref_cursor->reference->cursor->next(\n" +
-						"\t\t\t\t\t\t\t\t\t\t\t\t\t\t  ref_cursor->reference->cursor,\n" +
-						"\t\t\t\t\t\t\t\t\t\t\t\t\t\t  &ref_cursor->reference->ion_record)) &&\n" +
-						"\t\t\t\t\t\t\t\t\t\t\t\t  cs_cursor_initialized != ref_cursor->reference->cursor_status)) {\n" +
-						"\t\t\t\tref_cursor->reference->cursor->destroy(&ref_cursor->reference->cursor);\n" +
-						"\t\t\t\tdictionary_find(&ref_cursor->reference->dictionary, &ref_cursor->reference->predicate,\n" +
-						"\t\t\t\t\t\t\t\t&ref_cursor->reference->cursor);\n" +
-						"\t\t\t\tif ((cs_cursor_active != (ref_cursor->reference->cursor_status = ref_cursor->reference->cursor->next(\n" +
-						"\t\t\t\t\t\tref_cursor->reference->cursor, &ref_cursor->reference->ion_record)) &&\n" +
-						"\t\t\t\t\t cs_cursor_initialized != ref_cursor->reference->cursor_status)) { goto IINQ_QUERY_CLEANUP; }\n" +
-						"\t\t\t\tref_cursor = ref_cursor->last;\n" +
-						"\t\t\t}\n" +
-						"\t\t\tif (NULL == ref_cursor) { break; } else if (last_cursor != ref_cursor) { ref_cursor = last; }\n"
+		code.append("\t\twhile (1) {\n");
+
+		if (this.DEBUG) {
+			code.append("\t\t\t/* _FROM_ADVANCE_CURSORS */\n");
+		}
+
+		code.append("\t\t\tif (NULL == ref_cursor) { break; }\n" +
+				"\t\t\tlast_cursor = ref_cursor;\n" +
+				"\t\t\twhile (NULL != ref_cursor && (cs_cursor_active !=\n" +
+				"\t\t\t\t\t\t\t\t\t\t\t\t  (ref_cursor->reference->cursor_status = ref_cursor->reference->cursor->next(\n" +
+				"\t\t\t\t\t\t\t\t\t\t\t\t\t\t  ref_cursor->reference->cursor,\n" +
+				"\t\t\t\t\t\t\t\t\t\t\t\t\t\t  &ref_cursor->reference->ion_record)) &&\n" +
+				"\t\t\t\t\t\t\t\t\t\t\t\t  cs_cursor_initialized != ref_cursor->reference->cursor_status)) {\n" +
+				"\t\t\t\tref_cursor->reference->cursor->destroy(&ref_cursor->reference->cursor);\n" +
+				"\t\t\t\tdictionary_find(&ref_cursor->reference->dictionary, &ref_cursor->reference->predicate,\n" +
+				"\t\t\t\t\t\t\t\t&ref_cursor->reference->cursor);\n" +
+				"\t\t\t\tif ((cs_cursor_active != (ref_cursor->reference->cursor_status = ref_cursor->reference->cursor->next(\n" +
+				"\t\t\t\t\t\tref_cursor->reference->cursor, &ref_cursor->reference->ion_record)) &&\n" +
+				"\t\t\t\t\t cs_cursor_initialized != ref_cursor->reference->cursor_status)) { goto IINQ_QUERY_CLEANUP; }\n" +
+				"\t\t\t\tref_cursor = ref_cursor->last;\n" +
+				"\t\t\t}\n" +
+				"\t\t\tif (NULL == ref_cursor) { \n" +
+				"\t\t\t\tbreak;\n" +
+				"\t\t\t} else if (last_cursor != ref_cursor) {\n" +
+				"\t\t\t\tref_cursor = last;\n" +
+				"\t\t\t }\n"
 		);
+
+		if (this.DEBUG) {
+			code.append("\t\t\t/* end of _FROM_ADVANCE_CURSORS */\n");
+		}
 
 		/* Still in while(1) loop
 		 * if (!WHERE) { continue; } */
@@ -190,55 +243,51 @@ public class IinqQuery extends WebQuery {
 				"\t\t\t\t}");*/
 
 		/* If ORDER BY */
-		code.append("\t\t\t\telse if (orderby_n > 0) {\n" +
-				"\t\t\t\t\tgoto IINQ_COMPUTE_ORDERBY;\n" +
-				"\t\t\t\t\tIINQ_DONE_COMPUTE_ORDERBY:;\n" +
-				"\t\t\t\t\tif (1 == jmp_r) { goto IINQ_DONE_COMPUTE_ORDERBY_1; }\n" +
-				"\t\t\t\t\telse if (2 == jmp_r) { goto IINQ_DONE_COMPUTE_ORDERBY_2; }\n" +
-				"\t\t\t\t\tjmp_r = 3;\n" +
-				"\t\t\t\t\tgoto COMPUTE_SELECT;\n" +
-				"\t\t\t\t\tDONE_COMPUTE_SELECT_3:;\n" +
-				"\t\t\t\t\tif ((int) write_page_remaining < (int) (total_orderby_size + (result.num_bytes) + (8 * agg_n))) {\n" +
-				"\t\t\t\t\t\tint i = 0;\n" +
-				"\t\t\t\t\t\tchar x = 0;\n" +
-				"\t\t\t\t\t\tfor (; i < write_page_remaining; i++) { if (1 != fwrite(&x, 1, 1, output_file)) { break; }}\n" +
-				"\t\t\t\t\t\twrite_page_remaining = 512;\n" +
-				"\t\t\t\t\t};\n" +
-				"\t\t\t\t\tfor (i_orderby = 0; i_orderby < orderby_n; i_orderby++) {\n" +
-				"\t\t\t\t\t\tif (1 != fwrite(orderby_order_parts[i_orderby].pointer, orderby_order_parts[i_orderby].size, 1,\n" +
-				"\t\t\t\t\t\t\t\t\t\toutput_file)) { break; }\n" +
-				"\t\t\t\t\t\telse { write_page_remaining -= orderby_order_parts[i_orderby].size; }\n" +
-				"\t\t\t\t\t}\n" +
-				"\t\t\t\t\tif (1 != fwrite(result.processed, result.num_bytes, 1, output_file)) { break; }\n" +
-				"\t\t\t\t\telse { write_page_remaining -= result.num_bytes; }\n" +
-				"\t\t\t\t}\n");
+		if (hasOrderBy()) {
+			code.append("\t\t\t\t{\n" +
+					"\t\t\t\t\tgoto IINQ_COMPUTE_ORDERBY;\n" +
+					"\t\t\t\t\tIINQ_DONE_COMPUTE_ORDERBY:;\n" +
 
-		/* else */
-		code.append("\t\t\t\telse {\n" +
-				"\t\t\t\t\tresult.processed = alloca((result.num_bytes));\n" +
+				/* Not needed for select all,
+				 * come back to look at this later */
+					"\t\t\t\t\tif (1 == jmp_r) { goto IINQ_DONE_COMPUTE_ORDERBY_1; }\n" +
+					"\t\t\t\t\telse if (2 == jmp_r) { goto IINQ_DONE_COMPUTE_ORDERBY_2; }\n" +
+					"\t\t\t\t\tjmp_r = 3;\n" +
+					"\t\t\t\t\tgoto COMPUTE_SELECT;\n" +
+					"\t\t\t\t\tDONE_COMPUTE_SELECT_3:;\n" +
+
+					"\t\t\t\t\tif ((int) write_page_remaining < (int) (total_orderby_size + (result.num_bytes) + (8 * agg_n))) {\n" +
+					"\t\t\t\t\t\tint i = 0;\n" +
+					"\t\t\t\t\t\tchar x = 0;\n" +
+					"\t\t\t\t\t\tfor (; i < write_page_remaining; i++) { if (1 != fwrite(&x, 1, 1, output_file)) { break; }}\n" +
+					"\t\t\t\t\t\twrite_page_remaining = 512;\n" +
+					"\t\t\t\t\t};\n" +
+					"\t\t\t\t\tfor (i_orderby = 0; i_orderby < orderby_n; i_orderby++) {\n" +
+					"\t\t\t\t\t\tif (1 != fwrite(orderby_order_parts[i_orderby].pointer, orderby_order_parts[i_orderby].size, 1,\n" +
+					"\t\t\t\t\t\t\t\t\t\toutput_file)) { break; }\n" +
+					"\t\t\t\t\t\telse { write_page_remaining -= orderby_order_parts[i_orderby].size; }\n" +
+					"\t\t\t\t\t}\n" +
+					"\t\t\t\t\tif (1 != fwrite(result.processed, result.num_bytes, 1, output_file)) { break; }\n" +
+					"\t\t\t\t\telse { write_page_remaining -= result.num_bytes; }\n" +
+					"\t\t\t\t}\n");
+		} else {
+			code.append("\t\t\t\t{\n" +
+					"\t\t\t\t\tresult.processed = alloca(result.num_bytes);\n" +
+
 				"\t\t\t\t\tgoto COMPUTE_SELECT;\n" +
 				"\t\t\t\t\tDONE_COMPUTE_SELECT:;\n" +
-				"\t\t\t\t\tif (1 == jmp_r) { goto DONE_COMPUTE_SELECT_1; }\n" +
+/*				"\t\t\t\t\tif (1 == jmp_r) { goto DONE_COMPUTE_SELECT_1; }\n" +
 				"\t\t\t\t\telse if (2 == jmp_r) { goto DONE_COMPUTE_SELECT_2; }\n" +
-				"\t\t\t\t\telse if (3 == jmp_r) { goto DONE_COMPUTE_SELECT_3; }\n" +
-				"\t\t\t\t\t(processor)->execute(&result, (processor)->state);\n" +
-				"\t\t\t\t}\n" +
+				"\t\t\t\t\telse if (3 == jmp_r) { goto DONE_COMPUTE_SELECT_3; }\n" +*/
+
+					"\t\t\t\t\t(&processor)->execute(&result, (&processor)->state);\n" +
+					"\t\t\t\t}\n" +
 				/* end if-else*/
-				"\t\t\t}\n");
-
-
-		code.append(
-				"\t\t\tjmp_r = setjmp(selectbuf);\n" +
-						"\t\t\tgoto COMPUTE_SELECT;\n" +
-						"\t\t\tDONE_COMPUTE_SELECT:;\n" +
-						"\t\t\t(&processor)->execute(&result, (&processor)->state);\n" +
-						"\t\t}\n");
+					"\t\t\t}\n");
+		}
 
 		/* free memory */
 		code.append(generateCleanupCode());
-
-		/* close do-while(0) */
-		code.append("\t\t\t\t\"\\t}\\n\"\twhile (0);");
 
 		/* sort the file if there are groupby elements
 		 *  have not implemented group by yet so leaving this commented out */
@@ -504,14 +553,16 @@ public class IinqQuery extends WebQuery {
 				"\t\t\tif (boolean_true == is_first) { goto IINQ_QUERY_END; }\n" +
 				"\t\t}");*/
 
+		/* close do-while(0) */
+		code.append("\t\t\t\t\t}\n\t\twhile (0);\n");
+
 		/* if orderby or aggregates
 		 * ORDERBY handling */
 		code.append(generateOrderByHandlingCode());
 
 		/* end do-while(0) */
 		code.append("\t\tIINQ_QUERY_END:;\n" +
-				"\t}\n" +
-				"\twhile (0);");
+				"\t} while (0);\n");
 
 		return code.toString();
 
@@ -522,54 +573,65 @@ public class IinqQuery extends WebQuery {
 		StringBuilder fromCode = new StringBuilder();
 		String tableName = this.getParameter("source");
 
-		fromCode.append(
-				/* FROM(0, test1)
-				 * first argument is with_schemas but the query macro would check for with_schema
-				 * the IF_ELSE macro always substituted as (),
-				 * pretty sure there was a typo in the macro */
-				"\t\tion_iinq_cleanup_t *first;\n" +
-						"\t\tion_iinq_cleanup_t *last;\n" +
-						"\t\tion_iinq_cleanup_t *ref_cursor;\n" +
-						"\t\tion_iinq_cleanup_t *last_cursor;\n" +
-						"\t\tfirst = NULL;\n" +
-						"\t\tlast = NULL;\n" +
-						"\t\tref_cursor = NULL;\n" +
-						"\t\tlast_cursor = NULL;\n" +
+		if (this.DEBUG) {
+			fromCode.append("\t\t/* FROM(0, test1)\n" +
+					"\t\t * first argument is with_schemas but the query macro would check for with_schema\n" +
+					"\t\t * the IF_ELSE macro always substituted as (),\n" +
+					"\t\t * pretty sure there was a typo in the macro */\n");
+		}
 
-				/* FROM_SOURCES(test1) , FROM_SOURCE_SINGLE(test1) */
-						"\t\tion_iinq_source_t " + tableName + ";\n" +
-						"\t\t" + tableName + ".cleanup.next = NULL;\n" +
-						"\t\t" + tableName + ".cleanup.last = last;\n" +
-						"\t\t" + tableName + ".cleanup.reference = &" + tableName + ";\n" +
-						"\t\tif (NULL == first) { first = &" + tableName + ".cleanup; }\n" +
-						"\t\tif (NULL != last) { last->next = &" + tableName + ".cleanup; }\n" +
-						"\t\tlast = &" + tableName + ".cleanup;\n" +
-						"\t\t" + tableName + ".cleanup.next = NULL;\n" +
-						"\t\t" + tableName + ".dictionary.handler = &" + tableName + ".handler;\n" +
-						"\t\terror = iinq_open_source(\"" + tableName + "\" \".inq\", &(" + tableName + ".dictionary), &(" + tableName + ".handler));\n" +
-						"\t\tif (err_ok != error) { break; }\n" +
-						"\t\tresult.raw_record_size += " + tableName + ".dictionary.instance->record.key_size;\n" +
-						"\t\tresult.raw_record_size += " + tableName + ".dictionary.instance->record.value_size;\n" +
-						"\t\tresult.num_bytes += " + tableName + ".dictionary.instance->record.key_size;\n" +
-						"\t\tresult.num_bytes += " + tableName + ".dictionary.instance->record.value_size;\n" +
-						"\t\terror = dictionary_build_predicate(&(" + tableName + ".predicate), predicate_all_records);\n" +
-						"\t\tif (err_ok != error) { break; }\n" +
-						"\t\tdictionary_find(&" + tableName + ".dictionary, &" + tableName + ".predicate, &" + tableName + ".cursor);\n" +
+		fromCode.append("\t\tion_iinq_cleanup_t *first;\n" +
+				"\t\tion_iinq_cleanup_t *last;\n" +
+				"\t\tion_iinq_cleanup_t *ref_cursor;\n" +
+				"\t\tion_iinq_cleanup_t *last_cursor;\n" +
+				"\t\tfirst = NULL;\n" +
+				"\t\tlast = NULL;\n" +
+				"\t\tref_cursor = NULL;\n" +
+				"\t\tlast_cursor = NULL;\n");
 
-				/* FROM(0, test1) continued */
-						"\t\tresult.data = alloca(result.raw_record_size);\n" +
-						"\t\tresult.processed = result.data;\n" +
+		if (this.DEBUG) {
+			fromCode.append("\t\t/* FROM_SOURCES(test1)\n" +
+					"\t\t * substituted with FROM_SOURCE_SINGLE(test1) */\n");
+		}
 
-				/* _FROM_SETUP_POINTERS(__VA_ARGS__), _FROM_GET_OVERRIDE(__VA_ARGS__), _FROM_SETUP_POINTERS_SINGLE(test1) */
-						"\t\t" + tableName +".key = result.processed;\n" +
-						"\t\tresult.processed += " + tableName + ".dictionary.instance->record.key_size;\n" +
-						"\t\t" + tableName + ".value = result.processed;\n" +
-						"\t\tresult.processed += " + tableName + ".dictionary.instance->record.value_size;\n" +
-						"\t\t" + tableName +".ion_record.key = " + tableName + ".key;\n" +
-						"\t\t" + tableName + ".ion_record.value = test1.value;\n" +
-						"\t\tstruct iinq_" + tableName +"_schema *" + tableName + "_tuple;\n" +
-						"\t\t" + tableName + "_tuple = " + tableName + ".value;\n"
-		);
+		fromCode.append("\t\tion_iinq_source_t " + tableName + ";\n" +
+				"\t\t" + tableName + ".cleanup.next = NULL;\n" +
+				"\t\t" + tableName + ".cleanup.last = last;\n" +
+				"\t\t" + tableName + ".cleanup.reference = &" + tableName + ";\n" +
+				"\t\tif (NULL == first) { first = &" + tableName + ".cleanup; }\n" +
+				"\t\tif (NULL != last) { last->next = &" + tableName + ".cleanup; }\n" +
+				"\t\tlast = &" + tableName + ".cleanup;\n" +
+				"\t\t" + tableName + ".cleanup.next = NULL;\n" +
+				"\t\t" + tableName + ".dictionary.handler = &" + tableName + ".handler;\n" +
+				"\t\terror = iinq_open_source(\"" + tableName + "\" \".inq\", &(" + tableName + ".dictionary), &(" + tableName + ".handler));\n" +
+				"\t\tif (err_ok != error) { break; }\n" +
+				"\t\tresult.raw_record_size += " + tableName + ".dictionary.instance->record.key_size;\n" +
+				"\t\tresult.raw_record_size += " + tableName + ".dictionary.instance->record.value_size;\n" +
+				"\t\tresult.num_bytes += " + tableName + ".dictionary.instance->record.key_size;\n" +
+				"\t\tresult.num_bytes += " + tableName + ".dictionary.instance->record.value_size;\n" +
+				"\t\terror = dictionary_build_predicate(&(" + tableName + ".predicate), predicate_all_records);\n" +
+				"\t\tif (err_ok != error) { break; }\n" +
+				"\t\tdictionary_find(&" + tableName + ".dictionary, &" + tableName + ".predicate, &" + tableName + ".cursor);\n");
+		if (this.DEBUG) {
+			fromCode.append("\t\t/* end of FROM_SOURCES(test1),\n" +
+					"\t\t * FROM(0, test1) continued */");
+		}
+		fromCode.append("\t\tresult.data = alloca(result.raw_record_size);\n" +
+				"\t\tresult.processed = result.data;\n");
+		if (this.DEBUG) {
+			fromCode.append("\t\t/* _FROM_SETUP_POINTERS(test1),\n" +
+					"\t\t * substituted to _FROM_GET_OVERRIDE(test1)\n" +
+					"\t\t * substituted to _FROM_SETUP_POINTERS_SINGLE(test1) */\n");
+		}
+
+		fromCode.append("\t\t" + tableName + ".key = result.processed;\n" +
+				"\t\tresult.processed += " + tableName + ".dictionary.instance->record.key_size;\n" +
+				"\t\t" + tableName + ".value = result.processed;\n" +
+				"\t\tresult.processed += " + tableName + ".dictionary.instance->record.value_size;\n" +
+				"\t\t" + tableName + ".ion_record.key = " + tableName + ".key;\n" +
+				"\t\t" + tableName + ".ion_record.value = test1.value;\n" +
+				"\t\tstruct iinq_" + tableName + "_schema *" + tableName + "_tuple;\n" +
+				"\t\t" + tableName + "_tuple = " + tableName + ".value;\n");
 
 		fromCode.append(
 				"\t\tref_cursor = first;\n" +
@@ -588,91 +650,108 @@ public class IinqQuery extends WebQuery {
 	}
 
 	/**
-	 *  Constructs C code to handle the ORDER BY clause
-	 * @return
-	 * 		C code to execute the ORDER BY clause (sort)
+	 * Constructs C code to handle the ORDER BY clause
+	 *
+	 * @return C code to execute the ORDER BY clause (sort)
 	 */
 	public String generateOrderByHandlingCode() {
 		StringBuilder code = new StringBuilder();
-		/* TODO: remove the if statements (generate only needed code) */
 		/* if orderby or aggregates
-		 * if there are aggregates projection has already occurred */
-		code.append("\t\tif (orderby_n > 0 || agg_n > 0) {\n" +
-				/* if orderby or aggregates
-				 * TODO: isn't this redundant? */
-				"\t\t\tif (agg_n > 0 || orderby_n > 0) {\n" +
+		 * if there are aggregates projection has already occurred
+		 * TODO: add aggregates to the if statement */
+		if (hasOrderBy()) {
+			code.append("\t\t{\n");
+			if (this.DEBUG) {
+				code.append("\t\t\t/* _OPEN_ORDERING_FILE_READ(orderby, 1, 0, 1, result, orderby); */\n");
+			}
 
-				/* _OPEN_ORDERING_FILE_READ(orderby, 1, 0, 1, result, orderby); */
-				"\t\t\t\tinput_file = fopen(\"orderby\", \"rb\");\n" +
-				"\t\t\t\tif (NULL == input_file) {\n" +
-				"\t\t\t\t\terror = err_file_open_error;\n" +
-				"\t\t\t\t\tgoto IINQ_QUERY_END;\n" +
-				"\t\t\t\t}\n" +
-				"\t\t\t\tread_page_remaining = 512;\n" +
-				"\t\t\t\tif ((int) read_page_remaining < (int) (total_orderby_size + (8 * agg_n) + result.num_bytes)) {\n" +
-				"\t\t\t\t\terror = err_record_size_too_large;\n" +
-				"\t\t\t\t\tgoto IINQ_QUERY_END;\n" +
-				"\t\t\t\t};\n" +
-				"\t\t\t}\n" +
+			code.append("\t\t\tinput_file = fopen(\"orderby\", \"rb\");\n" +
+					"\t\t\tif (NULL == input_file) {\n" +
+					"\t\t\t\terror = err_file_open_error;\n" +
+					"\t\t\t\tgoto IINQ_QUERY_END;\n" +
+					"\t\t\t}\n" +
+					"\t\t\tread_page_remaining = 512;\n" +
+					"\t\t\tif ((int) read_page_remaining < (int) (total_orderby_size + (8 * agg_n) + result.num_bytes)) {\n" +
+					"\t\t\t\terror = err_record_size_too_large;\n" +
+					"\t\t\t\tgoto IINQ_QUERY_END;\n" +
+					"\t\t\t};\n" +
+					"\t\t}\n");
+			if (this.DEBUG) {
+				code.append("\t\t/* end of _OPEN_ORDERING_FILE_READ(orderby, 1, 0, 1, result, orderby); */\n");
+			}
 
-				/* TODO: is this ever executed? */
-				"\t\t\telse {\n" +
-				/* _OPEN_ORDERING_FILE_READ(orderby, 1, 1, 0, result, orderby); */
-				"\t\t\t\tinput_file = fopen(\"orderby\", \"rb\");\n" +
-				"\t\t\t\tif (NULL == input_file) {\n" +
-				"\t\t\t\t\terror = err_file_open_error;\n" +
-				"\t\t\t\t\tgoto IINQ_QUERY_END;\n" +
-				"\t\t\t\t}\n" +
-				"\t\t\t\tread_page_remaining = 512;\n" +
-				"\t\t\t\tif ((int) read_page_remaining < (int) (total_orderby_size + (8 * agg_n) + result.raw_record_size)) {\n" +
-				"\t\t\t\t\terror = err_record_size_too_large;\n" +
-				"\t\t\t\t\tgoto IINQ_QUERY_END;\n" +
-				"\t\t\t\t};\n" +
-				"\t\t\t}\n" +
+			code.append("\t\t\tion_external_sort_t es;\n");
 
+			if (this.DEBUG) {
+				code.append("\t\t\t/* iinq_sort_context_t context = _IINQ_SORT_CONTEXT(orderby); */\n");
+			}
 
-				"\t\t\tion_external_sort_t es;\n" +
-				/* iinq_sort_context_t context = _IINQ_SORT_CONTEXT(orderby); */
-				"\t\t\tiinq_sort_context_t context = ((iinq_sort_context_t) {orderby_order_parts, orderby_n});\n" +
+			code.append("\t\t\tiinq_sort_context_t context = ((iinq_sort_context_t) {orderby_order_parts, orderby_n});\n");
 
-				/* if (err_ok != (error = ion_external_sort_init(&es, input_file, &context, iinq_sort_compare, _RESULT_ORDERBY_RECORD_SIZE, _RESULT_ORDERBY_RECORD_SIZE + total_orderby_size + (8 * agg_n), IINQ_PAGE_SIZE, boolean_false, ION_FILE_SORT_FLASH_MINSORT)))*/
-				"\t\t\tif (err_ok != (error = ion_external_sort_init(&es, input_file, &context, iinq_sort_compare,\n" +
-				"\t\t\t\t\t\t\t\t\t\t\t\t\t\t  (agg_n > 0 ? result.num_bytes : result.raw_record_size),\n" +
-				"\t\t\t\t\t\t\t\t\t\t\t\t\t\t  (agg_n > 0 ? result.num_bytes : result.raw_record_size) +\n" +
-				"\t\t\t\t\t\t\t\t\t\t\t\t\t\t  total_orderby_size + (8 * agg_n), 512, boolean_false,\n" +
-				"\t\t\t\t\t\t\t\t\t\t\t\t\t\t  ION_FILE_SORT_FLASH_MINSORT))) {\n" +
-				/* _CLOSE_ORDERING_FILE(input_file); */
-				"\t\t\t\tif (0 != fclose(input_file)) {\n" +
-				"\t\t\t\t\terror = err_file_close_error;\n" +
-				"\t\t\t\t\tgoto IINQ_QUERY_END;\n" +
-				"\t\t\t\t};\n" +
+			if (this.DEBUG) {
+				code.append("\t\t\t/* if (err_ok != (error = ion_external_sort_init(&es, input_file, &context, iinq_sort_compare, _RESULT_ORDERBY_RECORD_SIZE, _RESULT_ORDERBY_RECORD_SIZE + total_orderby_size + (8 * agg_n), IINQ_PAGE_SIZE, boolean_false, ION_FILE_SORT_FLASH_MINSORT)))*/\n");
+			}
 
-				"\t\t\t\tgoto IINQ_QUERY_END;\n" +
-				"\t\t\t}\n" +
-				"\t\t\tuint16_t buffer_size = ion_external_sort_bytes_of_memory_required(&es, 0, boolean_false);\n" +
-				"\t\t\tchar *buffer = alloca(buffer_size);\n" +
-				"\t\t\tchar *record_buf = alloca((total_orderby_size + 8 * agg_n + result.num_bytes));\n" +
-				"\t\t\tresult.processed = (unsigned char *) (record_buf + total_orderby_size + (8 * agg_n));\n" +
-				"\t\t\tion_external_sort_cursor_t cursor;\n" +
-				"\t\t\tif (err_ok != (error = ion_external_sort_init_cursor(&es, &cursor, buffer, buffer_size))) {\n" +
-				/* _CLOSE_ORDERING_FILE(input_file); */
-				"\t\t\t\tif (0 != fclose(input_file)) {\n" +
-				"\t\t\t\t\terror = err_file_close_error;\n" +
-				"\t\t\t\t\tgoto IINQ_QUERY_END;\n" +
-				"\t\t\t\t};\n" +
+			code.append("\t\t\tif (err_ok != (error = ion_external_sort_init(&es, input_file, &context, iinq_sort_compare,\n" +
+					"\t\t\t\t\t\t\t\t\t\t\t\t\t\t  (agg_n > 0 ? result.num_bytes : result.raw_record_size),\n" +
+					"\t\t\t\t\t\t\t\t\t\t\t\t\t\t  (agg_n > 0 ? result.num_bytes : result.raw_record_size) +\n" +
+					"\t\t\t\t\t\t\t\t\t\t\t\t\t\t  total_orderby_size + (8 * agg_n), 512, boolean_false,\n" +
+					"\t\t\t\t\t\t\t\t\t\t\t\t\t\t  ION_FILE_SORT_FLASH_MINSORT))) {\n");
 
-				"\t\t\t\tgoto IINQ_QUERY_END;\n" +
-				"\t\t\t}\n" +
+			if (this.DEBUG) {
+				code.append("\t\t\t\t/* _CLOSE_ORDERING_FILE(input_file); */\n");
+			}
 
-				"\t\t\tif (err_ok != (error = cursor.next(&cursor, record_buf))) {\n" +
-				/* _CLOSE_ORDERING_FILE(input_file); */
-				"\t\t\t\tif (0 != fclose(input_file)) {\n" +
-				"\t\t\t\t\terror = err_file_close_error;\n" +
-				"\t\t\t\t\tgoto IINQ_QUERY_END;\n" +
-				"\t\t\t\t};\n" +
+			code.append("\t\t\t\tif (0 != fclose(input_file)) {\n" +
+					"\t\t\t\t\terror = err_file_close_error;\n" +
+					"\t\t\t\t\tgoto IINQ_QUERY_END;\n" +
+					"\t\t\t\t};\n");
 
-				"\t\t\t\tgoto IINQ_QUERY_END;\n" +
-				"\t\t\t}\n");
+			if (this.DEBUG) {
+				code.append("\t\t\t\t/* end of _CLOSE_ORDERING_FILE(input_file); */\n");
+			}
+
+			code.append("\t\t\t\tgoto IINQ_QUERY_END;\n" +
+					"\t\t\t}\n" +
+					"\t\t\tuint16_t buffer_size = ion_external_sort_bytes_of_memory_required(&es, 0, boolean_false);\n" +
+					"\t\t\tchar *buffer = alloca(buffer_size);\n" +
+					"\t\t\tchar *record_buf = alloca((total_orderby_size + 8 * agg_n + result.num_bytes));\n" +
+					"\t\t\tresult.processed = (unsigned char *) (record_buf + total_orderby_size + (8 * agg_n));\n" +
+					"\t\t\tion_external_sort_cursor_t cursor;\n" +
+					"\t\t\tif (err_ok != (error = ion_external_sort_init_cursor(&es, &cursor, buffer, buffer_size))) {\n");
+
+			if (this.DEBUG) {
+				code.append("\t\t\t\t/* _CLOSE_ORDERING_FILE(input_file); */\n");
+			}
+
+			code.append("\t\t\t\tif (0 != fclose(input_file)) {\n" +
+					"\t\t\t\t\terror = err_file_close_error;\n" +
+					"\t\t\t\t\tgoto IINQ_QUERY_END;\n" +
+					"\t\t\t\t};\n");
+
+			if (this.DEBUG) {
+				code.append("\t\t\t\t/* end of _CLOSE_ORDERING_FILE(input_file); */\n");
+			}
+
+			code.append("\t\t\t\tgoto IINQ_QUERY_END;\n" +
+					"\t\t\t}\n" +
+					"\t\t\tif (err_ok != (error = cursor.next(&cursor, record_buf))) {\n");
+
+			if (this.DEBUG) {
+				code.append("\t\t\t\t/* _CLOSE_ORDERING_FILE(input_file); */\n");
+			}
+
+			code.append("\t\t\t\tif (0 != fclose(input_file)) {\n" +
+					"\t\t\t\t\terror = err_file_close_error;\n" +
+					"\t\t\t\t\tgoto IINQ_QUERY_END;\n" +
+					"\t\t\t\t};\n");
+
+			if (this.DEBUG) {
+				code.append("\t\t\t\t/* end of _CLOSE_ORDERING_FILE(input_file); */\n");
+			}
+
+			code.append("\t\t\t\tgoto IINQ_QUERY_END;\n" +
+					"\t\t\t}\n");
 
 		/* load aggregate values into their place
 		 * aggregates not currently implemented */
@@ -681,42 +760,64 @@ public class IinqQuery extends WebQuery {
 				"\t\t\t}\n");*/
 
 		/* execute function in the processor */
-		code.append("\t\t\twhile (cs_cursor_active == cursor.status) {\n" +
-				"\t\t\t\t(processor)->execute(&result, (processor)->state);\n" +
-				"\t\t\t\tif (err_ok != (error = cursor.next(&cursor, record_buf))) {\n" +
+			code.append("\t\t\twhile (cs_cursor_active == cursor.status) {\n" +
+					"\t\t\t\t(&processor)->execute(&result, (&processor)->state);\n" +
+					"\t\t\t\tif (err_ok != (error = cursor.next(&cursor, record_buf))) {\n");
 
-				/* _CLOSE_ORDERING_FILE(input_file); */
-				"\t\t\t\t\tif (0 != fclose(input_file)) {\n" +
-				"\t\t\t\t\t\terror = err_file_close_error;\n" +
-				"\t\t\t\t\t\tgoto IINQ_QUERY_END;\n" +
-				"\t\t\t\t\t};\n" +
+			if (this.DEBUG) {
+				code.append("\t\t\t\t\t/* _CLOSE_ORDERING_FILE(input_file); */\n");
+			}
 
-				"\t\t\t\t\tgoto IINQ_QUERY_END;\n" +
-				"\t\t\t\t}\n");
+			code.append("\t\t\t\t\tif (0 != fclose(input_file)) {\n" +
+					"\t\t\t\t\t\terror = err_file_close_error;\n" +
+					"\t\t\t\t\t\tgoto IINQ_QUERY_END;\n" +
+					"\t\t\t\t\t};\n");
+
+			if (this.DEBUG) {
+				code.append("\t\t\t\t\tgoto IINQ_QUERY_END;\n" +
+						"\t\t\t\t}\n");
+
 		/* load the aggregate values into their place
 		 * aggregates are not currently implemented */
 		/*code.append("\t\t\t\tfor (i_agg = 0; i_agg < agg_n; i_agg++) {\n" +
 				"\t\t\t\t\taggregates[i_agg].value.i64 = *((int64_t * )(record_buf + (8 * i_agg)));\n" +
 				"\t\t\t\t}\n");*/
 
-		code.append("\t\t\t}\n" +
-				"\t\t\tion_external_sort_destroy_cursor(&cursor);\n" +
-				/* _CLOSE_ORDERING_FILE(input_file); */
-				"\t\t\tif (0 != fclose(input_file)) {\n" +
-				"\t\t\t\terror = err_file_close_error;\n" +
-				"\t\t\t\tgoto IINQ_QUERY_END;\n" +
-				"\t\t\t};\n" +
+				code.append("\t\t\t}\n" +
+						"\t\t\tion_external_sort_destroy_cursor(&cursor);\n");
 
-				/* _REMOVE_ORDERING_FILE(orderby); */
-				"\t\t\tif (0 != remove(\"orderby\")) {\n" +
-				"\t\t\t\terror = err_file_delete_error;\n" +
-				"\t\t\t\tgoto IINQ_QUERY_END;\n" +
-				"\t\t\t};\n" +
+				if (this.DEBUG) {
+					code.append("\t\t\t/* _CLOSE_ORDERING_FILE(input_file); */\n");
+				}
 
-				"\t\t}");
+				code.append("\t\t\tif (0 != fclose(input_file)) {\n" +
+						"\t\t\t\terror = err_file_close_error;\n" +
+						"\t\t\t\tgoto IINQ_QUERY_END;\n" +
+						"\t\t\t};\n");
 
-		return code.toString();
-	}
+				if (this.DEBUG) {
+					code.append("\t\t\t/* end of _CLOSE_ORDERING_FILE(input_file); */\n");
+					code.append("\t\t\t/* _REMOVE_ORDERING_FILE(orderby); */\n");
+				}
+
+
+				code.append("\t\t\tif (0 != remove(\"orderby\")) {\n" +
+						"\t\t\t\terror = err_file_delete_error;\n" +
+						"\t\t\t\tgoto IINQ_QUERY_END;\n" +
+						"\t\t\t};\n");
+
+				if (this.DEBUG) {
+					code.append("\t\t\t/* end of _REMOVE_ORDERING_FILE(orderby); */\n");
+				}
+
+				code.append("\t\t}");
+			}
+
+			return code.toString();
+		} else
+			return "";
+
+}
 
 	/**
 	 * Constructs C code to free memory used in the query
@@ -724,25 +825,29 @@ public class IinqQuery extends WebQuery {
 	 * @return C code to free memory
 	 */
 	public String generateCleanupCode() {
-		/* TODO: remove if statement (only generate needed code) */
-		return "\t\tIINQ_QUERY_CLEANUP:\n" +
-				/* if there are aggregates, groupby, or orderby */
-				"\t\t\tif (agg_n > 0 || groupby_n > 0 || orderby_n > 0) {\n" +
-				"\t\t\t\tif (0 != fclose(output_file)) {\n" +
-				"\t\t\t\t\terror = err_file_close_error;\n" +
-				"\t\t\t\t\tgoto IINQ_QUERY_END;\n" +
-				"\t\t\t\t};\n" +
-				"\t\t\t}\n" +
+
+		StringBuilder cleanup = new StringBuilder("\t\tIINQ_QUERY_CLEANUP:\n");
+		/* if there are aggregates, groupby, or orderby */
+		/* TODO: add if aggregates or groupby when supported */
+		if (hasOrderBy()) {
+			cleanup.append(
+					"\t\t\t\tif (0 != fclose(output_file)) {\n" +
+							"\t\t\t\t\terror = err_file_close_error;\n" +
+							"\t\t\t\t\tgoto IINQ_QUERY_END;\n" +
+							"\t\t\t\t};\n");
+		}
 
 				/* free all memory */
-				"\t\twhile (NULL != first) {\n" +
+		cleanup.append("\t\twhile (NULL != first) {\n" +
 				"\t\t\tfirst->reference->cursor->destroy(&first->reference->cursor);\n" +
 				"\t\t\tion_close_dictionary(&first->reference->dictionary);\n" +
 				"\t\t\tfirst = first->next;\n" +
 				"\t\t}\n" +
 
 				/* something went wrong goto end */
-				"\t\t\tif (err_ok != error) { goto IINQ_QUERY_END; }";
+				"\t\t\tif (err_ok != error) { goto IINQ_QUERY_END; }\n");
+
+		return cleanup.toString();
 	}
 
 	/**
@@ -768,11 +873,12 @@ public class IinqQuery extends WebQuery {
 			/* Schema was given. Define the schema for the table */
 			StringBuilder code = new StringBuilder();
 			String tableName = getTableName();
-			/* DEFINE_SCHEMA(source_name, source_definition) */
-			code.append("\t\tDEFINE_SCHEMA(");
-			/* source_name */
-			code.append(tableName);
-			code.append(", {\n");
+
+			if (this.DEBUG) {
+				code.append("\t\t/* DEFINE_SCHEMA(source_name, source_definition) */\n");
+			}
+
+			code.append(String.format("\t\tDEFINE_SCHEMA(%s, {\n", tableName));
 			Attribute[] attributes = this.relation.getAttributes();
 			SourceTable table = this.proj.getDatabase().getDatabase().getSourceTables().get(tableName);
 			/* source_definition */
@@ -783,30 +889,23 @@ public class IinqQuery extends WebQuery {
 						/* char array data type
 						char fieldName[fieldSize];
 						 */
-						code.append("\t\t\tchar ");
-						code.append(field.getColumnName());
-						code.append("[");
-						code.append(field.getColumnSize());
-						code.append("];\n");
+						code.append(String.format("\t\t\tchar %s[%d];\n", field.getColumnName(), field.getColumnSize()));
 						break;
 					case "INTEGER":
 						/* int data type
 						int fieldname;
 						 */
-						code.append("\t\t\tint ");
-						code.append(field.getColumnName());
-						code.append(";\n");
+						code.append(String.format("\t\t\tint %s;\n", field.getColumnName()));
 						break;
 					case "DECIMAL":
 						/*  double data type
 						double fieldname;
 						 */
-						code.append("\t\t\tdouble ");
-						code.append(field.getColumnName());
-						code.append(";\n");
+						code.append(String.format("\t\t\tdouble %s;\n", field.getColumnName()));
 				}
 			}
-			code.append("\t\t})\n");
+			/* Close the struct definition */
+			code.append("\t\t});\n");
 			return code.toString();
 		}
 	}
@@ -842,7 +941,11 @@ public class IinqQuery extends WebQuery {
 		StringBuilder code = new StringBuilder();
 
 		if (this.parameters.containsKey("filter")) {
-			/* if (!conditions) { continue; } */
+
+			if (this.DEBUG) {
+				code.append("/* if (!conditions) { continue; } */\n");
+			}
+
 			code.append("if (!(");
 			Object filter = this.parameters.get("filter");
 			if (filter instanceof ArrayList) {
@@ -909,10 +1012,7 @@ public class IinqQuery extends WebQuery {
 		if (sourceTable.getField(fieldName).getDataTypeName().contains("CHAR")) {
 							/* Field has a string data type:
 							 * strcmp(source_tuple->field, compareString) > 0 */
-			condition.append("strcmp(");
-			condition.append(tableName);
-			condition.append("_tuple->");
-			condition.append(fieldName);
+			condition.append(String.format("strcmp(%s_tuple->%s", tableName, fieldName));
 			if (null == operator) {
 								/* operator was not <> or != */
 				if (filter.charAt(i + 1) == '=') {
@@ -931,43 +1031,34 @@ public class IinqQuery extends WebQuery {
 					i++;
 				}
 			}
-							/* compareString */
-			condition.append(", ");
-			condition.append(filter.substring(i));
-			condition.append(") ");
-			condition.append(operator);
-			condition.append(" 0");
+			/* compareString */
+			condition.append(String.format(", %s) %s 0", filter.substring(i), operator));
 		} else {
-							/* Field has numeric data type:
-							 * source_tuple->field > 0 */
+			/* Field has numeric data type:
+			 * source_tuple->field > 0 */
 			if (null == operator) {
-								/* Operator was not <> or != */
+				/* Operator was not <> or != */
 				if (filter.charAt(i + 1) == '=') {
-									/* Operator is two characters e.g <=, >= */
+					/* Operator is two characters e.g <=, >= */
 					operator = filter.substring(i, i + 2);
 					i += 2;
 				} else {
-									/* Operator is a single character e.g <, >, = */
+					/* Operator is a single character e.g <, >, = */
 					if (filter.charAt(i) == '=') {
-										/* Equality operator */
+						/* Equality operator */
 						operator = "==";
 					} else {
-										/* <, > operators */
+						/* <, > operators */
 						operator = filter.substring(i, i + 1);
 					}
 					i++;
 				}
 
 			}
-			condition.append(tableName);
-			condition.append("_tuple->");
-			condition.append(fieldName);
-			condition.append(" ");
-			condition.append(operator);
-			condition.append(" 0");
+			condition.append(String.format("%s_tuple->%s %s 0", tableName, fieldName, operator));
 		}
 
-						/* Add the condtion */
+		/* Close the condition */
 		condition.append(") && ");
 
 		return condition.toString();
@@ -987,15 +1078,10 @@ public class IinqQuery extends WebQuery {
 			iinq_order_part_t	*name ## _order_parts = NULL; */
 
 		StringBuilder code = new StringBuilder();
-		code.append("int ");
-		code.append(name);
-		code.append("_n = 0;\nint i_");
-		code.append(name);
-		code.append("= 0;\nint total_");
-		code.append(name);
-		code.append("_size = 0;\ninnq_order_part_t *");
-		code.append(name);
-		code.append("_order_parts = NULL;\n");
+		code.append(String.format("\t\tint %s_n = 0;\n", name));
+		code.append(String.format("\t\tint i_%s = 0;\n", name));
+		code.append(String.format("\t\tint total_%s_size = 0;\n", name));
+		code.append(String.format("\t\tiinq_order_part_t *%s_orderparts = NULL;\n", name));
 
 		return code.toString();
 	}
@@ -1009,14 +1095,14 @@ public class IinqQuery extends WebQuery {
 	public String generateGroupByCode() {
 		/* GROUPBY_NONE
 		*  Gets skipped, not sure if neccessary yet*/
-		if (!this.parameters.containsKey("stats"))
-			return "goto IINQ_SKIP_COMPUTE_GROUPBY;\n" +
-					"IINQ_COMPUTE_GROUPBY:; \n" +
-					"\tgoto IINQ_DONE_COMPUTE_GROUPBY; \n" +
-					"IINQ_SKIP_COMPUTE_GROUPBY:;";
-		else
+		/*if (!this.parameters.containsKey("stats"))
+			return "\t\tgoto IINQ_SKIP_COMPUTE_GROUPBY;\n" +
+					"\t\tIINQ_COMPUTE_GROUPBY:; \n" +
+					"\t\tgoto IINQ_DONE_COMPUTE_GROUPBY; \n" +
+					"\t\tIINQ_SKIP_COMPUTE_GROUPBY:;\n";
+		else*/
 			/* TODO: add GROUP BY code */
-			return "";
+		return "";
 	}
 
 	/**
@@ -1031,15 +1117,13 @@ public class IinqQuery extends WebQuery {
 		StringBuilder code = new StringBuilder();
 
 		/* TODO: add support for sort modes */
-		if (this.parameters.containsKey("sort")) {
+		if (hasOrderBy()) {
 			String[] sortFields;
 			StringBuilder stackMemory = new StringBuilder();
 			/* Split based on delimeters + and - (asc and desc), first element is sort mode */
 			sortFields = this.getParameter("sort").split("((?=\\+)|(?=-))");
 			code.append(String.format("name_n = %d\n", sortFields.length - 1));
 			code.append("total_orderby_size = 0\n");
-			code.append(String.format("orderby_order_parts = alloca(sizeof(iinq_order_part_t)*%d", sortFields.length - 1));
-			code.append(");\n");
 			for (int i = 1; i < sortFields.length; i++) {
 				int direction = (sortFields[i].charAt(0) == '+') ? 1 : -1;
 				String sortField = sortFields[i].substring(1);
@@ -1083,11 +1167,11 @@ public class IinqQuery extends WebQuery {
 						"\t\t\t\t4 == sizeof(%s) ? (void *) (&(uint32_t) { (%s) }\n" +
 						"\t\t\t\t) :\n" +
 						"\t\t\t\t(\n" +
-						"\t\t\t\t\t2 == sizeof(%s) ? (void *) (&(uint16_t) { (%s) } \\\n" +
-						"\t\t\t\t) : (void *) (&(uint8_t) { (%s) } \\\n" +
-						"\t\t\t\t) \\\n" +
-						"\t\t\t) \\\n" +
-						"\t\t) \\\n" +
+						"\t\t\t\t\t2 == sizeof(%s) ? (void *) (&(uint16_t) { (%s) } \n" +
+						"\t\t\t\t) : (void *) (&(uint8_t) { (%s) } \n" +
+						"\t\t\t\t) \n" +
+						"\t\t\t) \n" +
+						"\t\t) \n" +
 						"\t)", i, expr, expr, expr, expr, expr, expr, expr));
 			}
 			/* Skipped but then gone back to later.
