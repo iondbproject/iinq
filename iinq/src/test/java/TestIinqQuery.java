@@ -39,7 +39,7 @@ public class TestIinqQuery
         System.out.println("\nRegistering driver.");
         Class.forName("unity.jdbc.UnityDriver");
 
-        System.out.println("\nGetting connection:  " + url);
+        System.out.println("\nGetting connection: " + url);
         con = DriverManager.getConnection(url);
         System.out.println("\nConnection successful for " + url);
         System.out.println("\nGetting metadata.");
@@ -99,7 +99,8 @@ public class TestIinqQuery
 	{
         String answer =
                 "";
-
+		/* SELECT * FROM table does not require metadata
+		 * The two function calls below should have the same result */
         TestIinq.runSQLQuery("SELECT * FROM test1;", answer, metadata);
         TestIinq.runSQLQuery("SELECT * FROM test1;", answer);
 	}
@@ -227,11 +228,11 @@ public class TestIinqQuery
         String answer = "Total results: 292";
 
         // String filter
-        TestIinq.runSQLQuery("SELECT col1, col2, col3, col4 FROM test1 WHERE col2 = 'United Kingdom';", answer);
+        TestIinq.runSQLQuery("SELECT col1, col2, col3, col4 FROM test1 WHERE col2 = 'United Kingdom';", answer, metadata);
         
         // Number filter
         answer = "Total results: 1";
-        TestIinq.runSQLQuery("SELECT col1, col2, col3, col4 FROM test1 WHERE col1 = 31.02;", answer);
+        TestIinq.runSQLQuery("SELECT col1, col2, col3, col4 FROM test1 WHERE col1 = 31.02;", answer, metadata);
     }
         
     /**
@@ -243,26 +244,26 @@ public class TestIinqQuery
         String answer = "Total results: 1724";
         
         // >
-        TestIinq.runSQLQuery("SELECT col1, col2, col3, col4 FROM test1 WHERE col2 > 'United Kingdom';", answer);
+        TestIinq.runSQLQuery("SELECT col1, col2, col3, col4 FROM test1 WHERE col2 > 'United Kingdom';", answer, metadata);
  
         // >=
         answer = "Total results: 2016";
-        TestIinq.runSQLQuery("SELECT col1, col2, col3, col4 FROM test1 WHERE col2 >= 'United Kingdom';", answer);
+        TestIinq.runSQLQuery("SELECT col1, col2, col3, col4 FROM test1 WHERE col2 >= 'United Kingdom';", answer, metadata);
  
         // <
         answer = "Total results: 1442";
-        TestIinq.runSQLQuery("SELECT col1, col2, col3, col4 FROM test1 WHERE col2 < 'United Kingdom';", answer);
+        TestIinq.runSQLQuery("SELECT col1, col2, col3, col4 FROM test1 WHERE col2 < 'United Kingdom';", answer, metadata);
  
         // <=
         answer = "Total results: 1734";
-        TestIinq.runSQLQuery("SELECT col1, col2, col3, col4 FROM test1 WHERE col2 <= 'United Kingdom';", answer);
+        TestIinq.runSQLQuery("SELECT col1, col2, col3, col4 FROM test1 WHERE col2 <= 'United Kingdom';", answer, metadata);
  
         // !=
         answer = "Total results: 3166";
-        TestIinq.runSQLQuery("SELECT col1, col2, col3, col4 FROM test1 WHERE col2 <> 'United Kingdom';", answer);
+        TestIinq.runSQLQuery("SELECT col1, col2, col3, col4 FROM test1 WHERE col2 <> 'United Kingdom';", answer, metadata);
         
         answer = "Total results: 3166";
-        TestIinq.runSQLQuery("SELECT col1, col2, col3, col4 FROM test1 WHERE col2 != 'United Kingdom';", answer);
+        TestIinq.runSQLQuery("SELECT col1, col2, col3, col4 FROM test1 WHERE col2 != 'United Kingdom';", answer, metadata);
     }
 
     /**
