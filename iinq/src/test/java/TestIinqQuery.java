@@ -114,7 +114,7 @@ public class TestIinqQuery
 		String answer = "Al 'Adliyah, 498.75, 21.0"
 		                +"\nTotal results: 3458";
 		
-		TestIinq.runSQLQuery("SELECT col1, col2, col3 FROM test1;", answer);
+		TestIinq.runSQLQuery("SELECT col1, col2, col3 FROM test1;", answer, metadata);
 	}
 
 	/**
