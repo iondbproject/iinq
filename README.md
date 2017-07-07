@@ -5,4 +5,4 @@ You might also be interested in our sister projects, [IonDB - a key-value datast
 
 # "What is this?"
 
-IINQ (**Ion Integrated Query**) is an SQL Query Processor which utilizes the capabilities and performance of IonDB.
+IINQ (**Ion Integrated Query**) is an SQL Query Processor which utilizes the capabilities and performance of [IonDB](https://github.com/iondbproject/iondb).
