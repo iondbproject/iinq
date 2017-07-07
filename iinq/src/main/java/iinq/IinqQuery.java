@@ -1036,24 +1036,29 @@ public class IinqQuery extends WebQuery {
 		condition.append("(");
 		int i = 0;
 		boolean foundOperator = false;
+		String fieldName = "";
 		while (i < filter.length() && !foundOperator) {
 			switch (filter.charAt(i)) {
 				case '=':
 				case '>':
 					foundOperator = true;
+					fieldName = filter.substring(0, i);
 					break;
 				case '!':
 					if (filter.charAt(i + 1) == '=') {
 						foundOperator = true;
 						operator = "!=";
-					} else
+						fieldName = filter.substring(0, i);
+						i += 2;
+					}
 						break;
 				case '<':
 					foundOperator = true;
+					fieldName = filter.substring(0, i);
 					if (filter.charAt(i + 1) == '>') {
 						operator = "!=";
 						i += 2;
-					} else
+					}
 						break;
 				default:
 					i++;
@@ -1063,7 +1068,6 @@ public class IinqQuery extends WebQuery {
 			System.err.println("Operator not found in filter: " + filter);
 			return "";
 		}
-		String fieldName = filter.substring(0, i);
 		if (sourceTable.getField(fieldName).getDataTypeName().contains("CHAR")) {
 							/* Field has a string data type:
 							 * strcmp(source_tuple->field, compareString) > 0 */
@@ -1182,7 +1186,7 @@ public class IinqQuery extends WebQuery {
 			for (int i = 1; i < sortFields.length; i++) {
 				int direction = (sortFields[i].charAt(0) == '+') ? 1 : -1;
 				String sortField = sortFields[i].substring(1);
-				SourceField field = sourceTable.getField("sortField");
+				SourceField field = sourceTable.getField(sortField);
 				String orderType;
 				String expr;
 				/* Check if the order is a field.
@@ -1197,7 +1201,7 @@ public class IinqQuery extends WebQuery {
 							orderType = "IINQ_ORDERTYPE_INT";
 							break;
 						case "DECIMAL":
-							orderType = "IINQ_ORDERTYPE_UINT";
+							orderType = "IINQ_ORDERTYPE_FLOAT";
 							break;
 						default:
 							orderType = "IINQ_ORDERTYPE_OTHER";

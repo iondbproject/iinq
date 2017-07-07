@@ -280,7 +280,7 @@ public class TestIinqQuery
                 +"\nLafayette, United States, 44157.33, 6783.0"
                 +"\nSandy Springs, United States, 29055.38, 881.0"                
                 +"\nTotal results: 2";
-        TestIinq.runSQLQuery("SELECT col1, col2, col3, col4 FROM test1 WHERE col3 > 27300;", answer);
+        TestIinq.runSQLQuery("SELECT col1, col2, col3, col4 FROM test1 WHERE col3 > 27300;", answer, metadata);
  
         // >=
         answer = "Total columns: 4"
@@ -289,7 +289,7 @@ public class TestIinqQuery
                 +"\nLausanne, Switzerland, 27300.0, 600.0"
                 +"\nSandy Springs, United States, 29055.38, 881.0"
                 +"\nTotal results: 3";
-        TestIinq.runSQLQuery("SELECT col1, col2, col3, col4 FROM test1 WHERE col3 >= 27300;", answer);
+        TestIinq.runSQLQuery("SELECT col1, col2, col3, col4 FROM test1 WHERE col3 >= 27300;", answer, metadata);
  
         // <
         answer = "Total columns: 4"
@@ -297,16 +297,16 @@ public class TestIinqQuery
                 +"\nCoconut Grove, United States, 1.9, 2.0"
                 +"\nMorges, Switzerland, 0.99, 1.0"
                 +"\nTotal results: 2";
-        TestIinq.runSQLQuery("SELECT col1, col2, col3, col4 FROM test1 WHERE col1 < 2.1;", answer);
+        TestIinq.runSQLQuery("SELECT col1, col2, col3, col4 FROM test1 WHERE col1 < 2.1;", answer, metadata);
  
         // <=        
-        TestIinq.runSQLQuery("SELECT col1, col2, col3, col4 FROM test1 WHERE col1 <= 1.9;", answer);
+        TestIinq.runSQLQuery("SELECT col1, col2, col3, col4 FROM test1 WHERE col1 <= 2.1;", answer, metadata);
 
 		// !=
         answer = "Total results: 3457";
-        TestIinq.runSQLQuery("SELECT col1, col2, col3, col4 FROM test1 WHERE col1 <> 4;", answer);
+        TestIinq.runSQLQuery("SELECT col1, col2, col3, col4 FROM test1 WHERE col1 <> 2.1;", answer, metadata);
                 
-        TestIinq.runSQLQuery("SELECT col1, col2, col3, col4 FROM test1 WHERE col1 != 4;", answer);
+        TestIinq.runSQLQuery("SELECT col1, col2, col3, col4 FROM test1 WHERE col1 != 2.1;", answer, metadata);
     }
     
 	/**
@@ -326,7 +326,7 @@ public class TestIinqQuery
                 +"\nSandy Springs, United States, 29055.38, 881.0"
                 +"\nLafayette, United States, 44157.33, 6783.0"
                 +"\nTotal results: 6";
-        TestIinq.runSQLQuery("SELECT col1, col2, col3, col4 FROM test1 WHERE col3 > 26000 ORDER BY col3 ASC;", answer);
+        TestIinq.runSQLQuery("SELECT col1, col2, col3, col4 FROM test1 WHERE col3 > 26000 ORDER BY col3 ASC;", answer, metadata);
        
 		// DESC
         answer = "Total columns: 4"
@@ -339,7 +339,7 @@ public class TestIinqQuery
                  +"\nCheltenham, United Kingdom, 26600.0, 3500.0"
                  +"\nTotal results: 6";
         
-        TestIinq.runSQLQuery("SELECT col1, col2, col3, col4 FROM test1 WHERE col3 > 26000 ORDER BY col4 DESC;", answer);
+        TestIinq.runSQLQuery("SELECT col1, col2, col3, col4 FROM test1 WHERE col3 > 26000 ORDER BY col4 DESC;", answer, metadata);
 	}
 
 
