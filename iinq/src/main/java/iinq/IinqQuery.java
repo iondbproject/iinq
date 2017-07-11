@@ -7,6 +7,7 @@ import unity.engine.Attribute;
 import unity.generic.query.WebQuery;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.jar.Attributes;
 
@@ -71,8 +72,9 @@ public class IinqQuery extends WebQuery {
 				"\t\tion_err_t error;\n" +
 				"\t\tion_iinq_result_t result;\n" +
 				"\t\tint jmp_r;\n" +
-				/* selectbuf not used for materialized queries*/
-				"\t\tjmp_buf selectbuf;\n" +
+				/* selectbuf not used for any queries,
+				*  possibly added to replace excessive goto code*/
+				/*"\t\tjmp_buf selectbuf;\n" +*/
 				"\t\tresult.raw_record_size = 0;\n" +
 				"\t\tresult.num_bytes = 0;\n"
 		);
@@ -89,10 +91,10 @@ public class IinqQuery extends WebQuery {
 				"\t\tFILE *input_file;\n" +
 				"\t\tFILE *output_file;\n");
 
-		/* for aggregate expressions,
-		 * probably will not need */
-		/*code.append("\t\tint agg_n = 0;\n" +
-				"\t\tint i_agg = 0;\n");*/
+		/* for aggregate expressions */
+		/* TODO: remove the need tor these variables when there aren't any aggregates */
+		code.append("\t\tint agg_n = 0;\n" +
+				"\t\tint i_agg = 0;\n");
 
 		/* from_clause */
 		code.append(generateFromCode());
@@ -252,10 +254,12 @@ public class IinqQuery extends WebQuery {
 					"\t\t\t\t\tgoto IINQ_COMPUTE_ORDERBY;\n" +
 					"\t\t\t\t\tIINQ_DONE_COMPUTE_ORDERBY:;\n" +
 
-				/* Not needed for select all,
-				 * come back to look at this later */
-					"\t\t\t\t\tif (1 == jmp_r) { goto IINQ_DONE_COMPUTE_ORDERBY_1; }\n" +
-					"\t\t\t\t\telse if (2 == jmp_r) { goto IINQ_DONE_COMPUTE_ORDERBY_2; }\n" +
+					/*  Used when there is a GROUP BY */
+					/*"\t\t\t\t\tif (1 == jmp_r) { goto IINQ_DONE_COMPUTE_ORDERBY_1; }\n" +*/
+
+					/* Used to evaluate HAVING clause */
+					/*"\t\t\t\t\telse if (2 == jmp_r) { goto IINQ_DONE_COMPUTE_ORDERBY_2; }\n" +*/
+
 					"\t\t\t\t\tjmp_r = 3;\n" +
 					"\t\t\t\t\tgoto COMPUTE_SELECT;\n" +
 					"\t\t\t\t\tDONE_COMPUTE_SELECT_3:;\n" +
@@ -275,18 +279,23 @@ public class IinqQuery extends WebQuery {
 					"\t\t\t\t\telse { write_page_remaining -= result.num_bytes; }\n" +
 					"\t\t\t\t}\n");
 		} else {
-			code.append("\t\t\t\tresult.processed = alloca(result.num_bytes);\n" +
-
+			code.append("\t\t\t\tresult.processed = alloca(result.num_bytes);\n");
+		}
+		/* Located within the else in the macro,
+		 * but goto DONE_COMPUTE_SELECT exists in the code.
+		 * infinite loop when this is not in if or if-else statement */
+		code.append("\t\t\t\tif (orderby_n == 0) {\n" +
 				"\t\t\t\tgoto COMPUTE_SELECT;\n" +
 				"\t\t\t\tDONE_COMPUTE_SELECT:;\n" +
 /*				"\t\t\t\tif (1 == jmp_r) { goto DONE_COMPUTE_SELECT_1; }\n" +
-				"\t\t\t\telse if (2 == jmp_r) { goto DONE_COMPUTE_SELECT_2; }\n" +
-				"\t\t\t\telse if (3 == jmp_r) { goto DONE_COMPUTE_SELECT_3; }\n" +*/
+				"\t\t\t\telse if (2 == jmp_r) { goto DONE_COMPUTE_SELECT_2; }\n" +*/
+				"\t\t\t\tif (3 == jmp_r) { goto DONE_COMPUTE_SELECT_3; }\n" +
 
-					"\t\t\t\t(&processor)->execute(&result, (&processor)->state);\n" +
-					"\t\t\t}\n");
+				"\t\t\t\t(&processor)->execute(&result, (&processor)->state);\n" +
+				"\t\t\t}\n" +
+				"\t\t}");
 				/* end if-else*/
-		}
+
 
 		/* free memory */
 		code.append(generateCleanupCode());
@@ -699,9 +708,11 @@ public class IinqQuery extends WebQuery {
 				code.append("\t\t\t/* if (err_ok != (error = ion_external_sort_init(&es, input_file, &context, iinq_sort_compare, _RESULT_ORDERBY_RECORD_SIZE, _RESULT_ORDERBY_RECORD_SIZE + total_orderby_size + (8 * agg_n), IINQ_PAGE_SIZE, boolean_false, ION_FILE_SORT_FLASH_MINSORT)))*/\n");
 			}
 
-			code.append("\t\t\tif (err_ok != (error = ion_external_sort_init(&es, input_file, &context, iinq_sort_compare,\n" +
-					"\t\t\t\t\t\t\t\t\t\t\t\t\t\t  (agg_n > 0 ? result.num_bytes : result.raw_record_size),\n" +
-					"\t\t\t\t\t\t\t\t\t\t\t\t\t\t  (agg_n > 0 ? result.num_bytes : result.raw_record_size) +\n" +
+			code.append("\t\t\tif (err_ok != (error = ion_external_sort_init(&es, input_file, &context, iinq_sort_compare,\n");
+			/* raw_record_size does not work with SELECT field list FROM table WHERE ORDERBY (doesn't take into account the fields/padding removed), */
+			/*		"\t\t\t\t\t\t\t\t\t\t\t\t\t\t  (agg_n > 0 ? result.num_bytes : result.raw_record_size),\n" +
+					"\t\t\t\t\t\t\t\t\t\t\t\t\t\t  (agg_n > 0 ? result.num_bytes : result.raw_record_size) +\n" +*/
+			code.append("\t\t\t\t\t\t\t\t\t\t\t\t\t\t result.num_bytes, result.num_bytes +\n" +
 					"\t\t\t\t\t\t\t\t\t\t\t\t\t\t  total_orderby_size + (8 * agg_n), 512, boolean_false,\n" +
 					"\t\t\t\t\t\t\t\t\t\t\t\t\t\t  ION_FILE_SORT_FLASH_MINSORT))) {\n");
 
@@ -817,14 +828,13 @@ public class IinqQuery extends WebQuery {
 					code.append("\t\t\t/* end of _REMOVE_ORDERING_FILE(orderby); */\n");
 				}
 
-				code.append("\t\t}");
 			}
 
 			return code.toString();
 		} else
 			return "";
 
-}
+	}
 
 	/**
 	 * Constructs C code to free memory used in the query
@@ -988,17 +998,17 @@ public class IinqQuery extends WebQuery {
 	 *
 	 * @return code for the WHERE filter
 	 */
-	public String generateWhereCode() throws RequiresSchemaException{
+	public String generateWhereCode() throws RequiresSchemaException {
 
 		StringBuilder code = new StringBuilder();
 
 		if (this.parameters.containsKey("filter")) {
 
 			if (this.DEBUG) {
-				code.append("\t\t\t\t/* if (!conditions) { continue; } */\n");
+				code.append("\t\t\t/* if (!conditions) { continue; } */\n");
 			}
 
-			code.append("if (!(");
+			code.append("\t\t\tif (!(");
 			Object filter = this.parameters.get("filter");
 			if (filter instanceof ArrayList) {
 				if (((ArrayList) filter).get(0) instanceof String) {
@@ -1014,7 +1024,7 @@ public class IinqQuery extends WebQuery {
 			/* Remove the unused && */
 			code.setLength(code.length() - 4);
 			code.append("){\n");
-			code.append("\tcontinue;\n}\n");
+			code.append("\t\t\tcontinue;\n}\n");
 		}
 		return code.toString();
 	}
@@ -1025,7 +1035,7 @@ public class IinqQuery extends WebQuery {
 	 * @param filter Single filter as created in IinqBuilder
 	 * @return C code for a single comparison filter in the WHERE clause
 	 */
-	public String generateComparisonCode(String filter) throws RequiresSchemaException{
+	public String generateComparisonCode(String filter) throws RequiresSchemaException {
 		if (!hasSchema()) {
 			throw new RequiresSchemaException("Comparison requires schema. ");
 		}
@@ -1051,7 +1061,7 @@ public class IinqQuery extends WebQuery {
 						fieldName = filter.substring(0, i);
 						i += 2;
 					}
-						break;
+					break;
 				case '<':
 					foundOperator = true;
 					fieldName = filter.substring(0, i);
@@ -1059,7 +1069,7 @@ public class IinqQuery extends WebQuery {
 						operator = "!=";
 						i += 2;
 					}
-						break;
+					break;
 				default:
 					i++;
 			}
@@ -1140,7 +1150,7 @@ public class IinqQuery extends WebQuery {
 		code.append(String.format("\t\tint %s_n = 0;\n", name));
 		code.append(String.format("\t\tint i_%s = 0;\n", name));
 		code.append(String.format("\t\tint total_%s_size = 0;\n", name));
-		code.append(String.format("\t\tiinq_order_part_t *%s_orderparts = NULL;\n", name));
+		code.append(String.format("\t\tiinq_order_part_t *%s_order_parts = NULL;\n", name));
 
 		return code.toString();
 	}
@@ -1177,15 +1187,19 @@ public class IinqQuery extends WebQuery {
 
 		/* TODO: add support for sort modes */
 		if (hasOrderBy()) {
-			String[] sortFields;
+			ArrayList<String> sortFields;
 			StringBuilder stackMemory = new StringBuilder();
 			/* Split based on delimeters + and - (asc and desc), first element is sort mode */
-			sortFields = this.getParameter("sort").split("((?=\\+)|(?=-))");
-			code.append(String.format("name_n = %d\n", sortFields.length - 1));
-			code.append("total_orderby_size = 0\n");
-			for (int i = 1; i < sortFields.length; i++) {
-				int direction = (sortFields[i].charAt(0) == '+') ? 1 : -1;
-				String sortField = sortFields[i].substring(1);
+			sortFields = new ArrayList<String>(Arrays.asList(this.getParameter("sort").split("((?=\\+)|(?=-))")));
+			/* Remove the sort mode,
+			 * allows us to index from 0 for the next part */
+			sortFields.remove(0);
+			code.append(String.format("\t\torderby_n = %d;\n", sortFields.size()));
+			code.append("\t\ttotal_orderby_size = 0;\n");
+			code.append(String.format("\t\torderby_order_parts = alloca(sizeof(iinq_order_part_t)*%d);\n", sortFields.size()));
+			for (int i = 0, n = sortFields.size(); i < n; i++) {
+				int direction = (sortFields.get(i).charAt(0) == '+') ? 1 : -1;
+				String sortField = sortFields.get(i).substring(1);
 				SourceField field = sourceTable.getField(sortField);
 				String orderType;
 				String expr;
@@ -1210,27 +1224,29 @@ public class IinqQuery extends WebQuery {
 					/* Order by column name from schema */
 					expr = sourceTable.getTableName() + "_tuple->" + sortField;
 				}
-				code.append(String.format("orderby_order_parts[%d].direction = %d;\n", i, direction));
-				code.append(String.format("orderby_order_parts[%d].size = sizeof();\n", i, sortField));
-				code.append(String.format("orderby_order_parts[%d].type = %s;\n", i, orderType));
-				code.append(String.format("total_orderby_size += orderby_order_parts[%d].size;\n", i));
+				code.append(String.format("\t\torderby_order_parts[%d].direction = %d;\n", i, direction));
+				code.append(String.format("\t\torderby_order_parts[%d].size = sizeof(%s);\n", i, expr));
+				code.append(String.format("\t\torderby_order_parts[%d].type = %s;\n", i, orderType));
+				code.append(String.format("\t\ttotal_orderby_size += orderby_order_parts[%d].size;\n", i));
 
 					/* Declare a space in the memory big enough for for an expression
 					*  _CREATE_MEMCPY_STACK_ADDRESS_FOR_NUMERICAL_EXPRESSION(expr) */
 				if (this.DEBUG) {
-					stackMemory.append(String.format("\t/* orderby_order_parts[%d].pointer = CREATE_MEMCPY_STACK_ADDRESS_FOR_NUMERICAL_EXPRESSION(%s)\n", i, expr));
+					//stackMemory.append(String.format("\t/* orderby_order_parts[%d].pointer = CREATE_MEMCPY_STACK_ADDRESS_FOR_NUMERICAL_EXPRESSION(%s) */\n", i, expr));
 				}
-				stackMemory.append(String.format("\torderby_order_parts[%d].pointer = (\n", i));
-				stackMemory.append(createStackAddress(expr));
+				stackMemory.append(String.format("\t\torderby_order_parts[%d].pointer = ", i));
+				/* TODO: implement orderby for expressions */
+				// stackMemory.append(createStackAddress(expr));
+				stackMemory.append(String.format("&(%s_tuple->%s);\n", tableName, sortField));
 
 			}
 			/* Skipped but then gone back to later.
 			*  Could potentially move this later in the code */
-			code.append("\tgoto IINQ_SKIP_COMPUTE_ORDERBY;\n");
-			code.append("\tIINQ_COMPUTE_ORDERBY:;\n");
+			code.append("\t\tgoto IINQ_SKIP_COMPUTE_ORDERBY;\n");
+			code.append("\t\tIINQ_COMPUTE_ORDERBY:;\n");
 			code.append(stackMemory.toString());
-			code.append("\tgoto IINQ_DONE_COMPUTE_ORDERBY;\n");
-			code.append("\tIINQ_SKIP_COMPUTE_ORDERBY:;");
+			code.append("\t\tgoto IINQ_DONE_COMPUTE_ORDERBY;\n");
+			code.append("\t\tIINQ_SKIP_COMPUTE_ORDERBY:;");
 		}
 
 		return code.toString();
@@ -1250,7 +1266,7 @@ public class IinqQuery extends WebQuery {
 				"\t\t) \n" +
 				"\t)", expr, expr, expr, expr, expr, expr, expr);
 
-}
+	}
 
 
 	/**
