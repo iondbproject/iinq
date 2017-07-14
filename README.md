@@ -1,4 +1,4 @@
-![iinq](https://rawcdn.githack.com/iondbproject/iinq/select-all-from-dana/iinq/documentation/iinq_logo4.svg)
+![iinq](https://rawcdn.githack.com/iondbproject/iinq/master/iinq/documentation/iinq_logo.svg)
 =========
 
 You might also be interested in our sister projects, [IonDB - a key-value datastore for resource constrained systems](https://github.com/iondbproject/iondb) and [LittleD - A relational database using 1kB of RAM or less](https://github.com/graemedouglas/LittleD).
