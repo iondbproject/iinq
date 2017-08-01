@@ -30,7 +30,7 @@
         <remarks></remarks>
         <defaultValue></defaultValue>
         <characterOctetLength>0</characterOctetLength>
-        <ordinalPosition>6</ordinalPosition>
+        <ordinalPosition>1</ordinalPosition>
         <isNullable>NO</isNullable>
         <numDistinctValues>1499</numDistinctValues>
      </FIELD>
@@ -46,7 +46,7 @@
         <remarks></remarks>
         <defaultValue></defaultValue>
         <characterOctetLength>80</characterOctetLength>
-        <ordinalPosition>3</ordinalPosition>
+        <ordinalPosition>2</ordinalPosition>
         <isNullable>NO</isNullable>
         <numDistinctValues>1500</numDistinctValues>
 	</FIELD>
@@ -63,7 +63,7 @@
         <remarks></remarks>
         <defaultValue></defaultValue>
         <characterOctetLength>0</characterOctetLength>
-        <ordinalPosition>1</ordinalPosition>
+        <ordinalPosition>3</ordinalPosition>
         <isNullable>NO</isNullable>
         <numDistinctValues>1500</numDistinctValues>
      </FIELD>
@@ -79,7 +79,7 @@
         <remarks></remarks>
         <defaultValue></defaultValue>
         <characterOctetLength>20</characterOctetLength>
-        <ordinalPosition>7</ordinalPosition>
+        <ordinalPosition>4</ordinalPosition>
         <isNullable>NO</isNullable>
         <numDistinctValues>5</numDistinctValues>
      </FIELD>
@@ -117,7 +117,7 @@
         <remarks></remarks>
         <defaultValue></defaultValue>
         <characterOctetLength>88</characterOctetLength>
-        <ordinalPosition>16</ordinalPosition>
+        <ordinalPosition>1</ordinalPosition>
         <isNullable>NO</isNullable>
         <numDistinctValues>58511</numDistinctValues>
      </FIELD>
@@ -133,7 +133,7 @@
         <remarks></remarks>
         <defaultValue></defaultValue>
         <characterOctetLength>0</characterOctetLength>
-        <ordinalPosition>7</ordinalPosition>
+        <ordinalPosition>2</ordinalPosition>
         <isNullable>NO</isNullable>
         <numDistinctValues>11</numDistinctValues>
      </FIELD>
@@ -149,7 +149,7 @@
         <remarks></remarks>
         <defaultValue></defaultValue>
         <characterOctetLength>2</characterOctetLength>
-        <ordinalPosition>10</ordinalPosition>
+        <ordinalPosition>3</ordinalPosition>
         <isNullable>NO</isNullable>
         <numDistinctValues>2</numDistinctValues>
      </FIELD>

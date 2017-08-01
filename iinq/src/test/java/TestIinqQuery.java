@@ -308,7 +308,19 @@ public class TestIinqQuery
                 
         TestIinq.runSQLQuery("SELECT col1, col2, col3, col4 FROM test1 WHERE col1 != 2.1;", answer, metadata);
     }
-    
+
+	/**
+	 * Test multiple WHERE filters
+	 */
+	@Test
+	public void testWhereMultipleFilters()
+	{
+		String answer;
+		answer = "";
+
+		TestIinq.runSQLQuery("SELECT col3, col4 FROM test1 WHERE col3 = 5 AND col4 <> \'Hello\'", answer, metadata);
+	}
+
 	/**
 	 * Test ORDER BY.
 	 */

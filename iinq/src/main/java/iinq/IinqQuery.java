@@ -6,6 +6,7 @@ import unity.annotation.SourceTable;
 import unity.engine.Attribute;
 import unity.generic.query.WebQuery;
 
+import java.io.*;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -18,7 +19,68 @@ import java.util.jar.Attributes;
 public class IinqQuery extends WebQuery {
 	// Enables comments with in code output
 	private static final boolean DEBUG = true;
+	private HashMap<String, Object> queryCode;
 
+	public void writeQueryToSource(String source) throws IOException {
+		File file = new File(source);
+		File temp = File.createTempFile("temp-source-file", ".tmp");
+		BufferedReader in = new BufferedReader(new FileReader(file));
+		PrintWriter out = new PrintWriter(new FileWriter(temp));
+		String line, trimmedLine;
+		while ((line = in.readLine()) != null) {
+			trimmedLine = line.trim();
+			// Skip comments & #includes
+			if (trimmedLine.isEmpty() || trimmedLine.charAt(0) == '#' || trimmedLine.substring(0, 2).equals("//")) {
+				// empty line, preprocessor command, or single line comment
+				out.println(line);
+				continue;
+			} else if (trimmedLine.substring(0, 1).equals("/*")) {
+				// multi line comment
+				Boolean multiLineComment = true;
+				while (multiLineComment) {
+					if (trimmedLine.contains("*/")) {
+						multiLineComment = false;
+					} else {
+						line = in.readLine();
+						trimmedLine = line.trim();
+					}
+					out.println(line);
+				}
+			} else {
+				// end of comments and #includes
+				break;
+			}
+		}
+
+		// write out predicate definition
+		PredicateFunction predicateFunction;
+		if ((predicateFunction = (PredicateFunction) this.queryCode.get("predicate")) != null) {
+			out.println(predicateFunction.getDefinition());
+		}
+
+		out.println(line);
+
+		// continue until we get to the init function
+		while ((line = in.readLine()) != null) {
+			trimmedLine = line.trim();
+			if (trimmedLine.startsWith("init(")) {
+				// print out the line as a comment
+				out.println("/* LINE REPLACED: " + line.trim() + " */");
+				// get the name of the iterator to be initialized
+				String iteratorName = trimmedLine.substring(trimmedLine.indexOf("(") + 1, trimmedLine.indexOf(","));
+				// replace the line with the appropriate init function
+				out.println(String.format("%s(%s, %s, %s, %s);", (String) this.queryCode.get("select_init"), iteratorName, (String) this.queryCode.get("table_name"), (String) this.queryCode.get("next"), (predicateFunction == null) ? null : predicateFunction.getName()));
+
+			} else {
+				out.println(line);
+			}
+		}
+
+		in.close();
+		out.close();
+		file.delete();
+		temp.renameTo(file);
+	}
 
 	/**
 	 * Checks whether the query contains an GROUP BY clause
@@ -40,6 +102,15 @@ public class IinqQuery extends WebQuery {
 	}
 
 	/**
+	 * Checks whether the query has SELECT * as its SELECT clause.
+	 *
+	 * @return true if it is SELECT *, false if it is not
+	 */
+	public boolean isSelectAll() {
+		return ((String) this.parameters.get("fields")).equals("*");
+	}
+
+	/**
 	 * Checks whether a schema was given for the query.
 	 *
 	 * @return true if a schema was given, false if it was not.
@@ -58,526 +129,104 @@ public class IinqQuery extends WebQuery {
 	}
 
 	/**
+	 * Generates the C code for a predicate definition.
+	 *
+	 * @param identifier A number added to the end of the function name to make it unique.
+	 * @return code to evaluate a predicate
+	 */
+	public PredicateFunction generatePredicateFunction(int identifier) throws RequiresSchemaException {
+
+		String name = String.format("generatedPredicate%d", identifier);
+		// First line will be the return type for the predicate
+		StringBuilder definition = new StringBuilder(String.format("ion_boolean_t\n" +
+				// Next line is the function name and parameter list
+				"%s(iinq_iterator_t *it) {\n", name));
+
+		definition.append("\tif (!(");
+		Object filter = this.parameters.get("filter");
+		if (filter instanceof ArrayList) {
+			if (((ArrayList) filter).get(0) instanceof String) {
+				ArrayList<String> filterList = (ArrayList<String>) filter;
+					/* Loop through each filter in the where clause */
+				for (String s : filterList) {
+					definition.append(generateComparisonCode(s));
+				}
+			}
+		} else if (filter instanceof String) {
+			definition.append(generateComparisonCode((String) filter));
+		}
+		definition.setLength(definition.length() - 3);
+		definition.append("{\n" +
+				"\t\treturn boolean_false;\n" +
+				"\t} else {\n" +
+				"\t\treturn boolean_true;\n" +
+				"\t}\n" +
+				"}\n\n");
+
+
+		return new PredicateFunction(name, definition.toString());
+	}
+
+	/**
 	 * Generates the C code for this SQL query.
 	 *
 	 * @return code to execute query
 	 */
-	public String generateCode() {
+	public HashMap<String, Object> generateCode() {
 		/* Currently follows similar structure to MATERIALIZED_QUERY macro		 */
 		String tableName = getTableName();
 		StringBuilder code = new StringBuilder();
+		HashMap<String, Object> returnValue = new HashMap<>();
 
-		/* Included for all queries */
-		code.append("\tdo {\n" +
-				"\t\tion_err_t error;\n" +
-				"\t\tion_iinq_result_t result;\n" +
-				"\t\tint jmp_r;\n" +
-				/* selectbuf not used for any queries,
-				*  possibly added to replace excessive goto code*/
-				/*"\t\tjmp_buf selectbuf;\n" +*/
-				"\t\tresult.raw_record_size = 0;\n" +
-				"\t\tresult.num_bytes = 0;\n"
-		);
+		// first thing we will need is the table name for the query
+		returnValue.put("table_name", this.parameters.get("source"));
 
-		/* Original macros required the schema to be declared prior to the macro call
-		 * This does not declare the fields in the same order as the source table */
-		/*if (hasSchema()) {
-			code.append(generateSchemaDefinition());
-		}*/
-
-		/* additional code for materialized queries */
-		code.append("\t\tint read_page_remaining = IINQ_PAGE_SIZE;\n" +
-				"\t\tint write_page_remaining = IINQ_PAGE_SIZE;\n" +
-				"\t\tFILE *input_file;\n" +
-				"\t\tFILE *output_file;\n");
-
-		/* for aggregate expressions */
-		/* TODO: remove the need tor these variables when there aren't any aggregates */
-		code.append("\t\tint agg_n = 0;\n" +
-				"\t\tint i_agg = 0;\n");
-
-		/* from_clause */
-		code.append(generateFromCode());
-
-		/* _ORDERING_DECLARE(groupby) */
-		/* GROUP BY not supported */
-		/*code.append(generateOrderingDeclare("groupby"));*/
-
-		/* _ORDERING_DECLARE(orderby) */
-		/* if ORDER BY was in query, "sort" parameter exist */
-		if (hasOrderBy())
-			code.append(generateOrderingDeclare("orderby"));
-
-		/* aggregate_exprs
-		 * not supported */
-		/*code.append(generateAggregateExprsCode());*/
-
-		/* select_clause */
-		code.append(generateSelectCode());
-
-		/* groupby_clause
-		 * not supported */
-		/*code.append(generateGroupByCode());*/
-
-		/* orderby_clause */
-		if (hasOrderBy())
-			code.append(generateOrderByCode());
-
-		/* Wrap from in do-while loop */
-		code.append("\t\tdo {\n"
-				/* GROUP BY and aggregates
-				 * not supported yet
-				 * TODO: remove these if statements (only generate needed code)*/
-				/*"\t\t\tif (agg_n > 0 || groupby_n > 0) {\n" +
-				*//* _OPEN_ORDERING_FILE_WRITE(groupby, 0, 1, 0, result, groupby) *//*
-				"\t\t\t\toutput_file = fopen(\"groupby\", \"wb\");\n" +
-				"\t\t\t\tif (NULL == output_file) {\n" +
-				"\t\t\t\t\terror = err_file_open_error;\n" +
-				"\t\t\t\t\tgoto IINQ_QUERY_END;\n" +
-				"\t\t\t\t}\n" +
-				"\t\t\t\twrite_page_remaining = IINQ_PAGE_SIZE;\n" +
-				"\t\t\t\tif ((int) write_page_remaining < (int) (total_groupby_size + (result.raw_record_size))) {\n" +
-				"\t\t\t\t\terror = err_record_size_too_large;\n" +
-				"\t\t\t\t\tgoto IINQ_QUERY_END;\n" +
-				"\t\t\t\t}\n" +
-				"\t\t\t}\n" +
-
-				*//* Just GROUP BY, invalid query *//*
-				*//* TODO: why is this even an else if? Doesn't the first if make sure this is never a case *//*
-				"\t\t\telse if (groupby_n > 0) {\n" +
-				"\t\t\t\terror = err_illegal_state;\n" +
-				"\t\t\t\tgoto IINQ_QUERY_END;\n" +
-				"\t\t\t}\n"*/);
-
-				/* Just ORDER BY */
-		if (hasOrderBy()) {
-			code.append("\t\t\t{\n");
-			if (this.DEBUG) code.append("\t\t\t\t/* _OPEN_ORDERING_FILE_WRITE(orderby, 0, 1, 0, result, orderby) */\n");
-			code.append("\t\t\t\toutput_file = fopen(\"orderby\", \"wb\");\n" +
-					"\t\t\t\tif (NULL == output_file) {\n" +
-					"\t\t\t\t\terror = err_file_open_error;\n" +
-					"\t\t\t\t\tgoto IINQ_QUERY_END;\n" +
-					"\t\t\t\t}\n" +
-					"\t\t\t\twrite_page_remaining = IINQ_PAGE_SIZE;\n" +
-					"\t\t\t\tif ((int) write_page_remaining < (int) (total_orderby_size + (result.raw_record_size))) {\n" +
-					"\t\t\t\t\terror = err_record_size_too_large;\n" +
-					"\t\t\t\t\tgoto IINQ_QUERY_END;\n" +
-					"\t\t\t\t}\n" +
-					"\t\t\t}\n");
+		// if there is a predicate, create a function definietion for it
+		if (this.parameters.containsKey("filter")) {
+			try {
+				returnValue.put("predicate", generatePredicateFunction(0));
+			} catch (RequiresSchemaException e) {
+				e.printStackTrace();
+			}
 		}
 
-		code.append("\t\twhile (1) {\n");
+		// is select all
+		if (isSelectAll()) {
+			if (hasOrderBy()) {
 
-		if (this.DEBUG) {
-			code.append("\t\t\t/* _FROM_ADVANCE_CURSORS */\n");
-		}
+			} else if (hasGroupBy()) {
 
-		code.append("\t\t\tif (NULL == ref_cursor) { break; }\n" +
-				"\t\t\tlast_cursor = ref_cursor;\n" +
-				"\t\t\twhile (NULL != ref_cursor && (cs_cursor_active !=\n" +
-				"\t\t\t\t\t\t\t\t\t\t\t\t  (ref_cursor->reference->cursor_status = ref_cursor->reference->cursor->next(\n" +
-				"\t\t\t\t\t\t\t\t\t\t\t\t\t\t  ref_cursor->reference->cursor,\n" +
-				"\t\t\t\t\t\t\t\t\t\t\t\t\t\t  &ref_cursor->reference->ion_record)) &&\n" +
-				"\t\t\t\t\t\t\t\t\t\t\t\t  cs_cursor_initialized != ref_cursor->reference->cursor_status)) {\n" +
-				"\t\t\t\tref_cursor->reference->cursor->destroy(&ref_cursor->reference->cursor);\n" +
-				"\t\t\t\tdictionary_find(&ref_cursor->reference->dictionary, &ref_cursor->reference->predicate,\n" +
-				"\t\t\t\t\t\t\t\t&ref_cursor->reference->cursor);\n" +
-				"\t\t\t\tif ((cs_cursor_active != (ref_cursor->reference->cursor_status = ref_cursor->reference->cursor->next(\n" +
-				"\t\t\t\t\t\tref_cursor->reference->cursor, &ref_cursor->reference->ion_record)) &&\n" +
-				"\t\t\t\t\t cs_cursor_initialized != ref_cursor->reference->cursor_status)) { goto IINQ_QUERY_CLEANUP; }\n" +
-				"\t\t\t\tref_cursor = ref_cursor->last;\n" +
-				"\t\t\t}\n" +
-				"\t\t\tif (NULL == ref_cursor) { \n" +
-				"\t\t\t\tbreak;\n" +
-				"\t\t\t} else if (last_cursor != ref_cursor) {\n" +
-				"\t\t\t\tref_cursor = last;\n" +
-				"\t\t\t }\n"
-		);
-
-		if (this.DEBUG) {
-			code.append("\t\t\t/* end of _FROM_ADVANCE_CURSORS */\n");
-		}
-
-		/* Still in while(1) loop
-		 * if (!WHERE) { continue; } */
-		try {
-			code.append(generateWhereCode());
-		} catch (RequiresSchemaException ex) {
-			ex.printStackTrace();
-		}
-
-		/* Copy data after a join (before grouping/aggregating/sorting)
-		 * Not sure if we will need this code, so leaving it commented out
-		 * _COPY_EARLY_RESULT_ALL */
-		/*code.append("do {\n" +
-				"\t\t\t\t\tion_iinq_result_size_t result_loc = 0;\n" +
-				"\t\t\t\t\tion_iinq_cleanup_t *copyer = first;\n" +
-				"\t\t\t\t\twhile (NULL != copyer) {\n" +
-				"\t\t\t\t\t\tmemcpy(result.data + (result_loc), copyer->reference->key,\n" +
-				"\t\t\t\t\t\t\t   copyer->reference->dictionary.instance->record.key_size);\n" +
-				"\t\t\t\t\t\tresult_loc += copyer->reference->dictionary.instance->record.key_size;\n" +
-				"\t\t\t\t\t\tmemcpy(result.data + (result_loc), copyer->reference->value,\n" +
-				"\t\t\t\t\t\t\t   copyer->reference->dictionary.instance->record.value_size);\n" +
-				"\t\t\t\t\t\tresult_loc += copyer->reference->dictionary.instance->record.value_size;\n" +
-				"\t\t\t\t\t\tcopyer = copyer->next;\n" +
-				"\t\t\t\t\t}\n" +
-				"\t\t\t\t}\n" +
-				"\t\t\t\twhile (0);");*/
-
-		/* Also not sure if we will need this yet*/
-		/* If GROUP BY or aggregates */
-		/*code.append("\t\t\t\tif (agg_n > 0 || groupby_n > 0) {\n" +
-				*//* Write out groupby records to disk for sorting *//*
-				"\t\t\t\t\tgoto IINQ_COMPUTE_GROUPBY;\n" +
-				"\t\t\t\t\tIINQ_DONE_COMPUTE_GROUPBY:;\n" +
-
-				*//* _WRITE_ORDERING_RECORD(groupby, 0, 1, 0, result) *//*
-				"\t\t\t\t\tif ((int) write_page_remaining <\n" +
-				"\t\t\t\t\t\t(int) (total_groupby_size + (result.raw_record_size) + (8 * agg_n))) {\n" +
-				"\t\t\t\t\t\tint i = 0;\n" +
-				"\t\t\t\t\t\tchar x = 0;\n" +
-				"\t\t\t\t\t\tfor (; i < write_page_remaining; i++) { if (1 != fwrite(&x, 1, 1, output_file)) { break; }}\n" +
-				"\t\t\t\t\t\twrite_page_remaining = IINQ_PAGE_SIZE;\n" +
-				"\t\t\t\t\t};" +
-				"\t\t\t\t\tfor (i_groupby = 0; i_groupby < groupby_n; i_groupby++) {\n" +
-				"\t\t\t\t\t\tif (1 != fwrite(groupby_order_parts[i_groupby].pointer, groupby_order_parts[i_groupby].size, 1,\n" +
-				"\t\t\t\t\t\t\t\t\t\toutput_file)) { break; }\n" +
-				"\t\t\t\t\t\telse { write_page_remaining -= groupby_order_parts[i_groupby].size; }\n" +
-				"\t\t\t\t\t}\n" +
-				"\t\t\t\t\tif (1 != fwrite(result.data, result.raw_record_size, 1, output_file)) { break; }\n" +
-				"\t\t\t\t\telse { write_page_remaining -= result.raw_record_size; }\n" +
-				"\t\t\t\t}");*/
-
-		/* If ORDER BY */
-		if (hasOrderBy()) {
-			code.append("\t\t\t\t{\n" +
-					"\t\t\t\t\tgoto IINQ_COMPUTE_ORDERBY;\n" +
-					"\t\t\t\t\tIINQ_DONE_COMPUTE_ORDERBY:;\n" +
-
-					/*  Used when there is a GROUP BY */
-					/*"\t\t\t\t\tif (1 == jmp_r) { goto IINQ_DONE_COMPUTE_ORDERBY_1; }\n" +*/
-
-					/* Used to evaluate HAVING clause */
-					/*"\t\t\t\t\telse if (2 == jmp_r) { goto IINQ_DONE_COMPUTE_ORDERBY_2; }\n" +*/
-
-					"\t\t\t\t\tjmp_r = 3;\n" +
-					"\t\t\t\t\tgoto COMPUTE_SELECT;\n" +
-					"\t\t\t\t\tDONE_COMPUTE_SELECT_3:;\n" +
-
-					"\t\t\t\t\tif ((int) write_page_remaining < (int) (total_orderby_size + (result.num_bytes) + (8 * agg_n))) {\n" +
-					"\t\t\t\t\t\tint i = 0;\n" +
-					"\t\t\t\t\t\tchar x = 0;\n" +
-					"\t\t\t\t\t\tfor (; i < write_page_remaining; i++) { if (1 != fwrite(&x, 1, 1, output_file)) { break; }}\n" +
-					"\t\t\t\t\t\twrite_page_remaining = 512;\n" +
-					"\t\t\t\t\t};\n" +
-					"\t\t\t\t\tfor (i_orderby = 0; i_orderby < orderby_n; i_orderby++) {\n" +
-					"\t\t\t\t\t\tif (1 != fwrite(orderby_order_parts[i_orderby].pointer, orderby_order_parts[i_orderby].size, 1,\n" +
-					"\t\t\t\t\t\t\t\t\t\toutput_file)) { break; }\n" +
-					"\t\t\t\t\t\telse { write_page_remaining -= orderby_order_parts[i_orderby].size; }\n" +
-					"\t\t\t\t\t}\n" +
-					"\t\t\t\t\tif (1 != fwrite(result.processed, result.num_bytes, 1, output_file)) { break; }\n" +
-					"\t\t\t\t\telse { write_page_remaining -= result.num_bytes; }\n" +
-					"\t\t\t\t}\n");
+			} else {
+				// No sorting, projection is done on the table directly
+				returnValue.put("select_init", "iinq_query_init_select_all_from_table");
+			}
 		} else {
-			code.append("\t\t\t\tresult.processed = alloca(result.num_bytes);\n");
+			// select field list
+			if (hasOrderBy()) {
+
+			} else if (hasGroupBy()) {
+
+			} else {
+				// No sorting, projection is done on the table directly
+				// Split the field list into an array
+				String fields[] = this.getParameter("fields").split(", ");
+				// Field list will be an iinq_field_list_t array. We use a macro in the C code to improve readibility.
+				StringBuilder fieldList = new StringBuilder("IINQ_FIELD_LIST(");
+				for (int i = 0; i < fields.length; i++) {
+				/* First number is table index (hardcoded as 0 since multiple tables are unsupported)
+				 * Second number is the field number of that table (requires the ordinal positions in the schema to be correct) */
+					fieldList.append(String.format("{ 0, %d }, ", this.getRelation().getAttributeIndexByName(fields[i])));
+				}
+				// remove the last comma
+				fieldList.setLength(fieldList.length() - 2);
+				// close off the field list
+				fieldList.append(")");
+				returnValue.put("field_list", fieldList.toString());
+				returnValue.put("select_init", "iinq_query_init_select_field_list_from_table");
+			}
 		}
-		/* Located within the else in the macro,
-		 * but goto DONE_COMPUTE_SELECT exists in the code.
-		 * infinite loop when this is not in if or if-else statement */
-		code.append("\t\t\t\tif (orderby_n == 0) {\n" +
-				"\t\t\t\tgoto COMPUTE_SELECT;\n" +
-				"\t\t\t\tDONE_COMPUTE_SELECT:;\n" +
-/*				"\t\t\t\tif (1 == jmp_r) { goto DONE_COMPUTE_SELECT_1; }\n" +
-				"\t\t\t\telse if (2 == jmp_r) { goto DONE_COMPUTE_SELECT_2; }\n" +*/
-				"\t\t\t\tif (3 == jmp_r) { goto DONE_COMPUTE_SELECT_3; }\n" +
 
-				"\t\t\t\t(&processor)->execute(&result, (&processor)->state);\n" +
-				"\t\t\t}\n" +
-				"\t\t}");
-				/* end if-else*/
-
-
-		/* free memory */
-		code.append(generateCleanupCode());
-
-		/* sort the file if there are groupby elements
-		 *  have not implemented group by yet so leaving this commented out */
-		/* code.append("\t\tif (groupby_n > 0) {\n" +
-				"\t\t\tinput_file = fopen(\"groupby\", \"rb\");\n" +
-				"\t\t\tif (NULL == input_file) {\n" +
-				"\t\t\t\terror = err_file_open_error;\n" +
-				"\t\t\t\tgoto IINQ_QUERY_END;\n" +
-				"\t\t\t}\n" +
-				"\t\t\tread_page_remaining = 512;\n" +
-				"\t\t\tif ((int) read_page_remaining < (int) (total_groupby_size + result.raw_record_size)) {\n" +
-				"\t\t\t\terror = err_record_size_too_large;\n" +
-				"\t\t\t\tgoto IINQ_QUERY_END;\n" +
-				"\t\t\t};\n" +
-				"\t\t\toutput_file = fopen(\"sortedgb\", \"wb\");\n" +
-				"\t\t\tif (NULL == output_file) {\n" +
-				"\t\t\t\terror = err_file_open_error;\n" +
-				"\t\t\t\tgoto IINQ_QUERY_END;\n" +
-				"\t\t\t}\n" +
-				"\t\t\twrite_page_remaining = 512;\n" +
-				"\t\t\tif ((int) write_page_remaining < (int) (total_groupby_size + (result.raw_record_size))) {\n" +
-				"\t\t\t\terror = err_record_size_too_large;\n" +
-				"\t\t\t\tgoto IINQ_QUERY_END;\n" +
-				"\t\t\t};\n" +
-				"\t\t\tion_external_sort_t es;\n" +
-				"\t\t\tiinq_sort_context_t context = ((iinq_sort_context_t) {groupby_order_parts, groupby_n});\n" +
-				"\t\t\tif (err_ok !=\n" +
-				"\t\t\t\t(error = ion_external_sort_init(&es, input_file, &context, iinq_sort_compare, result.raw_record_size,\n" +
-				"\t\t\t\t\t\t\t\t\t\t\t\tresult.raw_record_size + total_groupby_size, 512, boolean_false,\n" +
-				"\t\t\t\t\t\t\t\t\t\t\t\tION_FILE_SORT_FLASH_MINSORT))) {\n" +
-				"\t\t\t\tif (0 != fclose(input_file)) {\n" +
-				"\t\t\t\t\terror = err_file_close_error;\n" +
-				"\t\t\t\t\tgoto IINQ_QUERY_END;\n" +
-				"\t\t\t\t};\n" +
-				"\t\t\t\tif (0 != fclose(output_file)) {\n" +
-				"\t\t\t\t\terror = err_file_close_error;\n" +
-				"\t\t\t\t\tgoto IINQ_QUERY_END;\n" +
-				"\t\t\t\t};\n" +
-				"\t\t\t\tgoto IINQ_QUERY_END;\n" +
-				"\t\t\t}\n" +
-				"\t\t\tuint16_t buffer_size = ion_external_sort_bytes_of_memory_required(&es, 0, boolean_true);\n" +
-				"\t\t\tchar *buffer = alloca((buffer_size));\n" +
-				"\t\t\tif (err_ok != (error = ion_external_sort_dump_all(&es, output_file, buffer, buffer_size))) {\n" +
-				"\t\t\t\tif (0 != fclose(input_file)) {\n" +
-				"\t\t\t\t\terror = err_file_close_error;\n" +
-				"\t\t\t\t\tgoto IINQ_QUERY_END;\n" +
-				"\t\t\t\t};\n" +
-				"\t\t\t\tif (0 != fclose(output_file)) {\n" +
-				"\t\t\t\t\terror = err_file_close_error;\n" +
-				"\t\t\t\t\tgoto IINQ_QUERY_END;\n" +
-				"\t\t\t\t};\n" +
-				"\t\t\t\tgoto IINQ_QUERY_END;\n" +
-				"\t\t\t}\n" +
-				"\t\t\tif (0 != fclose(input_file)) {\n" +
-				"\t\t\t\terror = err_file_close_error;\n" +
-				"\t\t\t\tgoto IINQ_QUERY_END;\n" +
-				"\t\t\t};\n" +
-				"\t\t\tif (0 != fclose(output_file)) {\n" +
-				"\t\t\t\terror = err_file_close_error;\n" +
-				"\t\t\t\tgoto IINQ_QUERY_END;\n" +
-				"\t\t\t};\n" +
-				"\t\t\tif (0 != remove(\"groupby\")) {\n" +
-				"\t\t\t\terror = err_file_delete_error;\n" +
-				"\t\t\t\tgoto IINQ_QUERY_END;\n" +
-				"\t\t\t};\n" +
-				"\t\t}")*/
-
-		/* if aggregates or groupby
-		 * have not implemented so commented out */
-		/*code.append("\t\tif (agg_n > 0 || groupby_n > 0) {\n" +
-				"\t\t\tif (groupby_n > 0) {\n" +
-				"\t\t\t\tinput_file = fopen(\"sortedgb\", \"rb\");\n" +
-				"\t\t\t\tif (NULL == input_file) {\n" +
-				"\t\t\t\t\terror = err_file_open_error;\n" +
-				"\t\t\t\t\tgoto IINQ_QUERY_END;\n" +
-				"\t\t\t\t}\n" +
-				"\t\t\t\tread_page_remaining = 512;\n" +
-				"\t\t\t\tif ((int) read_page_remaining < (int) (total_groupby_size + result.raw_record_size)) {\n" +
-				"\t\t\t\t\terror = err_record_size_too_large;\n" +
-				"\t\t\t\t\tgoto IINQ_QUERY_END;\n" +
-				"\t\t\t\t};\n" +
-				"\t\t\t}\n" +
-				"\t\t\telse {\n" +
-				"\t\t\t\tinput_file = fopen(\"groupby\", \"rb\");\n" +
-				"\t\t\t\tif (NULL == input_file) {\n" +
-				"\t\t\t\t\terror = err_file_open_error;\n" +
-				"\t\t\t\t\tgoto IINQ_QUERY_END;\n" +
-				"\t\t\t\t}\n" +
-				"\t\t\t\tread_page_remaining = 512;\n" +
-				"\t\t\t\tif ((int) read_page_remaining < (int) (total_groupby_size + result.raw_record_size)) {\n" +
-				"\t\t\t\t\terror = err_record_size_too_large;\n" +
-				"\t\t\t\t\tgoto IINQ_QUERY_END;\n" +
-				"\t\t\t\t};\n" +
-				"\t\t\t}\n" +
-				"\t\t\tif (orderby_n > 0) {\n" +
-				"\t\t\t\toutput_file = fopen(\"orderby\", \"wb\");\n" +
-				"\t\t\t\tif (NULL == output_file) {\n" +
-				"\t\t\t\t\terror = err_file_open_error;\n" +
-				"\t\t\t\t\tgoto IINQ_QUERY_END;\n" +
-				"\t\t\t\t}\n" +
-				"\t\t\t\twrite_page_remaining = 512;\n" +
-				"\t\t\t\tif ((int) write_page_remaining < (int) (total_orderby_size + (8 * agg_n) + (result.num_bytes))) {\n" +
-				"\t\t\t\t\terror = err_record_size_too_large;\n" +
-				"\t\t\t\t\tgoto IINQ_QUERY_END;\n" +
-				"\t\t\t\t};\n" +
-				"\t\t\t}\n" +
-				"\t\t\tion_boolean_t is_first = boolean_true;\n" +
-				"\t\t\tchar *old_key = (total_groupby_size > 0) ? alloca((total_groupby_size)) : NULL;\n" +
-				"\t\t\tchar *cur_key = (total_groupby_size > 0) ? alloca((total_groupby_size)) : NULL;\n" +
-				"\t\t\tread_page_remaining = 512;\n" +
-				"\t\t\tresult.processed = alloca((result.num_bytes));\n" +
-				"\t\t\twhile (1) {\n" +
-				"\t\t\t\tif ((int) read_page_remaining < (int) (total_groupby_size + (result.raw_record_size) +\n" +
-				"\t\t\t\t\t\t\t\t\t\t\t\t\t   ((NULL != NULL) ? 8 * agg_n : 0))) {\n" +
-				"\t\t\t\t\tif (0 != fseek(input_file, read_page_remaining, 1)) { break; }\n" +
-				"\t\t\t\t\tread_page_remaining = 512;\n" +
-				"\t\t\t\t}\n" +
-				"\t\t\t\tif (NULL != cur_key) {\n" +
-				"\t\t\t\t\tif (0 == total_groupby_size ||\n" +
-				"\t\t\t\t\t\t1 != fread((cur_key), total_groupby_size, 1, input_file)) { break; }\n" +
-				"\t\t\t\t\telse { read_page_remaining -= total_groupby_size; }\n" +
-				"\t\t\t\t}\n" +
-				"\t\t\t\telse {\n" +
-				"\t\t\t\t\tif (0 != fseek(input_file, total_groupby_size, 1)) { break; }\n" +
-				"\t\t\t\t\telse { read_page_remaining -= total_groupby_size; }\n" +
-				"\t\t\t\t}\n" +
-				"\t\t\t\tif (NULL != NULL) {\n" +
-				"\t\t\t\t\tif (1 != fread((NULL), 8 * agg_n, 1, input_file)) { break; }\n" +
-				"\t\t\t\t\telse {\n" +
-				"\t\t\t\t\t\tread_page_remaining -= 8 * agg_n;\n" +
-				"\t\t\t\t\t}\n" +
-				"\t\t\t\t}\n" +
-				"\t\t\t\tif (1 != fread(result.data, result.raw_record_size, 1, input_file)) { break; }\n" +
-				"\t\t\t\tread_page_remaining -= result.raw_record_size;;\n" +
-				"\t\t\t\tif (total_groupby_size > 0 && boolean_false == is_first && equal != iinq_sort_compare(\n" +
-				"\t\t\t\t\t\t&((iinq_sort_context_t) {groupby_order_parts, groupby_n}), cur_key, old_key)) {\n" +
-				"\t\t\t\t\tjmp_r = 1;\n" +
-				"\t\t\t\t\tgoto IINQ_COMPUTE_ORDERBY;\n" +
-				"\t\t\t\t\tIINQ_DONE_COMPUTE_ORDERBY_1:;\n" +
-				"\t\t\t\t\tif (!(having_____)) { continue; }\n" +
-				"\t\t\t\t\tjmp_r = 1;\n" +
-				"\t\t\t\t\tgoto COMPUTE_SELECT;\n" +
-				"\t\t\t\t\tDONE_COMPUTE_SELECT_1:;\n" +
-				"\t\t\t\t\tif (orderby_n > 0) {\n" +
-				"\t\t\t\t\t\tif ((int) write_page_remaining <\n" +
-				"\t\t\t\t\t\t\t(int) (total_orderby_size + (result.num_bytes) + (8 * agg_n))) {\n" +
-				"\t\t\t\t\t\t\tint i = 0;\n" +
-				"\t\t\t\t\t\t\tchar x = 0;\n" +
-				"\t\t\t\t\t\t\tfor (; i < write_page_remaining; i++) { if (1 != fwrite(&x, 1, 1, output_file)) { break; }}\n" +
-				"\t\t\t\t\t\t\twrite_page_remaining = 512;\n" +
-				"\t\t\t\t\t\t};\n" +
-				"\t\t\t\t\t\tfor (i_orderby = 0; i_orderby < orderby_n; i_orderby++) {\n" +
-				"\t\t\t\t\t\t\tif (1 != fwrite(orderby_order_parts[i_orderby].pointer, orderby_order_parts[i_orderby].size,\n" +
-				"\t\t\t\t\t\t\t\t\t\t\t1, output_file)) { break; }\n" +
-				"\t\t\t\t\t\t\telse { write_page_remaining -= orderby_order_parts[i_orderby].size; }\n" +
-				"\t\t\t\t\t\t}\n" +
-				"\t\t\t\t\t\tfor (i_agg = 0; i_agg < agg_n; i_agg++) {\n" +
-				"\t\t\t\t\t\t\tif (1 != fwrite(&(uint64_t) {\n" +
-				"\t\t\t\t\t\t\t\t\t\t\t\t\t(IINQ_AGGREGATE_TYPE_INT == aggregates[(i_agg)].type ? aggregates[(i_agg)].value.i64\n" +
-				"\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t : (IINQ_AGGREGATE_TYPE_UINT ==\n" +
-				"\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\taggregates[(i_agg)].type\n" +
-				"\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t? aggregates[(i_agg)].value.u64\n" +
-				"\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t: aggregates[(i_agg)].value.f64))},\n" +
-				"\t\t\t\t\t\t\t\t\t\t\tsizeof((IINQ_AGGREGATE_TYPE_INT == aggregates[(i_agg)].type\n" +
-				"\t\t\t\t\t\t\t\t\t\t\t\t\t? aggregates[(i_agg)].value.i64 : (IINQ_AGGREGATE_TYPE_UINT ==\n" +
-				"\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t   aggregates[(i_agg)].type\n" +
-				"\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t   ? aggregates[(i_agg)].value.u64\n" +
-				"\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t   : aggregates[(i_agg)].value.f64))),\n" +
-				"\t\t\t\t\t\t\t\t\t\t\t1, output_file)) { break; }\n" +
-				"\t\t\t\t\t\t\telse {\n" +
-				"\t\t\t\t\t\t\t\twrite_page_remaining -= sizeof((IINQ_AGGREGATE_TYPE_INT == aggregates[(i_agg)].type\n" +
-				"\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t? aggregates[(i_agg)].value.i64 : (\n" +
-				"\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\tIINQ_AGGREGATE_TYPE_UINT ==\n" +
-				"\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\taggregates[(i_agg)].type\n" +
-				"\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t? aggregates[(i_agg)].value.u64\n" +
-				"\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t: aggregates[(i_agg)].value.f64)));\n" +
-				"\t\t\t\t\t\t\t}\n" +
-				"\t\t\t\t\t\t}\n" +
-				"\t\t\t\t\t\tif (1 != fwrite(result.processed, result.num_bytes, 1, output_file)) { break; }\n" +
-				"\t\t\t\t\t\telse { write_page_remaining -= result.num_bytes; }\n" +
-				"\t\t\t\t\t}\n" +
-				"\t\t\t\t\telse { (processor)->execute(&result, (processor)->state); }\n" +
-				"\t\t\t\t\tfor (i_agg = 0; i_agg < agg_n; i_agg++) {\n" +
-				"\t\t\t\t\t\taggregates[i_agg].status = 0;\n" +
-				"\t\t\t\t\t\taggregates[i_agg].value.i64 = 0;\n" +
-				"\t\t\t\t\t}\n" +
-				"\t\t\t\t}\n" +
-				"\t\t\t\tfor (i_groupby = 0; i_groupby < groupby_n; i_groupby++) {\n" +
-				"\t\t\t\t\tmemcpy(groupby_order_parts[i_groupby].pointer, cur_key, groupby_order_parts[i_groupby].size);\n" +
-				"\t\t\t\t}\n" +
-				"\t\t\t\tgoto IINQ_COMPUTE_AGGREGATES;\n" +
-				"\t\t\t\tIINQ_DONE_COMPUTE_AGGREGATES:;\n" +
-				"\t\t\t\tif (total_groupby_size > 0) { memcpy(old_key, cur_key, total_groupby_size); }\n" +
-				"\t\t\t\tis_first = boolean_false;\n" +
-				"\t\t\t}\n" +
-				"\t\t\tif (boolean_false == is_first) {\n" +
-				"\t\t\t\tjmp_r = 2;\n" +
-				"\t\t\t\tgoto IINQ_COMPUTE_ORDERBY;\n" +
-				"\t\t\t\tIINQ_DONE_COMPUTE_ORDERBY_2:;\n" +
-				"\t\t\t\tif (!(having_____)) { goto IINQ_CLEANUP_AGGREGATION; }\n" +
-				"\t\t\t\tjmp_r = 2;\n" +
-				"\t\t\t\tgoto COMPUTE_SELECT;\n" +
-				"\t\t\t\tDONE_COMPUTE_SELECT_2:;\n" +
-				"\t\t\t\tif (orderby_n > 0) {\n" +
-				"\t\t\t\t\tif ((int) write_page_remaining < (int) (total_orderby_size + (result.num_bytes) + (8 * agg_n))) {\n" +
-				"\t\t\t\t\t\tint i = 0;\n" +
-				"\t\t\t\t\t\tchar x = 0;\n" +
-				"\t\t\t\t\t\tfor (; i < write_page_remaining; i++) { if (1 != fwrite(&x, 1, 1, output_file)) { break; }}\n" +
-				"\t\t\t\t\t\twrite_page_remaining = 512;\n" +
-				"\t\t\t\t\t};\n" +
-				"\t\t\t\t\tfor (i_orderby = 0; i_orderby < orderby_n; i_orderby++) {\n" +
-				"\t\t\t\t\t\tif (1 != fwrite(orderby_order_parts[i_orderby].pointer, orderby_order_parts[i_orderby].size, 1,\n" +
-				"\t\t\t\t\t\t\t\t\t\toutput_file)) { break; }\n" +
-				"\t\t\t\t\t\telse { write_page_remaining -= orderby_order_parts[i_orderby].size; }\n" +
-				"\t\t\t\t\t}\n" +
-				"\t\t\t\t\tfor (i_agg = 0; i_agg < agg_n; i_agg++) {\n" +
-				"\t\t\t\t\t\tif (1 != fwrite(&(uint64_t) {\n" +
-				"\t\t\t\t\t\t\t\t\t\t\t\t(IINQ_AGGREGATE_TYPE_INT == aggregates[(i_agg)].type ? aggregates[(i_agg)].value.i64 : (\n" +
-				"\t\t\t\t\t\t\t\t\t\t\t\t\t\tIINQ_AGGREGATE_TYPE_UINT == aggregates[(i_agg)].type\n" +
-				"\t\t\t\t\t\t\t\t\t\t\t\t\t\t? aggregates[(i_agg)].value.u64 : aggregates[(i_agg)].value.f64))},\n" +
-				"\t\t\t\t\t\t\t\t\t\tsizeof((IINQ_AGGREGATE_TYPE_INT == aggregates[(i_agg)].type\n" +
-				"\t\t\t\t\t\t\t\t\t\t\t\t? aggregates[(i_agg)].value.i64 : (IINQ_AGGREGATE_TYPE_UINT ==\n" +
-				"\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t   aggregates[(i_agg)].type\n" +
-				"\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t   ? aggregates[(i_agg)].value.u64\n" +
-				"\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t   : aggregates[(i_agg)].value.f64))),\n" +
-				"\t\t\t\t\t\t\t\t\t\t1, output_file)) { break; }\n" +
-				"\t\t\t\t\t\telse {\n" +
-				"\t\t\t\t\t\t\twrite_page_remaining -= sizeof((IINQ_AGGREGATE_TYPE_INT == aggregates[(i_agg)].type\n" +
-				"\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t? aggregates[(i_agg)].value.i64 : (\n" +
-				"\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\tIINQ_AGGREGATE_TYPE_UINT == aggregates[(i_agg)].type\n" +
-				"\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t? aggregates[(i_agg)].value.u64\n" +
-				"\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t: aggregates[(i_agg)].value.f64)));\n" +
-				"\t\t\t\t\t\t}\n" +
-				"\t\t\t\t\t}\n" +
-				"\t\t\t\t\tif (1 != fwrite(result.processed, result.num_bytes, 1, output_file)) { break; }\n" +
-				"\t\t\t\t\telse { write_page_remaining -= result.num_bytes; }\n" +
-				"\t\t\t\t}\n" +
-				"\t\t\t\telse { (processor)->execute(&result, (processor)->state); }\n" +
-				"\t\t\t}\n" +
-				"\t\t\tIINQ_CLEANUP_AGGREGATION:;\n" +
-				"\t\t\tif (orderby_n > 0) {\n" +
-				"\t\t\t\tif (0 != fclose(output_file)) {\n" +
-				"\t\t\t\t\terror = err_file_close_error;\n" +
-				"\t\t\t\t\tgoto IINQ_QUERY_END;\n" +
-				"\t\t\t\t}\n" +
-				"\t\t\t}\n" +
-				"\t\t\tif (0 != fclose(input_file)) {\n" +
-				"\t\t\t\terror = err_file_close_error;\n" +
-				"\t\t\t\tgoto IINQ_QUERY_END;\n" +
-				"\t\t\t}\n" +
-				"\t\t\tif (groupby_n > 0) {\n" +
-				"\t\t\t\tif (0 != remove(\"sortedgb\")) {\n" +
-				"\t\t\t\t\terror = err_file_delete_error;\n" +
-				"\t\t\t\t\tgoto IINQ_QUERY_END;\n" +
-				"\t\t\t\t};\n" +
-				"\t\t\t}\n" +
-				"\t\t\telse {\n" +
-				"\t\t\t\tif (0 != remove(\"groupby\")) {\n" +
-				"\t\t\t\t\terror = err_file_delete_error;\n" +
-				"\t\t\t\t\tgoto IINQ_QUERY_END;\n" +
-				"\t\t\t\t};\n" +
-				"\t\t\t}\n" +
-				"\t\t\tif (boolean_true == is_first) { goto IINQ_QUERY_END; }\n" +
-				"\t\t}");*/
-
-		/* close do-while(0) */
-		code.append("\t\t} while (0);\n");
-
-		/* if orderby or aggregates
-		 * ORDERBY handling */
-		code.append(generateOrderByHandlingCode());
-
-		/* end do-while(0) */
-		code.append("\t\tIINQ_QUERY_END:;\n" +
-				"\t} while (0);\n");
-
-		return code.toString();
-
-
+		return this.queryCode = returnValue;
 	}
 
 	public String generateFromCode() {
@@ -1078,10 +727,12 @@ public class IinqQuery extends WebQuery {
 			System.err.println("Operator not found in filter: " + filter);
 			return "";
 		}
-		if (sourceTable.getField(fieldName).getDataTypeName().contains("CHAR")) {
+		SourceField field = sourceTable.getField(fieldName);
+		int fieldIndex = this.getRelation().getAttributeIndexByName(fieldName);
+		if (field.getDataTypeName().contains("CHAR")) {
 							/* Field has a string data type:
 							 * strcmp(source_tuple->field, compareString) > 0 */
-			condition.append(String.format("strcmp(%s_tuple->%s", tableName, fieldName));
+			condition.append(String.format("strcmp(get_string(*it, %d)", fieldIndex));
 			if (null == operator) {
 								/* operator was not <> or != */
 				if (filter.charAt(i + 1) == '=') {
@@ -1124,7 +775,7 @@ public class IinqQuery extends WebQuery {
 				}
 
 			}
-			condition.append(String.format("%s_tuple->%s %s %s)", tableName, fieldName, operator, filter.substring((i))));
+			condition.append(String.format("get_int(*it, %d) %s %s", fieldIndex, operator, filter.substring((i))));
 		}
 
 		/* Close the condition */
@@ -1146,13 +797,12 @@ public class IinqQuery extends WebQuery {
 			int					total_ ## name ## _size = 0;
 			iinq_order_part_t	*name ## _order_parts = NULL; */
 
-		StringBuilder code = new StringBuilder();
-		code.append(String.format("\t\tint %s_n = 0;\n", name));
-		code.append(String.format("\t\tint i_%s = 0;\n", name));
-		code.append(String.format("\t\tint total_%s_size = 0;\n", name));
-		code.append(String.format("\t\tiinq_order_part_t *%s_order_parts = NULL;\n", name));
+		String code = String.format("\t\tint %s_n = 0;\n", name) +
+				String.format("\t\tint i_%s = 0;\n", name) +
+				String.format("\t\tint total_%s_size = 0;\n", name) +
+				String.format("\t\tiinq_order_part_t *%s_order_parts = NULL;\n", name);
 
-		return code.toString();
+		return code;
 	}
 
 
@@ -1286,6 +936,7 @@ public class IinqQuery extends WebQuery {
 	 * @return SourceTable with the given name
 	 */
 	public SourceTable getTable(String tableName) {
+		this.getRelation();
 		return this.proj.getDatabase().getDatabase().getSourceTables().get(tableName);
 	}
 }
