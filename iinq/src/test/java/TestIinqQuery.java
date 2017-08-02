@@ -92,6 +92,35 @@ public class TestIinqQuery
 	}
 
 	/**
+	 * Test SELECT * FROM int_table
+	 */
+	@Test
+	public void testSelectAllFromInt()
+	{
+		String answer =
+				"";
+		/* SELECT * FROM table does not require metadata
+		 * The two function calls below should have the same result */
+		TestIinq.runSQLQuery("SELECT * FROM int_table;", answer, metadata);
+		TestIinq.runSQLQuery("SELECT * FROM int_table;", answer);
+	}
+
+	/**
+	 * Test SELECT attr0 FROM int_table
+	 */
+	@Test
+	public void testSelectAttr0FromInt()
+	{
+		String answer =
+				"";
+		/* SELECT * FROM table does not require metadata
+		 * The two function calls below should have the same result */
+		TestIinq.runSQLQuery("SELECT attr0 FROM int_table;", answer, metadata);
+		TestIinq.runSQLQuery("SELECT attr0 FROM int_table;", answer);
+	}
+
+
+	/**
 	 * Test SELECT * FROM Table
 	 */
 	@Test

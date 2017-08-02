@@ -183,4 +183,89 @@
         </FIELDS>
      </PRIMARYKEY>
 	</TABLE>
+	
+	   <TABLE>
+        <semanticTableName>IonDB.int_table</semanticTableName>
+        <tableName>int_table</tableName>
+        <schemaName></schemaName>
+        <catalogName></catalogName>
+        <comment></comment>
+        <numTuples>58511</numTuples>
+     <FIELD>
+        <semanticFieldName>int_table.attr0</semanticFieldName>
+        <fieldName>attr0</fieldName>
+        <dataType>4</dataType>
+        <dataTypeName>INTEGER</dataTypeName>
+        <fieldSize>4</fieldSize>
+        <decimalDigits>0</decimalDigits>
+        <numberRadixPrecision>0</numberRadixPrecision>
+        <remarks></remarks>
+        <defaultValue></defaultValue>
+        <characterOctetLength>88</characterOctetLength>
+        <ordinalPosition>1</ordinalPosition>
+        <isNullable>NO</isNullable>
+        <numDistinctValues>58511</numDistinctValues>
+     </FIELD>
+
+     <FIELD>
+        <semanticFieldName>int_table.attr1</semanticFieldName>
+        <fieldName>attr1</fieldName>
+        <dataType>4</dataType>
+        <dataTypeName>INTEGER</dataTypeName>
+        <fieldSize>4</fieldSize>
+        <decimalDigits>0</decimalDigits>
+        <numberRadixPrecision>0</numberRadixPrecision>
+        <remarks></remarks>
+        <defaultValue></defaultValue>
+        <characterOctetLength>88</characterOctetLength>
+        <ordinalPosition>2</ordinalPosition>
+        <isNullable>NO</isNullable>
+        <numDistinctValues>58511</numDistinctValues>
+     </FIELD>
+
+     <FIELD>
+        <semanticFieldName>int_table.attr2</semanticFieldName>
+        <fieldName>attr2</fieldName>
+        <dataType>4</dataType>
+        <dataTypeName>INTEGER</dataTypeName>
+        <fieldSize>4</fieldSize>
+        <decimalDigits>0</decimalDigits>
+        <numberRadixPrecision>0</numberRadixPrecision>
+        <remarks></remarks>
+        <defaultValue></defaultValue>
+        <characterOctetLength>88</characterOctetLength>
+        <ordinalPosition>3</ordinalPosition>
+        <isNullable>NO</isNullable>
+        <numDistinctValues>58511</numDistinctValues>
+     </FIELD>
+	 
+     <FIELD>
+        <semanticFieldName>int_table.attr3</semanticFieldName>
+        <fieldName>attr3</fieldName>
+        <dataType>4</dataType>
+        <dataTypeName>INTEGER</dataTypeName>
+        <fieldSize>4</fieldSize>
+        <decimalDigits>0</decimalDigits>
+        <numberRadixPrecision>0</numberRadixPrecision>
+        <remarks></remarks>
+        <defaultValue></defaultValue>
+        <characterOctetLength>88</characterOctetLength>
+        <ordinalPosition>4</ordinalPosition>
+        <isNullable>NO</isNullable>
+        <numDistinctValues>58511</numDistinctValues>
+     </FIELD>
+
+     <PRIMARYKEY>
+        <keyScope>0</keyScope>
+        <keyScopeName></keyScopeName>
+        <keyName>SYS_IDX_92</keyName>
+        <keyType>1</keyType>
+        <FIELDS>
+        <fieldName>attr0</fieldName>
+        <fieldName>attr1</fieldName>
+		<fieldName>attr2</fieldName>
+        <fieldName>attr3</fieldName>
+        </FIELDS>
+     </PRIMARYKEY>
+	</TABLE>
 </XSPEC>
