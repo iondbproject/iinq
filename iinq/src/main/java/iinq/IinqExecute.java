@@ -45,10 +45,11 @@ public class IinqExecute {
     private static int delete_count = 1;
     private static int drop_count = 1;
 
+    private static boolean header_written = false;
+
     public static void main(String args[]) throws IOException {
         FileInputStream in = null;
         FileOutputStream out = null;
-        FileOutputStream header = null;
 
         try {
             in = new FileInputStream("/Users/danaklamut/ClionProjects/iondb/src/iinq/iinq_interface/iinq_user.c");
@@ -58,14 +59,8 @@ public class IinqExecute {
             output_file.createNewFile();
             out = new FileOutputStream(output_file, false);
 
-            /* Create output header file */
-            File header_file = new File("/Users/danaklamut/ClionProjects/iondb/src/iinq/iinq_interface/iinq_user_functions.h");
-            header_file.createNewFile();
-            header = new FileOutputStream(header_file, false);
-
             BufferedReader buff_in = new BufferedReader(new InputStreamReader(in));
             BufferedWriter buff_out = new BufferedWriter(new OutputStreamWriter(out));
-            BufferedWriter buff_header = new BufferedWriter(new OutputStreamWriter(header));
 
             String sql;
 
@@ -76,33 +71,33 @@ public class IinqExecute {
 
                 /* CREATE TABLE statements exists in code that is not a comment */
                 if ((sql.toUpperCase()).contains("CREATE TABLE") && !sql.contains("/*")) {
-                    create_table(sql, buff_out, buff_header);
+                    create_table(sql, buff_out);
+                    create_count++;
                 }
 
                 /* INSERT statements exists in code that is not a comment */
                 else if ((sql.toUpperCase()).contains("INSERT INTO") && !sql.contains("/*")) {
-                    insert(sql, buff_out, buff_header);
+                    insert(sql, buff_out);
                 }
 
                 /* UPDATE statements exists in code that is not a comment */
                 else if ((sql.toUpperCase()).contains("UPDATE") && !sql.contains("/*")) {
-                    update(sql, buff_out, buff_header);
+                    update(sql, buff_out);
                 }
 
                 /* DELETE statements exists in code that is not a comment */
                 else if ((sql.toUpperCase()).contains("DELETE FROM") && !sql.contains("/*")) {
-                    delete(sql, buff_out, buff_header);
+                    delete(sql, buff_out);
                 }
 
                 /* DROP TABLE statements exists in code that is not a comment */
                 else if ((sql.toUpperCase()).contains("DROP TABLE") && !sql.contains("/*")) {
-                    drop_table(sql, buff_out, buff_header);
+                    drop_table(sql, buff_out);
                 }
             }
 
             buff_in.close();
             buff_out.close();
-            buff_header.close();
         }
 
         finally {
@@ -111,10 +106,6 @@ public class IinqExecute {
             }
             if (null != out) {
                 out.close();
-            }
-
-            if (null != header) {
-                header.close();
             }
         }
     }
@@ -177,7 +168,7 @@ public class IinqExecute {
         }
 
         out.newLine();
-        out.write("\t\tprintf(\"Error occurred. Error code: %i\", error);");
+        out.write("\t\tprintf(\"Error occurred. Error code: %i"+"\\"+"n"+"\", error);");
         out.newLine();
         out.write("\t\treturn; \n\t}");
         out.newLine();
@@ -185,7 +176,158 @@ public class IinqExecute {
     }
 
     private static void
-    create_table(String sql, BufferedWriter out, BufferedWriter header) throws IOException {
+    print_top_header (FileOutputStream out) throws IOException {
+        String contents = "";
+        contents += "#if !defined(IINQ_USER_FUNCTIONS_H_)\n" + "#define IINQ_USER_FUNCTIONS_H_\n\n";
+        contents += "#if defined(__cplusplus)\n" + "extern \"C\" {\n" + "#endif\n\n";
+
+        /* Include other headers*/
+        contents += "#include \"../../dictionary/dictionary_types.h\"\n" +
+                "#include \"../../dictionary/dictionary.h\"\n" +
+                "#include \"../iinq.h\"\n" + "#include \"iinq_execute.h\"\n\n";
+
+
+        out.write(contents.getBytes());
+    }
+
+    private static void
+    print_table (BufferedWriter out, String primary_key_size, String value_size, String table_name,
+                 int num_fields, String[] field_names) throws IOException {
+        out.write("void print_table_"+table_name.substring(0, table_name.length() - 4).toLowerCase()+"(ion_dictionary_t *dictionary) {\n");
+        out.write("\n\tion_predicate_t predicate;\n");
+        out.write("\tdictionary_build_predicate(&predicate, predicate_all_records);\n\n");
+        out.write("\tion_dict_cursor_t *cursor = NULL;\n");
+        out.write("\tdictionary_find(dictionary, &predicate, &cursor);\n\n");
+        out.write("\tion_record_t ion_record;\n");
+        out.write("\tion_record.key		= malloc("+primary_key_size+");\n");
+        out.write("\tion_record.value	= malloc("+value_size+");\n\n");
+        out.write("\tprintf(\"Table: "+table_name.substring(0, table_name.length() - 4)+"\\"+"n"+"\");\n");
+
+        for (int j = 0; j < num_fields - 1; j++) {
+            out.write("\tprintf(\""+field_names[j]+"\t\");\n");
+        }
+
+        out.write("\tprintf(\""+"\\"+"n"+"***************************************"+"\\"+"n"+"\");\n\n");
+
+        out.write("\tion_cursor_status_t cursor_status;\n\n");
+
+        out.write("\twhile ((cursor_status = cursor->next(cursor, &ion_record)) == cs_cursor_active || " +
+                "cursor_status == cs_cursor_initialized) {\n");
+        out.write("\t\tprintf(\"%s"+"\\"+"n"+"\", (char *) ion_record.value); \n\t}\n");
+        out.write("\t\tprintf(\""+"\\"+"n"+"\");");
+
+        out.write("\tcursor->destroy(&cursor);\n");
+        out.write("\tfree(ion_record.key);\n");
+        out.write("\tfree(ion_record.value);\n}\n\n");
+    }
+
+    private static void
+    file_setup (boolean header_written, String function, String keyword) throws IOException {
+        /* Write header file */
+        String header_path = "/Users/danaklamut/ClionProjects/iondb/src/iinq/iinq_interface/iinq_user_functions.h";
+        BufferedReader header_file = null;
+
+        if (header_written) {
+            header_file = new BufferedReader(new FileReader(header_path));
+        }
+
+        String contents = "";
+        String line = "";
+        int count = 0;
+
+        if(header_written) {
+            while (null != (line = header_file.readLine())) {
+                contents += line + '\n';
+
+                if (line.contains("void") && 0 == count) {
+                    contents += "\nvoid " + function + "();\n\n";
+                    count++;
+                }
+            }
+            header_file.close();
+        }
+
+        File output_file = new File(header_path);
+
+        /* Create header file if it does not previously exist*/
+        if (!output_file.exists()) {
+            output_file.createNewFile();
+        }
+
+        FileOutputStream header = new FileOutputStream(output_file, false);
+
+        if (header_written) {
+            header.write(contents.getBytes());
+        }
+
+        /* Create schema table header file */
+        else {
+            contents = "";
+            print_top_header(header);
+
+            contents += "void " + function + "();\n\n";
+            contents += "#if defined(__cplusplus)\n" + "}\n" + "#endif\n" + "\n" + "#endif\n";
+
+            header.write(contents.getBytes());
+        }
+
+        header.close();
+
+        /* Add to file to executable includes */
+        String include_path = "/Users/danaklamut/ClionProjects/iondb/src/iinq/iinq_interface/iinq_user.h";
+        BufferedReader file = new BufferedReader(new FileReader(include_path));
+
+        line = "";
+        contents = "";
+        count = 0;
+
+        while(null != (line = file.readLine())) {
+            contents += line + '\n';
+
+            if (line.contains("#include") && 0 == count && !file.readLine().equals("#include \"iinq_user_function.c\"")) {
+                contents += "#include \"iinq_user_functions.h\"\n";
+                count++;
+            }
+        }
+
+        File include_file = new File("/Users/danaklamut/ClionProjects/iondb/src/iinq/iinq_interface/iinq_user.h");
+        FileOutputStream header_out = new FileOutputStream(include_file, false);
+
+        header_out.write(contents.getBytes());
+
+        file.close();
+        header_out.close();
+
+        /* Add new functions to be run to executable */
+        String ex_path = "/Users/danaklamut/ClionProjects/iondb/src/iinq/iinq_interface/iinq_user.c";
+        BufferedReader ex_file = new BufferedReader(new FileReader(ex_path));
+
+        contents = "";
+        boolean found = false;
+
+        while(null != (line = ex_file.readLine())) {
+            if ((line.toUpperCase()).contains(keyword) && !line.contains("/*") && !found) {
+                contents += "/* "+line + " */\n";
+                contents += "\t" + function +"();\n";
+                found = true;
+            }
+
+            else {
+                contents += line + '\n';
+            }
+        }
+
+        File ex_output_file = new File("/Users/danaklamut/ClionProjects/iondb/src/iinq/iinq_interface/iinq_user.c");
+        FileOutputStream ex_out = new FileOutputStream(ex_output_file, false);
+
+        ex_out.write(contents.getBytes());
+
+        ex_file.close();
+        ex_out.close();
+    }
+
+    private static void
+    create_table(String sql, BufferedWriter out) throws IOException {
         System.out.println("create statement");
 
         sql = sql.trim();
@@ -274,35 +416,13 @@ public class IinqExecute {
             value_size = value_size.concat(ion_switch_key_size(field_types[j]));
         }
 
-        /* Create header of file */
-        out.write("#include \"iinq_user_functions.h\"\n\n");
-
-        /* Create print table method */
-        out.write("void print_table"+create_count+"(ion_dictionary_t *dictionary) {\n");
-        out.write("\n\tion_predicate_t predicate;\n");
-        out.write("\tdictionary_build_predicate(&predicate, predicate_all_records);\n\n");
-        out.write("\tion_dict_cursor_t *cursor = NULL;\n");
-        out.write("\tdictionary_find(dictionary, &predicate, &cursor);\n\n");
-        out.write("\tion_record_t ion_record;\n");
-        out.write("\tion_record.key		= malloc("+primary_key_size+");\n");
-        out.write("\tion_record.value	= malloc("+value_size+");\n\n");
-        out.write("\tprintf(\"Table: "+table_name.substring(0, table_name.length() - 4)+"\");\n");
-
-        for (int j = 0; j < num_fields - 1; j++) {
-            out.write("\tprintf(\""+field_names[j]+"\t\");\n");
+        /* Create header of file if it doesn't already exist */
+        if (1 == create_count) {
+            out.write("#include \"iinq_user_functions.h\"\n\n");
         }
 
-        out.write("\tprintf(\"***************************************\");\n\n");
-
-        out.write("\tion_cursor_status_t cursor_status;\n\n");
-
-        out.write("\twhile ((cursor_status = cursor->next(cursor, &ion_record)) == cs_cursor_active || " +
-                "cursor_status == cs_cursor_initialized) {\n");
-        out.write("\t\tprintf(\"%s\", (char *) ion_record.value); \n\t}\n");
-
-        out.write("\tcursor->destroy(&cursor);\n");
-        out.write("\tfree(ion_record.key);\n");
-        out.write("\tfree(ion_record.value);\n}\n\n");
+        /* Create print table method */
+        print_table(out, primary_key_size, value_size, table_name, num_fields, field_names);
 
         /* Create CREATE TABLE method */
         out.write("void create_table" + create_count +"() {\n");
@@ -320,7 +440,7 @@ public class IinqExecute {
         out.write("\terror = iinq_open_source(\""+table_name+"\", &dictionary, &handler);");
         print_error(out, false);
 
-        out.write("\tprint_table"+create_count+"(&dictionary);\n");
+        out.write("\tprint_table_"+table_name.substring(0, table_name.length() - 4).toLowerCase()+"(&dictionary);\n");
         out.write("\terror = ion_close_dictionary(&dictionary);");
         print_error(out, false);
 
@@ -369,87 +489,29 @@ public class IinqExecute {
 
         out.write("}\n\n");
 
-        /* Create schema table header file */
-        header.write("#if !defined(IINQ_USER_FUNCTIONS_H_)\n" + "#define IINQ_USER_FUNCTIONS_H_\n\n");
-        header.write("#if defined(__cplusplus)\n" + "extern \"C\" {\n" + "#endif\n\n");
-        /* Include other headers*/
-        header.write("#include \"../../dictionary/dictionary_types.h\"\n" +
-                "#include \"../../dictionary/dictionary.h\"\n" +
-                "#include \"../iinq.h\"\n" + "#include \"iinq_execute.h\"\n\n");
-        header.write("void create_table" + create_count +"();\n\n");
-        header.write("#if defined(__cplusplus)\n" + "}\n" + "#endif\n" + "\n" + "#endif\n");
-
-        /* Add to file to executable includes */
-        String include_path = "/Users/danaklamut/ClionProjects/iondb/src/iinq/iinq_interface/iinq_user.h";
-        BufferedReader file = new BufferedReader(new FileReader(include_path));
-
-        String line = "";
-        String contents = "";
-        int count = 0;
-
-        while(null != (line = file.readLine())) {
-            contents += line + '\n';
-
-            if (line.contains("#include") && 0 == count && !file.readLine().equals("#include \"iinq_user_function.c\"")) {
-                contents += "#include \"iinq_user_functions.h\"\n";
-                count++;
-            }
-        }
-
-        File output_file = new File("/Users/danaklamut/ClionProjects/iondb/src/iinq/iinq_interface/iinq_user.h");
-        FileOutputStream header_out = new FileOutputStream(output_file, false);
-
-        header_out.write(contents.getBytes());
-
-        file.close();
-        out.close();
-        header_out.close();
-
-        /* Add new functions to be run to executable */
-        String ex_path = "/Users/danaklamut/ClionProjects/iondb/src/iinq/iinq_interface/iinq_user.c";
-        BufferedReader ex_file = new BufferedReader(new FileReader(ex_path));
-
-        contents = "";
-
-        while(null != (line = ex_file.readLine())) {
-            if ((line.toUpperCase()).contains("CREATE TABLE") && !line.contains("/*")) {
-                contents += "/* "+line + " */\n";
-                contents += "\tcreate_table" + create_count +"();\n";
-            }
-
-            else {
-                contents += line + '\n';
-            }
-        }
-
-        File ex_output_file = new File("/Users/danaklamut/ClionProjects/iondb/src/iinq/iinq_interface/iinq_user.c");
-        FileOutputStream ex_out = new FileOutputStream(ex_output_file, false);
-
-        ex_out.write(contents.getBytes());
-
-        ex_file.close();
-        ex_out.close();
-
         System.out.println("schema "+schema_name);
+
+        file_setup(header_written, "create_table"+create_count, "CREATE TABLE");
+        header_written = true;
     }
 
     private static void
-    insert(String sql, BufferedWriter out, BufferedWriter header) throws IOException {
+    insert(String sql, BufferedWriter out) throws IOException {
         System.out.println("insert statement");
     }
 
     private static void
-    update(String sql, BufferedWriter out, BufferedWriter header) throws IOException {
+    update(String sql, BufferedWriter out) throws IOException {
         System.out.println("update statement");
     }
 
     private static void
-    delete(String sql, BufferedWriter out, BufferedWriter header) throws IOException {
+    delete(String sql, BufferedWriter out) throws IOException {
         System.out.println("delete statement");
     }
 
     private static void
-    drop_table(String sql, BufferedWriter out, BufferedWriter header) throws IOException {
+    drop_table(String sql, BufferedWriter out) throws IOException {
         System.out.println("drop statement");
     }
 }
