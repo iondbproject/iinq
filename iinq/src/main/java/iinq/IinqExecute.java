@@ -46,6 +46,7 @@ public class IinqExecute {
     private static int drop_count = 1;
 
     private static boolean header_written = false;
+    private static boolean first_function = true;
 
     public static void main(String args[]) throws IOException {
         FileInputStream in = null;
@@ -63,6 +64,7 @@ public class IinqExecute {
             BufferedWriter buff_out = new BufferedWriter(new OutputStreamWriter(out));
 
             String sql;
+            buff_out.write("#include \"iinq_user_functions.h\"\n\n");
 
             /* File is read line by line */
             while ((sql = buff_in.readLine()) != null)   {
@@ -78,21 +80,25 @@ public class IinqExecute {
                 /* INSERT statements exists in code that is not a comment */
                 else if ((sql.toUpperCase()).contains("INSERT INTO") && !sql.contains("/*")) {
                     insert(sql, buff_out);
+                    insert_count++;
                 }
 
                 /* UPDATE statements exists in code that is not a comment */
                 else if ((sql.toUpperCase()).contains("UPDATE") && !sql.contains("/*")) {
                     update(sql, buff_out);
+                    update_count++;
                 }
 
                 /* DELETE statements exists in code that is not a comment */
                 else if ((sql.toUpperCase()).contains("DELETE FROM") && !sql.contains("/*")) {
                     delete(sql, buff_out);
+                    delete_count++;
                 }
 
                 /* DROP TABLE statements exists in code that is not a comment */
                 else if ((sql.toUpperCase()).contains("DROP TABLE") && !sql.contains("/*")) {
                     drop_table(sql, buff_out);
+                    drop_count++;
                 }
             }
 
@@ -214,7 +220,7 @@ public class IinqExecute {
         out.write("\twhile ((cursor_status = cursor->next(cursor, &ion_record)) == cs_cursor_active || " +
                 "cursor_status == cs_cursor_initialized) {\n");
         out.write("\t\tprintf(\"%s"+"\\"+"n"+"\", (char *) ion_record.value); \n\t}\n");
-        out.write("\t\tprintf(\""+"\\"+"n"+"\");");
+        out.write("\n\t\tprintf(\""+"\\"+"n"+"\");\n\n");
 
         out.write("\tcursor->destroy(&cursor);\n");
         out.write("\tfree(ion_record.key);\n");
@@ -284,8 +290,9 @@ public class IinqExecute {
         while(null != (line = file.readLine())) {
             contents += line + '\n';
 
-            if (line.contains("#include") && 0 == count && !file.readLine().equals("#include \"iinq_user_function.c\"")) {
+            if (line.contains("#include") && 0 == count && !file.readLine().equals("#include \"iinq_user_functions.h\"")) {
                 contents += "#include \"iinq_user_functions.h\"\n";
+                contents += line + '\n';
                 count++;
             }
         }
@@ -324,6 +331,60 @@ public class IinqExecute {
 
         ex_file.close();
         ex_out.close();
+    }
+
+    private static String
+    get_schema_value (String table_name, String keyword) throws IOException {
+        String line;
+
+        String path = "/Users/danaklamut/ClionProjects/iondb/src/iinq/iinq_interface/"+
+                table_name.substring(0, table_name.length() - 4).toLowerCase()+".sch";
+        BufferedReader file = new BufferedReader(new FileReader(path));
+
+        while (null != (line = file.readLine())) {
+            if (line.contains(keyword)) {
+                line = line.substring(keyword.length());
+                break;
+            }
+        }
+
+        file.close();
+
+        System.out.println(line);
+        return line;
+    }
+
+    private static void
+    increment_num_records (String table_name) throws IOException {
+        String path = "/Users/danaklamut/ClionProjects/iondb/src/iinq/iinq_interface/"+
+                table_name.substring(0, table_name.length() - 4).toLowerCase()+".sch";
+        BufferedReader file = new BufferedReader(new FileReader(path));
+
+        String contents = "";
+        String line;
+        int num;
+
+        while (null != (line = file.readLine())) {
+            if (line.contains("NUMBER OF RECORDS: ")) {
+                num = Integer.parseInt(line.substring(19));
+                contents += "NUMBER OF RECORDS: " + (num+1) +"\n";
+
+                System.out.println(num+1+"\n");
+            }
+
+            else {
+                contents += line + '\n';
+            }
+        }
+
+        File output_file = new File("/Users/danaklamut/ClionProjects/iondb/src/iinq/iinq_interface/"+
+                table_name.substring(0, table_name.length() - 4).toLowerCase()+".sch");
+        FileOutputStream out = new FileOutputStream(output_file, false);
+
+        out.write(contents.getBytes());
+
+        file.close();
+        out.close();
     }
 
     private static void
@@ -416,11 +477,6 @@ public class IinqExecute {
             value_size = value_size.concat(ion_switch_key_size(field_types[j]));
         }
 
-        /* Create header of file if it doesn't already exist */
-        if (1 == create_count) {
-            out.write("#include \"iinq_user_functions.h\"\n\n");
-        }
-
         /* Create print table method */
         print_table(out, primary_key_size, value_size, table_name, num_fields, field_names);
 
@@ -444,48 +500,29 @@ public class IinqExecute {
         out.write("\terror = ion_close_dictionary(&dictionary);");
         print_error(out, false);
 
-        String schema_name = table_name.substring(0, table_name.length() - 4).concat(".sch");
+        String schema_name = table_name.substring(0, table_name.length() - 4).toLowerCase().concat(".sch");
 
-        /* Create schema table */
-        out.write("\tion_dictionary_t schema_dictionary;");
-        out.newLine();
-        out.write("\tion_dictionary_handler_t schema_handler;");
-        out.newLine();
-        out.write("\terror = iinq_create_source(\""+schema_name+"\", "+0+", sizeof(int), 20);");
-        print_error(out, false);
-        out.write("\tschema_dictionary.handler = &schema_handler;");
-        out.newLine();
-        out.write("\terror = iinq_open_source(\""+schema_name+"\", &schema_dictionary, &schema_handler);");
-        print_error(out, false);
-        out.newLine();
-        out.write("\tion_status_t status = dictionary_insert(&schema_dictionary, IONIZE(1, int), \""+table_name+"\");");
-        print_error(out, true);
-        out.write("\tstatus = dictionary_insert(&schema_dictionary, IONIZE(2, int), IONIZE("+primary_key_type+", int));");
-        print_error(out, true);
-        out.write("\tstatus = dictionary_insert(&schema_dictionary, IONIZE(3, int),  IONIZE("+primary_key_size+", int));");
-        print_error(out, true);
-        out.write("\tstatus = dictionary_insert(&schema_dictionary, IONIZE(4, int), IONIZE("+value_size+", int));");
-        print_error(out, true);
-        out.write("\tstatus = dictionary_insert(&schema_dictionary, IONIZE(5, int), IONIZE("+num_fields+", int));");
-        print_error(out, true);
-        out.write("\tstatus = dictionary_insert(&schema_dictionary, IONIZE(6,int), IONIZE("+0+", int));");
-        print_error(out, true);
-        out.write("\tstatus = dictionary_insert(&schema_dictionary, IONIZE(7, int), IONIZE("+(8+primary_key_field_num)+", int));");
-        print_error(out, true);
+        /* Set up schema header in file */
+        String contents = "";
 
-        int curr_key = 8;
+        contents += "TABLE NAME: "+table_name;
+        contents += "\nPRIMARY KEY TYPE: "+primary_key_type;
+        contents += "\nPRIMARY KEY SIZE: "+primary_key_size;
+        contents += "\nVALUE SIZE: "+value_size;
+        contents += "\nNUMBER OF FIELDS: "+(num_fields - 1);
+        contents += "\nNUMBER OF RECORDS: 0";
+        contents += "\nPRIMARY KEY FIELD: "+primary_key_field_num;
 
-        for (int j = 0; j < num_fields; j++) {
-            out.write("\tstatus = dictionary_insert(&schema_dictionary, IONIZE("+curr_key+", int), \""+field_names[j]+"\");");
-            print_error(out, true);
-            curr_key++;
-            out.write("\tstatus = dictionary_insert(&schema_dictionary, IONIZE("+curr_key+", int), IONIZE("+field_types[j]+", int));");
-            print_error(out, true);
-            curr_key++;
+        for (int j = 0; j < num_fields - 1; j++) {
+            contents += "\n"+field_names[j]+", "+field_types[j];
         }
 
-        out.write("\terror = ion_close_dictionary(&schema_dictionary);");
-        print_error(out, false);
+        File schema = new File("/Users/danaklamut/ClionProjects/iondb/src/iinq/iinq_interface/"+schema_name);
+        FileOutputStream schema_out = new FileOutputStream(schema, false);
+
+        schema_out.write(contents.getBytes());
+
+        schema_out.close();
 
         out.write("}\n\n");
 
@@ -498,6 +535,86 @@ public class IinqExecute {
     private static void
     insert(String sql, BufferedWriter out) throws IOException {
         System.out.println("insert statement");
+
+        sql = sql.trim();
+        sql = sql.substring(33);
+
+        String table_name = (sql.substring(0, sql.indexOf(" ")))+".inq";
+        System.out.println(table_name);
+
+        /* Write function to file */
+
+        out.write("void insert"+insert_count+"() {\n\n");
+        out.write("\tion_err_t error;\n" + "\tion_dictionary_t dictionary;\n" + "\tion_dictionary_handler_t handler;\n");
+        out.write("\tdictionary.handler = &handler;\n" + "\n\terror = iinq_open_source(\""+table_name+"\", &dictionary, &handler);");
+        print_error(out, false);
+
+        int pos = sql.indexOf("(");
+
+        sql = sql.substring(pos + 1);
+
+        String value = sql.substring(0, sql.length() - 5);
+        System.out.println(value+"\n");
+
+	    /* Get key value from record to be inserted */
+        int count = 1;
+
+        /* Count number of fields */
+	    for (int i = 0; i < sql.length(); i ++) {
+            if(sql.charAt(i) == ',') {
+                count++;
+            }
+        }
+
+        System.out.println(count+"\n");
+        System.out.println(sql+"\n");
+
+        String[] fields = new String[count];
+        value = "";
+
+        for (int j = 0; j < count; j++) {
+            pos = sql.indexOf(",");
+
+            if (-1 == pos) {
+                pos = sql.indexOf(")");
+            }
+
+            if (-1 == pos) {
+                out.write("printf(\"Error occurred inserting values, please check that a value has been listed for each column in table.\");\n");
+                return;
+            }
+
+            fields[j] = sql.substring(0, pos);
+            System.out.println(fields[j]+"\n");
+
+            sql = sql.substring(pos + 2);
+            value += fields[j]+",\t";
+        }
+
+        String key_type = get_schema_value(table_name, "PRIMARY KEY TYPE: ");
+        String key_field_num = get_schema_value(table_name, "PRIMARY KEY FIELD: ");
+
+        out.write("\n\tion_status_t status;\n");
+
+        if (key_type.equals("0") || key_type.equals("1")) {
+            out.write("\tstatus = dictionary_insert(&dictionary, IONIZE("+fields[Integer.parseInt(key_field_num)]+
+                    ", int), \""+value+"\");");
+        }
+
+        else {
+            out.write("\tstatus = dictionary_insert(&dictionary, \""+fields[Integer.parseInt(key_field_num)]+
+                    "\", \""+value+"\");");
+        }
+
+        print_error(out, true);
+
+        increment_num_records(table_name);
+
+        out.write("\tprint_table_"+table_name.substring(0, table_name.length() - 4).toLowerCase()+"(&dictionary);\n");
+
+        out.write("}\n\n");
+
+        file_setup(header_written, "insert"+insert_count, "INSERT INTO");
     }
 
     private static void
