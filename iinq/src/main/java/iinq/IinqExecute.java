@@ -228,7 +228,7 @@ public class IinqExecute {
     }
 
     private static void
-    file_setup (boolean header_written, String function, String keyword) throws IOException {
+    file_setup (boolean header_written, boolean first_function, String function, String keyword) throws IOException {
         /* Write header file */
         String header_path = "/Users/danaklamut/ClionProjects/iondb/src/iinq/iinq_interface/iinq_user_functions.h";
         BufferedReader header_file = null;
@@ -280,30 +280,31 @@ public class IinqExecute {
         header.close();
 
         /* Add to file to executable includes */
-        String include_path = "/Users/danaklamut/ClionProjects/iondb/src/iinq/iinq_interface/iinq_user.h";
-        BufferedReader file = new BufferedReader(new FileReader(include_path));
+        if (first_function) {
+            String include_path = "/Users/danaklamut/ClionProjects/iondb/src/iinq/iinq_interface/iinq_user.h";
+            BufferedReader file = new BufferedReader(new FileReader(include_path));
 
-        line = "";
-        contents = "";
-        count = 0;
+            line = "";
+            contents = "";
+            count = 0;
 
-        while(null != (line = file.readLine())) {
-            contents += line + '\n';
-
-            if (line.contains("#include") && 0 == count && !file.readLine().equals("#include \"iinq_user_functions.h\"")) {
-                contents += "#include \"iinq_user_functions.h\"\n";
+            while (null != (line = file.readLine())) {
                 contents += line + '\n';
-                count++;
+
+                if (line.contains("#include") && 0 == count && !file.readLine().equals("#include \"iinq_user_functions.h\"")) {
+                    contents += "#include \"iinq_user_functions.h\"\n";
+                    count++;
+                }
             }
+
+            File include_file = new File("/Users/danaklamut/ClionProjects/iondb/src/iinq/iinq_interface/iinq_user.h");
+            FileOutputStream header_out = new FileOutputStream(include_file, false);
+
+            header_out.write(contents.getBytes());
+
+            file.close();
+            header_out.close();
         }
-
-        File include_file = new File("/Users/danaklamut/ClionProjects/iondb/src/iinq/iinq_interface/iinq_user.h");
-        FileOutputStream header_out = new FileOutputStream(include_file, false);
-
-        header_out.write(contents.getBytes());
-
-        file.close();
-        header_out.close();
 
         /* Add new functions to be run to executable */
         String ex_path = "/Users/danaklamut/ClionProjects/iondb/src/iinq/iinq_interface/iinq_user.c";
@@ -528,7 +529,8 @@ public class IinqExecute {
 
         System.out.println("schema "+schema_name);
 
-        file_setup(header_written, "create_table"+create_count, "CREATE TABLE");
+        file_setup(header_written, first_function, "create_table"+create_count, "CREATE TABLE");
+        first_function = false;
         header_written = true;
     }
 
@@ -594,7 +596,7 @@ public class IinqExecute {
         String key_type = get_schema_value(table_name, "PRIMARY KEY TYPE: ");
         String key_field_num = get_schema_value(table_name, "PRIMARY KEY FIELD: ");
 
-        out.write("\n\tion_status_t status;\n");
+        out.write("\tion_status_t status;\n");
 
         if (key_type.equals("0") || key_type.equals("1")) {
             out.write("\tstatus = dictionary_insert(&dictionary, IONIZE("+fields[Integer.parseInt(key_field_num)]+
@@ -614,7 +616,8 @@ public class IinqExecute {
 
         out.write("}\n\n");
 
-        file_setup(header_written, "insert"+insert_count, "INSERT INTO");
+        file_setup(header_written, first_function,  "insert"+insert_count, "INSERT INTO");
+        first_function = false;
     }
 
     private static void
