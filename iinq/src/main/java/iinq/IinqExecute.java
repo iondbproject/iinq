@@ -478,6 +478,35 @@ public class IinqExecute {
         return printed;
     }
 
+    private static String[]
+    get_fields(String statement, int num_fields) {
+
+        String[] fields = new String[num_fields];
+
+        int pos = 0;
+        String field;
+
+        for (int j = 0; j < num_fields; j++) {
+            pos = statement.indexOf(",");
+
+            if (-1 != pos) {
+                field = statement.substring(0, pos);
+
+                statement = statement.substring(pos + 2);
+
+                fields[j] = field;
+            }
+
+            else {
+                fields[j] = statement;
+            }
+
+            System.out.println(fields[j]);
+        }
+
+        return fields;
+    }
+
     private static void
     create_table(String sql, BufferedWriter out) throws IOException {
         System.out.println("create statement");
@@ -726,6 +755,264 @@ public class IinqExecute {
     private static void
     update(String sql, BufferedWriter out) throws IOException {
         System.out.println("update statement");
+
+        sql = sql.trim();
+        sql = sql.substring(20);
+
+        String table_name = (sql.substring(0, sql.indexOf(" ")))+".inq";
+        System.out.println(table_name);
+
+        sql = sql.substring(table_name.length() + 1);
+
+        /* Create print table method if it doesn't already exist */
+        if (!containts_print(table_name)) {
+            print_table(out, table_name);
+        }
+
+        /* Write function to file */
+
+        out.write("void update"+update_count+"() {\n\n");
+        out.write("\tion_err_t error;\n" + "\tion_dictionary_t dictionary;\n" + "\tion_dictionary_handler_t handler;\n");
+        out.write("\tdictionary.handler = &handler;\n" + "\n\terror = iinq_open_source(\""+table_name+"\", &dictionary, &handler);");
+        print_error(out, false);
+
+        int pos = sql.indexOf("WHERE");
+        String where_condition = "";
+        int num_conditions = 0;
+        int i = 0;
+
+        /* Get WHERE condition if it exists */
+        if (-1 != pos) {
+            where_condition = sql.substring(pos + 6, sql.length() - 4);
+        }
+
+        System.out.println(where_condition+"\n");
+
+        /* Calculate number of WHERE conditions in statement */
+        while (-1 != i) {
+            num_conditions++;
+            i = where_condition.indexOf(",", i + 1);
+        }
+
+        String[] conditions = new String[num_conditions];
+
+        conditions = get_fields(where_condition, num_conditions);
+
+        /* Get fields to update */
+        String update;
+
+        if (-1 != pos) {
+            update = sql.substring(0, pos);
+        }
+
+        else {
+            update = sql.substring(0, sql.length() - 4);
+        }
+
+        int num_fields = 0;
+        i = 0;
+
+        System.out.println(update+"\n");
+
+        /* Calculate number of WHERE conditions in statement */
+        while (-1 != i) {
+            num_fields++;
+            i = update.indexOf(",", i + 1);
+        }
+
+        String[] fields = new String[num_fields];
+
+        fields = get_fields(update, num_fields);
+
+        out.write("\tion_predicate_t predicate;\n");
+        out.write("\tdictionary_build_predicate(&predicate, predicate_all_records);\n");
+        out.write("\tion_dict_cursor_t *cursor = NULL;\n");
+        out.write("\tdictionary_find(&dictionary, &predicate, &cursor);\n");
+        out.write("\n\tion_record_t ion_record;\n");
+        out.write("\tion_record.key = malloc(table->key_size);\n");
+        out.write("\tion_record.value	= malloc(table->value_size);\n\n");
+
+        out.write("\tint num;\n");
+        out.write("\tion_key_t key;\n");
+        out.write("\tion_boolean_t condition_satisfied = boolean_true;\n");
+        out.write("\tchar *old_record, *record, *substring, *pointer;\n");
+        out.write("\n\twhile ((cursor_status = cursor->next(cursor, &ion_record)) == cs_cursor_active || cursor_status == cs_cursor_initialized) {\n");
+        out.write("\t\tfor (int j = 0; j < "+get_schema_value(table_name, "NUMBER OF FIELDS: ")+"; j++) {\n");
+
+        out.write("\t\t\tsubstring = malloc(strlen(record->value));\n" +
+                "\t\t\tstrcpy(substring, record->value);\n\n");
+
+        String field = "";
+        String operator = "";
+        String condition = "";
+        String update_value;
+        int field_num = 0;
+        int len = 0;
+        String field_type;
+
+        for (int j = 0; j < num_conditions; j++) {
+            out.write("\t\t\tcondition_satisfied = boolean_false;\n\n");
+
+            /* Set up field, operator, and condition for each WHERE clause */
+            if (conditions[j].contains("!=")) {
+                pos = conditions[j].indexOf("!=");
+                len = 2;
+                operator = conditions[j].substring(pos, pos + len);
+            }
+            else if (conditions[j].contains("<=")) {
+                pos = conditions[j].indexOf("<=");
+                len = 2;
+                operator = conditions[j].substring(pos, pos + len);
+            }
+            else if (conditions[j].contains(">=")) {
+                pos = conditions[j].indexOf(">=");
+                len = 2;
+                operator = conditions[j].substring(pos, pos + len);
+            }
+            else if (conditions[j].contains("=")) {
+                pos = conditions[j].indexOf("=");
+                len = 1;
+                operator = "==";
+            }
+            else if (conditions[j].contains("<")) {
+                pos = conditions[j].indexOf("<");
+                len = 1;
+                operator = conditions[j].substring(pos, pos + len);
+            }
+            else if (conditions[j].contains(">")) {
+                pos = conditions[j].indexOf(">");
+                len = 1;
+                operator = conditions[j].substring(pos, pos + len);
+            }
+
+            field = conditions[j].substring(0, pos).trim();
+            condition = conditions[j].substring(pos + len).trim();
+
+            for (int n = 0; n < Integer.parseInt(get_schema_value(table_name, "NUMBER OF FIELDS: ")); n++) {
+                if (field.equals(get_schema_value(table_name, "FIELD"+n+" NAME: "))) {
+                    field_num = n;
+                }
+            }
+
+            out.write("\t\t\tfor (int i = 0; i <= "+field_num+"; i++) {\n");
+            out.write("\t\t\t\tpointer = strstr(substring, \",\");\n\n");
+            out.write("\t\t\t\tif (NULL == pointer) {\n" + "\t\t\t\t\tchar col_val[strlen(substring)];\n\n");
+            out.write("\t\t\t\t\tmemcpy(col_val, substring, strlen(substring) + 1);\n" +
+                    "\t\t\t\t\tcol_val[strlen(substring)]\t= '\\0';\n\n");
+            out.write("\t\t\t\t\tvalue = malloc(strlen(col_val));\n" + "\t\t\t\t\tstrcpy(value, col_val);\n" + "\t\t\t\t}\n");
+            out.write("\t\t\t\telse {\n" + "\t\t\t\t\tpos = (int) (pointer - substring);\n" + "\n" +
+                    "\t\t\t\t\tchar col_val[pos + 1];\n");
+            out.write("\n" + "\t\t\t\t\tmemcpy(col_val, substring, pos);\n" + "\t\t\t\t\tcol_val[pos]\t= '\\0';\n" + "\n");
+            out.write("\t\t\t\t\tsubstring = pointer + 2;\n" + "\n" + "\t\t\t\t\tvalue = malloc(strlen(col_val));\n");
+            out.write("\t\t\t\t\tstrcpy(value, col_val);\n" + "\t\t\t\t}\n" + "\t\t\t}\n");
+
+            field_type = get_schema_value(table_name, "FIELD"+field_num+" TYPE: ");
+
+            if (field_type.equals("0") || field_type.equals("1")) {
+                out.write("\n\t\t\tnum = atoi(value);\n\n");
+                out.write("\t\t\tif (num "+operator+" "+condition+") {\n"+"\t\t\t\tcondition_satisfied = boolean_true;\n\t\t\t}\n");
+                out.write("\t\t\telse {\n\t\t\t\tcondition_satisfied = boolean_false;\n\t\t\t\tbreak;\n\t\t\t}\n\n");
+            }
+
+            else {
+                out.write("\n\t\t\tif (0 "+operator+" strncmp(val, "+condition+", strlen(val))) {\n");
+                out.write("\t\t\t\tcondition_satisfied = boolean_true;\n\t\t\t}\n");
+                out.write("\t\t\telse {\n\t\t\t\tcondition_satisfied = boolean_false;\n\t\t\t\tbreak;\n\t\t\t}\n\n");
+            }
+        }
+
+        /* If boolean_true, record has passed all conditions */
+        out.write("\t\t\tif (boolean_true == condition_satisfied) {\n\n");
+        out.write("\t\t\t\tchar	value[strlen(ion_record.value) + 1];\n");
+        out.write("\t\t\t\tchar	*field_value;\n\n");
+        out.write("\t\t\t\tmemcpy(value, ion_record.value, strlen(ion_record.value));\n");
+        out.write("\t\t\t\tvalue[strlen(ion_record.value)] = '\\0';\n\n");
+        out.write("\t\t\t\trecord = malloc(strlen(value));\n\t\t\t\tstrcpy(record, value);\n\n");
+        out.write("\t\t\t\told_record = malloc(strlen(record));\n\t\t\t\tstrcpy(old_record, record);\n\n");
+
+        for (int j = 0; j < num_fields; j++) {
+            out.write("\t\t\t\tfor (int j = 0; j < "+Integer.parseInt(get_schema_value(table_name, "NUMBER OF FIELDS: "))+"; j++) {\n");
+
+            pos = fields[j].indexOf("=");
+            field = fields[j].substring(0, pos).trim();
+            update_value = fields[j].substring(pos).trim();
+
+            for (int n = 0; n < Integer.parseInt(get_schema_value(table_name, "NUMBER OF FIELDS: ")); n++) {
+                if (field.equals(get_schema_value(table_name, "FIELD"+n+" NAME: "))) {
+                    field_num = n;
+                }
+            }
+
+            out.write("\t\t\t\t\tif ("+field_num+" == j) {\n");
+            out.write("\t\t\t\t\t\tfor (int i = 0; i <= j; i++) {\n\n");
+            out.write("\t\t\t\t\t\t\tpointer = strstr(record, \",\");\n" +
+                    "\t\t\t\t\t\t\tif (NULL == pointer) {\n\t\t\t\t\t\t\tchar col_val[strlen(record)];\n\n");
+            out.write("\t\t\t\t\t\t\tmemcpy(col_val, record, strlen(record) + 1);\n" +
+                    "\t\t\t\t\t\t\tcol_val[strlen(record)] = '\\0';\n\n");
+            out.write("\t\t\t\t\t\t\tfield_value = malloc(strlen(col_val));\n" +
+                    "\t\t\t\t\t\t\tstrcpy(field_value, col_val);\n" +
+                    "\t\t\t\t\t\t}\n\t\t\t\t\t\telse {\n");
+            out.write("\t\t\t\t\t\t\tpos = (int) (pointer - record);\n\n" +
+                    "\t\t\t\t\t\t\tchar col_val[pos + 1];\n\n\t\t\t\t\t\t\tmemcpy(col_val, record, pos);\n");
+            out.write("\t\t\t\t\t\t\tcol_val[pos]	= '\\0';\n\n" +
+                    "\t\t\t\t\t\t\trecord = pointer + 2;\n\t\t\t\t\t\t\tfield_value = malloc(strlen(col_val));\n");
+            out.write("\t\t\t\t\t\t\tstrcpy(field_value, col_val);\n\t\t\t\t\t\t}\n\t\t\t\t\t}\n");
+
+            boolean update_key = false;
+
+            if (field_num == Integer.parseInt(get_schema_value(table_name, "PRIMARY KEY FIELD: "))) {
+                field_type = get_schema_value(table_name, "FIELD"+field_num+" TYPE: ");
+
+                if (field_type.equals("0") || field_type.equals("1")) {
+
+                    out.write("status = dictionary_delete( &dictionary, IONIZE(atoi(field_value), int));\n");
+                    print_error(out, true);
+
+                    update_key = true;
+
+                    out.write("int num = atoi(update_value);\n");
+                    out.write("key = IONIZE(num, int);\n");
+                }
+
+                else {
+                    out.write("key = malloc(strlen(update_value));\n");
+                    out.write("strcpy(key, update_value);\n");
+                }
+            }
+
+            else {
+                out.write("key = ion_record.key;\n");
+            }
+
+            out.write("pointer = strstr(old_record, field_value);\nchar new_record[table->value_size];\n");
+            out.write("pos = (int) (pointer - old_record);\nmemcpy(new_record, old_record, pos);\n" +
+                            "len = (int) strlen(new_record);\n\n");
+            out.write("strcat(new_record, update_value);\nstrcat(new_record, old_record + len + strlen(field_value));\n\n");
+            out.write("printf(\"Updated record: %s"+"\\"+"n"+"\", new_record);\n\n");
+
+            if (update_key) {
+                out.write("status = dictionary_insert(&dictionary, key, new_record);\n\n");
+            }
+
+            else {
+                out.write("status = dictionary_update(&dictionary, key, new_record);\n\n");
+            }
+
+            print_error(out, true);
+        }
+
+        out.write("cursor->destroy(&cursor);\n");
+        out.write("free(ion_record.key);\nfree(ion_record.value);\n\n");
+        out.write("\tprint_table_"+table_name.substring(0, table_name.length() - 4).toLowerCase()+"(&dictionary);\n");
+
+        out.write("\terror = ion_close_dictionary(&dictionary);");
+        print_error(out, false);
+
+        out.write("}\n\n");
+
+        file_setup(header_written, first_function,  "update"+update_count, "UPDATE");
+        first_function = false;
+        header_written = true;
     }
 
     private static void
