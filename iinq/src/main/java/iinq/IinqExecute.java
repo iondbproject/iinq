@@ -516,6 +516,8 @@ public class IinqExecute {
     create_table(String sql, BufferedWriter out) throws IOException {
         System.out.println("create statement");
 
+        String statement = sql;
+
         sql = sql.trim();
         sql = sql.substring(26);
 
@@ -629,6 +631,7 @@ public class IinqExecute {
 
         /* Create CREATE TABLE method */
         out.write("void create_table" + create_count +"() {\n");
+        out.write("\tprintf(\"%s"+"\\"+"n"+"\\"+"n"+"\", \""+statement.substring(statement.indexOf("(") + 2, statement.length() - 4)+"\");\n");
         out.newLine();
         out.write("\tion_err_t error;");
         out.newLine();
@@ -660,6 +663,8 @@ public class IinqExecute {
     insert(String sql, BufferedWriter out) throws IOException {
         System.out.println("insert statement");
 
+        String statement = sql;
+
         sql = sql.trim();
         sql = sql.substring(25);
 
@@ -676,6 +681,7 @@ public class IinqExecute {
         /* Write function to file */
 
         out.write("void insert"+insert_count+"() {\n\n");
+        out.write("\tprintf(\"%s"+"\\"+"n"+"\\"+"n"+"\", \""+statement.substring(statement.indexOf("(") + 2, statement.length() - 4)+"\");\n");
         out.write("\tion_err_t error;\n" + "\tion_dictionary_t dictionary;\n" + "\tion_dictionary_handler_t handler;\n");
         out.write("\tdictionary.handler = &handler;\n" + "\n\terror = iinq_open_source(\""+table_name+"\", &dictionary, &handler);");
         print_error(out, false, 0);
@@ -756,6 +762,8 @@ public class IinqExecute {
     update(String sql, BufferedWriter out) throws IOException {
         System.out.println("update statement");
 
+        String statement = sql;
+
         sql = sql.trim();
         sql = sql.substring(20);
 
@@ -774,6 +782,7 @@ public class IinqExecute {
         /* Write function to file */
 
         out.write("void update"+update_count+"() {\n\n");
+        out.write("\tprintf(\"%s"+"\\"+"n"+"\\"+"n"+"\", \""+statement.substring(statement.indexOf("(") + 2, statement.length() - 4)+"\");\n");
         out.write("\tion_err_t error;\n" + "\tion_dictionary_t dictionary;\n" + "\tion_dictionary_handler_t handler;\n");
         out.write("\tdictionary.handler = &handler;\n" + "\n\terror = iinq_open_source(\""+table_name+"\", &dictionary, &handler);");
         print_error(out, false, 0);
@@ -816,7 +825,7 @@ public class IinqExecute {
 
         System.out.println(update+"\n");
 
-        /* Calculate number of WHERE conditions in statement */
+        /* Calculate number of fields to update in statement */
         while (-1 != i) {
             num_fields++;
             i = update.indexOf(",", i + 1);
@@ -1033,6 +1042,194 @@ public class IinqExecute {
     private static void
     delete(String sql, BufferedWriter out) throws IOException {
         System.out.println("delete statement");
+
+        String statement = sql;
+
+        sql = sql.trim();
+        sql = sql.substring(25);
+
+        String table_name = (sql.substring(0, sql.indexOf(" ")))+".inq";
+        System.out.println(table_name);
+
+        sql = sql.substring(table_name.length() - 3);
+
+        /* Create print table method if it doesn't already exist */
+        if (!print_written) {
+            print_table(out, table_name);
+        }
+
+        print_written = true;
+
+        /* Write function to file */
+
+        out.write("void delete"+delete_count+"() {\n\n");
+        out.write("\tprintf(\"%s"+"\\"+"n"+"\\"+"n"+"\", \""+statement.substring(statement.indexOf("(") + 2, statement.length() - 4)+"\");\n");
+        out.write("\tion_err_t error;\n" + "\tion_dictionary_t dictionary;\n" + "\tion_dictionary_handler_t handler;\n");
+        out.write("\tdictionary.handler = &handler;\n" + "\n\terror = iinq_open_source(\""+table_name+"\", &dictionary, &handler);");
+        print_error(out, false, 0);
+
+        int pos = sql.indexOf("WHERE");
+        String where_condition = "";
+        int num_conditions = 0;
+        int i = 0;
+
+        /* Get WHERE condition if it exists */
+        if (-1 != pos) {
+            where_condition = sql.substring(pos + 6, sql.length() - 4);
+        }
+
+        System.out.println("WHERE: "+where_condition+"\n");
+
+        /* Calculate number of WHERE conditions in statement */
+        while (-1 != i) {
+            if (!where_condition.equals("")) {
+                num_conditions++;
+            }
+
+            i = where_condition.indexOf(",", i + 1);
+        }
+
+        String[] conditions;
+
+        conditions = get_fields(where_condition, num_conditions);
+
+        out.write("\tion_predicate_t predicate;\n");
+        out.write("\tion_cursor_status_t cursor_status;\n");
+        out.write("\tion_status_t status;\n");
+        out.write("\tdictionary_build_predicate(&predicate, predicate_all_records);\n");
+        out.write("\tion_dict_cursor_t *cursor = NULL;\n");
+        out.write("\tdictionary_find(&dictionary, &predicate, &cursor);\n");
+
+        out.write("\tint num, pos;\n");
+        out.write("\tion_boolean_t condition_satisfied = boolean_true;\n");
+        out.write("\tchar *substring, *pointer, *value;\n");
+        out.write("\tint count = 0;\n" +
+                "\n" +
+                "\tion_record_t deleted_records["+get_schema_value(table_name, "NUMBER OF RECORDS: ")+"];\n" +
+                "\n" +
+                "\tfor (int i = 0; i < "+get_schema_value(table_name, "NUMBER OF RECORDS: ")+"; i++) {\n" +
+                "\t\tdeleted_records[i].key\t\t= malloc("+get_schema_value(table_name, "PRIMARY KEY SIZE: ")+");\n" +
+                "\t\tdeleted_records[i].value\t= malloc("+get_schema_value(table_name, "VALUE SIZE: ")+");\n" +
+                "\t}\n");
+        out.write("\n\twhile ((cursor_status = cursor->next(cursor, &deleted_records[count])) == cs_cursor_active || cursor_status == cs_cursor_initialized) {\n");
+
+        out.write("\n\t\tsubstring = malloc(strlen(deleted_records[count].value));\n");
+        out.write("\t\tcondition_satisfied = boolean_true;\n\n");
+
+        String field = "";
+        String operator = "";
+        String condition = "";
+        String update_value = "";
+        int field_num = 0;
+        int len = 0;
+        String field_type;
+
+        for (int j = 0; j < num_conditions; j++) {
+            System.out.println(conditions[j]);
+
+            /* Set up field, operator, and condition for each WHERE clause */
+            if (conditions[j].contains("!=")) {
+                pos = conditions[j].indexOf("!=");
+                len = 2;
+                operator = conditions[j].substring(pos, pos + len);
+            }
+            else if (conditions[j].contains("<=")) {
+                pos = conditions[j].indexOf("<=");
+                len = 2;
+                operator = conditions[j].substring(pos, pos + len);
+            }
+            else if (conditions[j].contains(">=")) {
+                pos = conditions[j].indexOf(">=");
+                len = 2;
+                operator = conditions[j].substring(pos, pos + len);
+            }
+            else if (conditions[j].contains("=")) {
+                pos = conditions[j].indexOf("=");
+                len = 1;
+                operator = "==";
+            }
+            else if (conditions[j].contains("<")) {
+                pos = conditions[j].indexOf("<");
+                len = 1;
+                operator = conditions[j].substring(pos, pos + len);
+            }
+            else if (conditions[j].contains(">")) {
+                pos = conditions[j].indexOf(">");
+                len = 1;
+                operator = conditions[j].substring(pos, pos + len);
+            }
+
+            field = conditions[j].substring(0, pos).trim();
+            condition = conditions[j].substring(pos + len).trim();
+
+            for (int n = 0; n < Integer.parseInt(get_schema_value(table_name, "NUMBER OF FIELDS: ")); n++) {
+                if (field.equals(get_schema_value(table_name, "FIELD"+n+" NAME: "))) {
+                    field_num = n;
+                }
+            }
+
+            out.write("\t\tif (boolean_true == condition_satisfied) {\n");
+            out.write("\t\t\tstrcpy(substring, deleted_records[count].value);\n\n");
+            out.write("\t\t\tfor (int i = 0; i <= "+field_num+"; i++) {\n");
+            out.write("\t\t\t\tpointer = strstr(substring, \",\");\n\n");
+            out.write("\t\t\t\tif (NULL == pointer) {\n" + "\t\t\t\t\tchar col_val[strlen(substring)];\n\n");
+            out.write("\t\t\t\t\tmemcpy(col_val, substring, strlen(substring) + 1);\n" +
+                    "\t\t\t\t\tcol_val[strlen(substring)]\t= '\\0';\n\n");
+            out.write("\t\t\t\t\tvalue = malloc(strlen(col_val));\n" + "\t\t\t\t\tstrcpy(value, col_val);\n" + "\t\t\t\t}\n");
+            out.write("\t\t\t\telse {\n" + "\t\t\t\t\tpos = (int) (pointer - substring);\n" + "\n" +
+                    "\t\t\t\t\tchar col_val[pos + 1];\n");
+            out.write("\n" + "\t\t\t\t\tmemcpy(col_val, substring, pos);\n" + "\t\t\t\t\tcol_val[pos]\t= '\\0';\n" + "\n");
+            out.write("\t\t\t\t\tsubstring = pointer + 2;\n" + "\n" + "\t\t\t\t\tvalue = malloc(strlen(col_val));\n");
+            out.write("\t\t\t\t\tstrcpy(value, col_val);\n" + "\t\t\t\t}\n" + "\t\t\t}\n");
+
+            field_type = get_schema_value(table_name, "FIELD"+field_num+" TYPE: ");
+
+            if (field_type.equals("0") || field_type.equals("1")) {
+                out.write("\n\t\t\tnum = atoi(value);\n\n");
+                out.write("\t\t\tif (num "+operator+" "+condition+") {\n"+"\t\t\t\tcondition_satisfied = boolean_true;\n\t\t\t}\n");
+                out.write("\t\t\telse {\n\t\t\t\tcondition_satisfied = boolean_false;\n\t\t\t}\n\t\t}\n\n");
+            }
+
+            else {
+                out.write("\n\t\t\tif (0 "+operator+" strncmp(value, \""+condition+"\", strlen(value))) {\n");
+                out.write("\t\t\t\tcondition_satisfied = boolean_true;\n\t\t\t}\n");
+                out.write("\t\t\telse {\n\t\t\t\tcondition_satisfied = boolean_false;\n\t\t\t}\n\t\t}\n\n");
+            }
+        }
+
+        /* If boolean_true, record has passed all conditions */
+        out.write("\t\tif (boolean_false == condition_satisfied) {\n");
+
+        out.write("\t\t\tdeleted_records[count].key = NULL;\n" +
+                "\t\t\tdeleted_records[count].value = NULL;\n");
+
+        out.write("\t\t}\n\n\t\tcount++;\n\t}\n\n");
+
+        out.write("\tfor (int i = 0; i < count; i++) {\n" +
+                "\t\tif (NULL != deleted_records[i].key) {\n" +
+                "\t\t\tstatus = dictionary_delete(&dictionary, deleted_records[i].key);\n" +
+                "\n" +
+                "\t\t\tif (err_ok != status.error) {\n" +
+                "\t\t\t\tprintf(\"Error occurred deleting record from table. Error code: %i\\n\", status.error);\n" +
+                "\t\t\t\treturn;\n" +
+                "\t\t\t}\n" +
+                "\n" +
+                "\t\t\tprintf(\"Record deleted: %s"+"\\"+"n"+"\\"+"n"+"\", (char *) deleted_records[i].value);\n"+
+                "\t\t\tfree(deleted_records[i].key);\n" + "\t\t\tfree(deleted_records[i].value);\n" +
+                "\t\t}\n" +
+                "\t}\n");
+
+        out.write("\n\tcursor->destroy(&cursor);\n");
+        out.write("\tprint_table_"+table_name.substring(0, table_name.length() - 4).toLowerCase()+"(&dictionary);\n");
+
+        out.write("\terror = ion_close_dictionary(&dictionary);");
+        print_error(out, false, 0);
+
+        out.write("}\n\n");
+
+        file_setup(header_written, first_function,  "delete"+delete_count, "DELETE");
+        first_function = false;
+        header_written = true;
     }
 
     private static void
@@ -1040,14 +1237,17 @@ public class IinqExecute {
         System.out.println("drop statement");
 
         sql = sql.trim();
+
+        /* Write function to file */
+
+        out.write("void drop_table"+drop_count+"() {\n\n");
+        out.write("\tprintf(\"%s"+"\\"+"n"+"\\"+"n"+"\", \""+sql.substring(sql.indexOf("(") + 2, sql.length() - 4)+"\");\n");
+
         sql = sql.substring(24);
 
         String table_name = (sql.substring(0, sql.indexOf(";")))+".inq";
         System.out.println(table_name);
 
-        /* Write function to file */
-
-        out.write("void drop_table"+drop_count+"() {\n\n");
         out.write("\tion_err_t error;\n\n");
         out.write("\terror = iinq_drop(\""+table_name+"\");");
         print_error(out, false, 0);
