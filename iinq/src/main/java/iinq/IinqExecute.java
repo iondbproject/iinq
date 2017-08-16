@@ -455,7 +455,7 @@ public class IinqExecute {
     }
 
     private static void
-    increment_num_records (String table_name) throws IOException {
+    increment_num_records (String table_name, boolean increment) throws IOException {
         String path = "/Users/danaklamut/ClionProjects/iondb/src/iinq/iinq_interface/"+
                 table_name.substring(0, table_name.length() - 4).toLowerCase()+".sch";
         BufferedReader file = new BufferedReader(new FileReader(path));
@@ -467,7 +467,14 @@ public class IinqExecute {
         while (null != (line = file.readLine())) {
             if (line.contains("NUMBER OF RECORDS: ")) {
                 num = Integer.parseInt(line.substring(19));
-                contents += "NUMBER OF RECORDS: " + (num+1) +"\n";
+
+                if (increment) {
+                    contents += "NUMBER OF RECORDS: " + (num + 1) + "\n";
+                }
+
+                else {
+                    contents += "NUMBER OF RECORDS: " + (num - 1) + "\n";
+                }
             }
 
             else {
@@ -745,7 +752,7 @@ public class IinqExecute {
 
         out.write("\tprintf(\"Record inserted: "+value+"\\"+"n"+"\\"+"n"+"\");");
 
-        increment_num_records(table_name);
+        increment_num_records(table_name, true);
 
         out.write("\tprint_table_"+table_name.substring(0, table_name.length() - 4).toLowerCase()+"(&dictionary);\n");
         out.write("\terror = ion_close_dictionary(&dictionary);");
@@ -992,7 +999,7 @@ public class IinqExecute {
 
                 update_key = true;
 
-                out.write("\t\t\tint num = atoi("+update_value+");\n");
+                out.write("\t\t\tint num = "+update_value+";\n");
                 out.write("\t\t\tkey = IONIZE(num, int);\n");
             }
 
@@ -1218,6 +1225,8 @@ public class IinqExecute {
                 "\t\t\tfree(deleted_records[i].key);\n" + "\t\t\tfree(deleted_records[i].value);\n" +
                 "\t\t}\n" +
                 "\t}\n");
+
+        increment_num_records(table_name, false);
 
         out.write("\n\tcursor->destroy(&cursor);\n");
         out.write("\tprint_table_"+table_name.substring(0, table_name.length() - 4).toLowerCase()+"(&dictionary);\n");
