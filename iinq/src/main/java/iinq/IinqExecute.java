@@ -812,7 +812,7 @@ public class IinqExecute {
             i = where_condition.indexOf(",", i + 1);
         }
 
-        String[] conditions = new String[num_conditions];
+        String[] conditions;
 
         conditions = get_fields(where_condition, num_conditions);
 
@@ -838,7 +838,7 @@ public class IinqExecute {
             i = update.indexOf(",", i + 1);
         }
 
-        String[] fields = new String[num_fields];
+        String[] fields;
 
         fields = get_fields(update, num_fields);
 
@@ -943,6 +943,26 @@ public class IinqExecute {
         /* If boolean_true, record has passed all conditions */
         out.write("\t\tif (boolean_true == condition_satisfied) {\n\n");
         out.write("\t\t\tchar	old_value[strlen(ion_record.value) + 1];\n");
+
+        int primary_key_field = Integer.parseInt(get_schema_value(table_name, "PRIMARY KEY FIELD: "));
+        boolean update_key = false; /* Whether the key of a record is being updated */
+
+        for (int j = 0; j < num_fields; j++) {
+            for (int n = 0; n < Integer.parseInt(get_schema_value(table_name, "NUMBER OF FIELDS: ")); n++) {
+                System.out.println("1: "+fields[j]+" 2: "+get_schema_value(table_name, "FIELD"+n+" NAME: "));
+                if (fields[j].substring(0, fields[j].indexOf("=")).trim().equals(get_schema_value(table_name, "FIELD"+n+" NAME: "))) {
+                    if (n == primary_key_field) {
+                        update_key = true;
+                    }
+                }
+            }
+        }
+
+        if (update_key) {
+            out.write("\t\t\tchar\tkey_value["+ion_switch_key_size
+                    (Integer.parseInt(get_schema_value(table_name, "FIELD"+primary_key_field+" TYPE: ")))+"];\n");
+        }
+
         out.write("\t\t\tchar	*field_value;\n\n");
         out.write("\t\t\tchar new_record["+get_schema_value(table_name, "VALUE SIZE: ")+"] = \"\";\n\n");
         out.write("\t\t\tmemcpy(old_value, ion_record.value, strlen(ion_record.value));\n");
@@ -953,10 +973,45 @@ public class IinqExecute {
         out.write("\t\t\tfor (int i = 0; i < "+get_schema_value(table_name, "NUMBER OF FIELDS: ")+"; i++) {\n\n");
         out.write("\t\t\t\tpointer = strstr(record, \",\");\n\n");
 
+        boolean implicit_update = false; /* Whether a field is being updated using the value of another field. */
+        String update_value_field = ""; /* Field value that is being used to update a field. */
+        String update_value_value = ""; /* Value that is being added to another field value to update a field. */
+        String update_operator = ""; /* Whether values are being updated through addition or subtraction. */
+
         for (int j = 0; j < num_fields; j++) {
             pos = fields[j].indexOf("=");
             field = fields[j].substring(0, pos).trim();
             update_value = fields[j].substring(pos + 1).trim();
+
+            /* Check if update value contains an operator */
+            if (update_value.contains("+")) {
+                implicit_update = true;
+                pos = update_value.indexOf("+");
+                update_operator = update_value.substring(pos, pos + 1);
+                update_value_field = update_value.substring(0, pos).trim();
+                update_value_value = update_value.substring(pos + 1).trim();
+            }
+            else if (update_value.contains("-")) {
+                implicit_update = true;
+                pos = update_value.indexOf("-");
+                update_operator = update_value.substring(pos, pos + 1);
+                update_value_field = update_value.substring(0, pos).trim();
+                update_value_value = update_value.substring(pos + 1).trim();
+            }
+            else if (update_value.contains("*")) {
+                implicit_update = true;
+                pos = update_value.indexOf("*");
+                update_operator = update_value.substring(pos, pos + 1);
+                update_value_field = update_value.substring(0, pos).trim();
+                update_value_value = update_value.substring(pos + 1).trim();
+            }
+            else if (update_value.contains("/")) {
+                implicit_update = true;
+                pos = update_value.indexOf("/");
+                update_operator = update_value.substring(pos, pos + 1);
+                update_value_field = update_value.substring(0, pos).trim();
+                update_value_value = update_value.substring(pos + 1).trim();
+            }
 
             for (int n = 0; n < Integer.parseInt(get_schema_value(table_name, "NUMBER OF FIELDS: ")); n++) {
                 if (field.equals(get_schema_value(table_name, "FIELD"+n+" NAME: "))) {
@@ -964,16 +1019,45 @@ public class IinqExecute {
                 }
             }
 
+            /* First iteration - if statement */
             if (0 == j) {
                 out.write("\t\t\t\tif (" + field_num + " == i) {\n");
             }
 
+            /* After first iteration - else if statement */
             else {
                 out.write("\t\t\t\telse if (" + field_num + " == i) {\n");
             }
-            out.write("\t\t\t\t\tstrcat(new_record, \"" + update_value + "\");\n\n");
-            out.write("\t\t\t\t\tif (NULL != pointer) {\n" + "\t\t\t\t\t\trecord = pointer + 2;\n" +
-                    "\t\t\t\t\t\tstrcat(new_record, \", \");\n"+ "\t\t\t\t\t}\n" + "\t\t\t\t}\n");
+
+            if (!implicit_update) {
+                out.write("\t\t\t\t\tstrcat(new_record, \"" + update_value + "\");\n\n");
+
+                if (update_key) {
+                    out.write("\t\t\t\t\tstrcat(key_value, \"" + update_value + "\");\n\n");
+                }
+
+                out.write("\t\t\t\t\tif (NULL != pointer) {\n" + "\t\t\t\t\t\trecord = pointer + 2;\n" +
+                        "\t\t\t\t\t\tstrcat(new_record, \", \");\n"+ "\t\t\t\t\t}\n" + "\t\t\t\t}\n");
+            }
+
+            /* Field is being updated using its previous value */
+            else {
+                out.write("\t\t\t\t\tif (NULL == pointer) {\n\t\t\t\t\t\tchar col_val[strlen(record)];\n\n");
+                out.write("\t\t\t\t\t\tmemcpy(col_val, record, strlen(record) + 1);\n" +
+                        "\t\t\t\t\t\tcol_val[strlen(record)] = '\\0';\n\n");
+                out.write("\t\t\t\t\t\tsprintf(key_value, \"%i\", atoi(col_val) " + update_operator + " " + update_value_value + ");\n" +
+                        "\t\t\t\t\t\tstrcat(new_record, key_value);\n" +
+                        "\t\t\t\t\t}\n\t\t\t\t\telse {\n");
+                out.write("\t\t\t\t\t\tpos = (int) (pointer - record);\n\n" +
+                        "\t\t\t\t\t\tchar col_val[pos + 1];\n\n\t\t\t\t\t\tmemcpy(col_val, record, pos);\n");
+                out.write("\t\t\t\t\t\tcol_val[pos]	= '\\0';\n\n" +
+                        "\t\t\t\t\t\trecord = pointer + 2;\n\t\t\t\t\t\tfield_value = malloc(strlen(col_val));\n");
+
+                out.write("\t\t\t\t\t\tsprintf(key_value, \"%i\", atoi(col_val) " + update_operator + " " + update_value_value + ");\n");
+
+                out.write("\t\t\t\t\t\tstrcat(new_record, key_value);" +
+                        "\n\t\t\t\t\t\tstrcat(new_record, \", \");\n\t\t\t\t\t}\n\t\t\t\t}\n\n");
+            }
         }
 
         out.write("\t\t\t\telse if (NULL == pointer) {\n\t\t\t\t\tchar col_val[strlen(record)];\n\n");
@@ -987,19 +1071,22 @@ public class IinqExecute {
                 "\t\t\t\t\trecord = pointer + 2;\n\t\t\t\t\tfield_value = malloc(strlen(col_val));\n");
         out.write("\t\t\t\t\tstrcat(new_record, col_val);\n\t\t\t\t\tstrcat(new_record, \", \");\n\t\t\t\t}\n\t\t\t}\n\n");
 
-        boolean update_key = false;
-
-        if (field_num == Integer.parseInt(get_schema_value(table_name, "PRIMARY KEY FIELD: "))) {
+        if (field_num == primary_key_field) {
             field_type = get_schema_value(table_name, "FIELD"+field_num+" TYPE: ");
 
             if (field_type.equals("0") || field_type.equals("1")) {
 
                 out.write("\t\t\tstatus = dictionary_delete(&dictionary, ion_record.key);");
-                print_error(out, true, 3);
+                print_error(out, true, 2);
 
-                update_key = true;
+                if (implicit_update) {
+                    out.write("\t\t\tnum = atoi(key_value);\n");
+                }
 
-                out.write("\t\t\tint num = "+update_value+";\n");
+                else {
+                    out.write("\t\t\tnum = "+update_value+";\n");
+                }
+
                 out.write("\t\t\tkey = IONIZE(num, int);\n");
             }
 
@@ -1009,8 +1096,15 @@ public class IinqExecute {
 
                 update_key = true;
 
-                out.write("\t\t\tkey = malloc(strlen(\""+update_value+"\"));\n");
-                out.write("\t\t\tstrcpy(key, \""+update_value+"\");\n");
+                if (implicit_update) {
+                    out.write("\t\t\tkey = malloc(strlen(key_value));\n");
+                    out.write("\t\t\tstrcpy(key, key_value);\n");
+                }
+
+                else {
+                    out.write("\t\t\tkey = malloc(strlen(\"" + update_value + "\"));\n");
+                    out.write("\t\t\tstrcpy(key, \""+update_value+"\");\n");
+                }
             }
         }
 
