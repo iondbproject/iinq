@@ -438,7 +438,7 @@ public class IinqExecute {
         String line;
 
         String path = "/Users/danaklamut/ClionProjects/iondb/src/iinq/iinq_interface/"+
-                table_name.substring(0, table_name.length() - 4).toLowerCase()+".sch";
+                table_name.substring(0, table_name.length() - 4).toLowerCase()+".xml";
         BufferedReader file = new BufferedReader(new FileReader(path));
 
         while (null != (line = file.readLine())) {
@@ -450,14 +450,19 @@ public class IinqExecute {
 
         file.close();
 
-        System.out.println(line);
+        if (null != line) {
+            if (line.contains(":")) {
+                line = line.substring(line.indexOf(":") + 2);
+            }
+        }
+
         return line;
     }
 
     private static void
     increment_num_records (String table_name, boolean increment) throws IOException {
         String path = "/Users/danaklamut/ClionProjects/iondb/src/iinq/iinq_interface/"+
-                table_name.substring(0, table_name.length() - 4).toLowerCase()+".sch";
+                table_name.substring(0, table_name.length() - 4).toLowerCase()+".xml";
         BufferedReader file = new BufferedReader(new FileReader(path));
 
         String contents = "";
@@ -466,7 +471,11 @@ public class IinqExecute {
 
         while (null != (line = file.readLine())) {
             if (line.contains("NUMBER OF RECORDS: ")) {
-                num = Integer.parseInt(line.substring(19));
+                if (line.contains(":")) {
+                    line = line.substring(line.indexOf(":") + 2);
+                }
+
+                num = Integer.parseInt(line);
 
                 if (increment) {
                     contents += "NUMBER OF RECORDS: " + (num + 1) + "\n";
@@ -483,7 +492,7 @@ public class IinqExecute {
         }
 
         File output_file = new File("/Users/danaklamut/ClionProjects/iondb/src/iinq/iinq_interface/"+
-                table_name.substring(0, table_name.length() - 4).toLowerCase()+".sch");
+                table_name.substring(0, table_name.length() - 4).toLowerCase()+".xml");
         FileOutputStream out = new FileOutputStream(output_file, false);
 
         out.write(contents.getBytes());
@@ -604,23 +613,49 @@ public class IinqExecute {
             value_size = value_size.concat(ion_switch_key_size(field_types[j]));
         }
 
-        String schema_name = table_name.substring(0, table_name.length() - 4).toLowerCase().concat(".sch");
+        String schema_name = table_name.substring(0, table_name.length() - 4).toLowerCase().concat(".xml");
 
-        /* Set up schema header in file */
+        /* Set up schema XML file */
         String contents = "";
 
-        contents += "TABLE NAME: "+table_name;
-        contents += "\nPRIMARY KEY TYPE: "+primary_key_type;
-        contents += "\nPRIMARY KEY SIZE: "+primary_key_size;
-        contents += "\nVALUE SIZE: "+value_size;
-        contents += "\nNUMBER OF FIELDS: "+(num_fields - 1);
-        contents += "\nNUMBER OF RECORDS: 0";
-        contents += "\nPRIMARY KEY FIELD: "+primary_key_field_num;
+        contents += "<?xml version=\"1.0\" ?>";
+        contents += "\n<schema>";
+        contents += "\n\t<table_name>";
+        contents += "\n\t\tTABLE NAME: "+table_name;
+        contents += "\n\t</table_name>";
+        contents += "\n\t<primary_key_type>";
+        contents += "\n\t\tPRIMARY KEY TYPE: "+primary_key_type;
+        contents += "\n\t</primary_key_type>";
+        contents += "\n\t<primary_key_size>";
+        contents += "\n\t\tPRIMARY KEY SIZE: "+primary_key_size;
+        contents += "\n\t</primary_key_size>";
+        contents += "\n\t<value_size>";
+        contents += "\n\t\tVALUE SIZE: "+value_size;
+        contents += "\n\t</value_size>";
+        contents += "\n\t<num_fields>";
+        contents += "\n\t\tNUMBER OF FIELDS: "+(num_fields - 1);
+        contents += "\n\t</num_fields>";
+        contents += "\n\t<num_records>";
+        contents += "\n\t\tNUMBER OF RECORDS: 0";
+        contents += "\n\t</num_records>";
+        contents += "\n\t<primary_key_field>";
+        contents += "\n\t\tPRIMARY KEY FIELD: "+primary_key_field_num;
+        contents += "\n\t</primary_key_field>";
+        contents += "\n\t<fields>";
 
         for (int j = 0; j < num_fields - 1; j++) {
-            contents += "\nFIELD"+j+" NAME: "+field_names[j];
-            contents += "\nFIELD"+j+" TYPE: "+field_types[j];
+            contents += "\n\t\t<field>";
+            contents += "\n\t\t\t<field_name>";
+            contents += "\n\t\t\t\tFIELD"+j+" NAME: "+field_names[j];
+            contents += "\n\t\t\t</field_name>";
+            contents += "\n\t\t\t<field_type>";
+            contents += "\n\t\t\t\tFIELD"+j+" TYPE: "+field_types[j];
+            contents += "\n\t\t\t</field_type>";
+            contents += "\n\t\t</field>";
         }
+
+        contents += "\n\t</fields>";
+        contents += "\n</schema>";
 
         File schema = new File("/Users/danaklamut/ClionProjects/iondb/src/iinq/iinq_interface/"+schema_name);
         FileOutputStream schema_out = new FileOutputStream(schema, false);
@@ -1397,7 +1432,7 @@ public class IinqExecute {
         print_error(out, false, 0);
 
         File file = new File("/Users/danaklamut/ClionProjects/iondb/src/iinq/iinq_interface/"+
-                table_name.substring(0, table_name.length() - 4).toLowerCase()+".sch");
+                table_name.substring(0, table_name.length() - 4).toLowerCase()+".xml");
 
         if (!file.delete()) {
             out.write("\tprintf(\"Error occurred deleting table."+"\\"+"n"+"\");");
