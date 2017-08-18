@@ -1396,7 +1396,12 @@ public class IinqExecute {
         out.write("\terror = iinq_drop(\""+table_name+"\");");
         print_error(out, false, 0);
 
-        out.write("\tfremove(\""+table_name+"\");\n");
+        File file = new File("/Users/danaklamut/ClionProjects/iondb/src/iinq/iinq_interface/"+
+                table_name.substring(0, table_name.length() - 4).toLowerCase()+".sch");
+
+        if (!file.delete()) {
+            out.write("\tprintf(\"Error occurred deleting table."+"\\"+"n"+"\");");
+        }
 
         out.write("\tprintf(\"Table "+table_name.substring(0, table_name.length() - 4)+
                 " has been deleted."+"\\"+"n"+"\");");
