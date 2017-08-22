@@ -548,7 +548,7 @@ public class IinqBuilder extends QueryBuilder
      * 
      * @param node
      *     DISTINCT node
-     * @param query
+     * @param in
      *     query being built
      * @throws SQLException 
      *     if an error occurs
