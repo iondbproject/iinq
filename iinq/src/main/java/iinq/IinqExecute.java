@@ -54,10 +54,10 @@ public class IinqExecute {
         FileOutputStream out = null;
 
         try {
-            in = new FileInputStream("/Users/danaklamut/ClionProjects/iondb/src/iinq/iinq_interface/iinq_user.c");
+            in = new FileInputStream("../../iinq_interface/iinq_user.c");
 
             /* Create output file */
-            File output_file = new File("/Users/danaklamut/ClionProjects/iondb/src/iinq/iinq_interface/iinq_user_functions.c");
+            File output_file = new File("../../iinq_interface/iinq_user_functions.c");
             output_file.createNewFile();
             out = new FileOutputStream(output_file, false);
 
@@ -178,7 +178,7 @@ public class IinqExecute {
                 "\n" +
                 "#endif\n";
 
-        File file = new File("/Users/danaklamut/ClionProjects/iondb/src/iinq/iinq_interface/iinq_user.h");
+        File file = new File("../../iinq_interface/iinq_user.h");
         FileOutputStream out = new FileOutputStream(file, false);
 
         out.write(contents.getBytes());
@@ -189,7 +189,7 @@ public class IinqExecute {
     private static void
     main_setup() throws IOException {
         /* Comment out old IINQ functions */
-        String path = "/Users/danaklamut/ClionProjects/iondb/src/iinq/iinq_interface/iinq_user.c";
+        String path = "../../iinq_interface/iinq_user.c";
         BufferedReader file = new BufferedReader(new FileReader(path));
 
         String contents = "";
@@ -356,7 +356,7 @@ public class IinqExecute {
     private static void
     file_setup (boolean header_written, boolean first_function, String function, String keyword) throws IOException {
         /* Write header file */
-        String header_path = "/Users/danaklamut/ClionProjects/iondb/src/iinq/iinq_interface/iinq_user_functions.h";
+        String header_path = "../../iinq_interface/iinq_user_functions.h";
         BufferedReader header_file = null;
 
         if (header_written) {
@@ -406,7 +406,7 @@ public class IinqExecute {
         header.close();
 
         /* Add new functions to be run to executable */
-        String ex_path = "/Users/danaklamut/ClionProjects/iondb/src/iinq/iinq_interface/iinq_user.c";
+        String ex_path = "../../iinq_interface/iinq_user.c";
         BufferedReader ex_file = new BufferedReader(new FileReader(ex_path));
 
         contents = "";
@@ -437,7 +437,7 @@ public class IinqExecute {
     get_schema_value (String table_name, String keyword) throws IOException {
         String line;
 
-        String path = "/Users/danaklamut/ClionProjects/iondb/src/iinq/iinq_interface/"+
+        String path = "../../iinq_interface/"+
                 table_name.substring(0, table_name.length() - 4).toLowerCase()+".xml";
         BufferedReader file = new BufferedReader(new FileReader(path));
 
@@ -461,7 +461,7 @@ public class IinqExecute {
 
     private static void
     increment_num_records (String table_name, boolean increment) throws IOException {
-        String path = "/Users/danaklamut/ClionProjects/iondb/src/iinq/iinq_interface/"+
+        String path = "../../iinq_interface/"+
                 table_name.substring(0, table_name.length() - 4).toLowerCase()+".xml";
         BufferedReader file = new BufferedReader(new FileReader(path));
 
@@ -491,7 +491,7 @@ public class IinqExecute {
             }
         }
 
-        File output_file = new File("/Users/danaklamut/ClionProjects/iondb/src/iinq/iinq_interface/"+
+        File output_file = new File("../../iinq_interface/"+
                 table_name.substring(0, table_name.length() - 4).toLowerCase()+".xml");
         FileOutputStream out = new FileOutputStream(output_file, false);
 
@@ -657,7 +657,7 @@ public class IinqExecute {
         contents += "\n\t</fields>";
         contents += "\n</schema>";
 
-        File schema = new File("/Users/danaklamut/ClionProjects/iondb/src/iinq/iinq_interface/"+schema_name);
+        File schema = new File("../../iinq_interface/"+schema_name);
         FileOutputStream schema_out = new FileOutputStream(schema, false);
 
         schema_out.write(contents.getBytes());
@@ -1431,7 +1431,7 @@ public class IinqExecute {
         out.write("\terror = iinq_drop(\""+table_name+"\");");
         print_error(out, false, 0);
 
-        File file = new File("/Users/danaklamut/ClionProjects/iondb/src/iinq/iinq_interface/"+
+        File file = new File("../../iinq_interface/"+
                 table_name.substring(0, table_name.length() - 4).toLowerCase()+".xml");
 
         if (!file.delete()) {
