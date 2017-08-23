@@ -1,8 +1,8 @@
 /******************************************************************************/
 /**
- @file RequiresSchemaException.java
+ @file TestIinqReadCreatedSchema.java
  @author Kai Neubauer
- @brief 	Defines an exception thrown when iinq queries require a schema.
+ @brief        Tests that XML files with iinq can be read successfully.
  @copyright Copyright 2017
  The University of British Columbia,
  IonDB Project Contributors (see AUTHORS.md)
@@ -34,19 +34,44 @@
  */
 /******************************************************************************/
 
-package iinq;
+import org.junit.AfterClass;
+import org.junit.BeforeClass;
+import org.junit.Test;
+import unity.annotation.GlobalSchema;
+import unity.annotation.SourceDatabase;
+import unity.annotation.SourceField;
+import unity.annotation.SourceTable;
+import unity.jdbc.UnityConnection;
+import unity.jdbc.UnityStatement;
 
-/**
- * Exception thrown when a clause requires metadata that was not given
- */
-class RequiresSchemaException extends Exception
-{
-	// Parameterless Constructor
-	public RequiresSchemaException() {}
+import java.sql.Connection;
+import java.sql.DatabaseMetaData;
+import java.sql.DriverManager;
+import java.sql.SQLException;
+import java.util.ArrayList;
 
-	// Constructor that accepts a message
-	public RequiresSchemaException(String message)
-	{
-		super(message);
+public class TestIinqReadCreatedSchema {
+	@Test
+	public void readIinqSources() {
+		GlobalSchema metadata = null;
+		Connection con = null;
+		String url = "jdbc:unity://data/xspec/iinq_sources.xml";
+		try {
+			Class.forName("unity.jdbc.UnityDriver");
+			System.out.println("\nGetting connection: " + url);
+			con = DriverManager.getConnection(url);
+			System.out.println("\nConnection successful for " + url);
+			System.out.println("\nGetting metadata.");
+		} catch (Exception e) {
+			e.printStackTrace();
+		} finally {
+			try {
+				if (null != con) {
+					con.close();
+				}
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+		}
 	}
 }
