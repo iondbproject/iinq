@@ -260,16 +260,16 @@ public class IinqExecute {
 			int key_type
 	) {
 		switch (key_type) {
-			case 4: {
+			case 4:  { // INT
 				return "sizeof(int)";
 			}
 
-			case 1:
-			case 12: {
+			case 1: // CHAR
+			case 12: { // VARCHAR
 				return "20";
 			}
 
-			case 3: {
+			case 3: { // DECIMAL
 				return "sizeof(double)";
 			}
 		}
@@ -339,7 +339,7 @@ public class IinqExecute {
 	}
 
 	private static void
-	print_table(BufferedWriter out, String table_name) throws IOException, InvalidArgumentException, RelationNotFoundException {
+	print_table(BufferedWriter out, String table_name) throws IOException, InvalidArgumentException, RelationNotFoundException, SQLFeatureNotSupportedException {
 		out.write("void print_table_" + table_name.substring(0, table_name.length() - 4).toLowerCase() + "(ion_dictionary_t *dictionary) {\n");
 		out.write("\n\tion_predicate_t predicate;\n");
 		out.write("\tdictionary_build_predicate(&predicate, predicate_all_records);\n\n");
@@ -469,7 +469,7 @@ public class IinqExecute {
 	}
 
 	private static String
-	get_schema_value(String table_name, String keyword) throws IOException, RelationNotFoundException, InvalidArgumentException {
+	get_schema_value(String table_name, String keyword) throws IOException, RelationNotFoundException, InvalidArgumentException, SQLFeatureNotSupportedException {
 
 		getConnection(IinqExecute.url);
 		ArrayList<SourceDatabase> databases = metadata.getAnnotatedDatabases();
@@ -485,7 +485,7 @@ public class IinqExecute {
 
 		switch (keyword) {
 			case "PRIMARY KEY TYPE": {
-				return table.getField(table.getPrimaryKey().getFieldList()).getColumnName();
+				return Integer.toString(table.getField(table.getPrimaryKey().getFieldList()).getDataType());
 			}
 			case "PRIMARY KEY FIELD": {
 				return table.getField(table.getPrimaryKey().getFieldList()).getColumnName();
@@ -508,21 +508,11 @@ public class IinqExecute {
 				StringBuilder returnValue = new StringBuilder();
 				// Skip the first field which is part of the key
 				for (int i = 1; i < num_fields; i++) {
-					switch (fields.get(i).getDataType()) {
-						case 1: // CHAR
-						case 12: // VARCHAR
-							returnValue.append(String.format("sizeof(char) * %d + ", fields.get(i).getColumnSize()));
-							break;
-						case 3: // DECIMAL
-							returnValue.append("sizeof(double) + ");
-							break;
-						case 4: // INT
-							returnValue.append("sizeof(int) + ");
-							break;
+					if (i > 0) {
+						returnValue.append(" + ");
 					}
+					returnValue.append(get_field_size(fields.get(i)));
 				}
-				// Trim off the extra plus sign
-				returnValue.setLength(returnValue.length() - 2);
 				return returnValue.toString();
 			}
 			case "NUMBER OF FIELDS": {
@@ -541,6 +531,20 @@ public class IinqExecute {
 			}
 		}
 
+	}
+
+	private static String get_field_size(SourceField field) throws SQLFeatureNotSupportedException {
+		switch (field.getDataType()) {
+			case 1: // CHAR
+			case 12: // VARCHAR
+				return String.format("sizeof(char) * %d", field.getColumnSize());
+			case 3: // DECIMAL
+				return "sizeof(double)";
+			case 4: // INT
+				return "sizeof(int)";
+			default:
+				throw new SQLFeatureNotSupportedException(String.format("Data type not supported: %s", field.getDataTypeName()));
+		}
 	}
 
 	private static void
@@ -630,8 +634,50 @@ public class IinqExecute {
 		schema_out.write(databases.toString().getBytes());
 	}
 
+	private static String
+	create_schema_variable(String database_name, String table_name) throws RelationNotFoundException, IOException, InvalidArgumentException, SQLFeatureNotSupportedException {
+		StringBuilder schema = new StringBuilder("(iinq_schema_t[]) {TABLE_SCHEMA(");
+		int num_fields = Integer.parseInt(get_schema_value(table_name, "NUMBER OF FIELDS"));
+
+		schema.append(num_fields);
+		schema.append(",\nTABLE_FIELD_TYPES(");
+		for (int i = 0; i < num_fields; i++) {
+			if (i > 0) {
+				schema.append(", ");
+			}
+			switch (Integer.parseInt(get_schema_value(table_name, "FIELD" + i + " TYPE"))) {
+				case 1:
+				case 12:
+					schema.append("IINQ_STRING");
+					break;
+				case 3:
+					schema.append("IINQ_DOUBLE");
+					break;
+				case 4:
+					schema.append("IINQ_INT");
+					break;
+			}
+		}
+		schema.append("),\n TABLE_FIELD_SIZES(");
+		for (int i = 0; i < num_fields; i++) {
+			if (i > 0) {
+				schema.append(", ");
+			}
+			schema.append(get_field_size(metadata.getTable(database_name, table_name).getSourceFieldsByPosition().get(i)));
+		}
+		schema.append("),\nTABLE_FIELD_NAMES(");
+		for (int i = 0; i < num_fields; i++) {
+			if (i > 0) {
+				schema.append(", ");
+			}
+			schema.append(String.format("\"%s\"", get_schema_value(table_name, "FIELD" + i + " NAME")));
+		}
+		schema.append("))}");
+		return schema.toString();
+	}
+
 	private static void
-	create_table(String sql, BufferedWriter out) throws IOException, SQLFeatureNotSupportedException {
+	create_table(String sql, BufferedWriter out) throws IOException, SQLFeatureNotSupportedException, InvalidArgumentException, RelationNotFoundException {
 		System.out.println("create statement");
 
 		String statement = sql;
@@ -727,6 +773,7 @@ public class IinqExecute {
 			}
 		}
 
+		/* TODO: fix this to get proper string key size */
 		primary_key_size = ion_switch_key_size(primary_key_type);
 
 		String value_size = "";
@@ -738,7 +785,7 @@ public class IinqExecute {
 			value_size = value_size.concat(ion_switch_key_size(field_types[j]));
 		}
 
-		String schema_name = table_name.substring(0, table_name.length() - 4).toLowerCase().concat(".xml");
+		String schema_name = table_name.toLowerCase().concat(".xml");
 
         /* Set up schema XML file */
 		String contents = "";
@@ -804,9 +851,13 @@ public class IinqExecute {
 
 		schema_out.close();
 
+		xml_schemas.add(schema_name);
+
         /* Create print table method if it doesn't already exist */
 		if (!print_written) {
 			try {
+				/* Create the iinq_sources.xml file for UnityJDBC to get the table information (Will be overwritten when more tables are added */
+				create_xml_source();
 				print_table(out, table_name);
 			} catch (Exception e) {
 				e.printStackTrace();
@@ -821,8 +872,8 @@ public class IinqExecute {
 		out.newLine();
 		out.write("\tion_err_t error;");
 		out.newLine();
-		/* TODO: iinq_create_table needs a schema */
-		out.write("\n\terror = iinq_create_table(\"" + table_name + "\", " + primary_key_type + ", " + primary_key_size + ", " + value_size + ");");
+		String schema_variable = create_schema_variable("createTable" + create_count, table_name);
+		out.write("\n\terror = iinq_create_table(\"" + table_name + "\", " + primary_key_type + ", " + primary_key_size + ", " + value_size + ", " + schema_variable + ");");
 		print_error(out, false, 0);
 		out.write("\t");
 		out.newLine();
@@ -831,8 +882,8 @@ public class IinqExecute {
 		out.write("\terror = iinq_open_table(\"" + table_name + "\", &table);");
 		print_error(out, false, 0);
 		/* TODO: fix all print_table_ function calls/definitions */
-		out.write("\tprint_table_" + table_name.substring(0, table_name.length() - 4).toLowerCase() + "(&dictionary);\n");
-		out.write("\terror = ion_close_table(&table);");
+		//out.write("\tprint_table_" + table_name.substring(0, table_name.length() - 4).toLowerCase() + "(&dictionary);\n");
+		out.write("\terror = iinq_close_table(&table);");
 		print_error(out, false, 0);
 
 		out.write("}\n\n");
@@ -842,12 +893,10 @@ public class IinqExecute {
 		file_setup(header_written, first_function, "create_table" + create_count, "CREATE TABLE");
 		first_function = false;
 		header_written = true;
-
-		xml_schemas.add(schema_name);
 	}
 
 	private static void
-	insert(String sql, BufferedWriter out) throws IOException, InvalidArgumentException, RelationNotFoundException {
+	insert(String sql, BufferedWriter out) throws IOException, InvalidArgumentException, RelationNotFoundException, SQLFeatureNotSupportedException {
 		System.out.println("insert statement");
 
 		String statement = sql;
@@ -944,7 +993,7 @@ public class IinqExecute {
 	}
 
 	private static void
-	update(String sql, BufferedWriter out) throws IOException, InvalidArgumentException, RelationNotFoundException {
+	update(String sql, BufferedWriter out) throws IOException, InvalidArgumentException, RelationNotFoundException, SQLFeatureNotSupportedException {
 		System.out.println("update statement");
 
 		String statement = sql;
@@ -1334,7 +1383,7 @@ public class IinqExecute {
 	}
 
 	private static void
-	delete(String sql, BufferedWriter out) throws IOException, InvalidArgumentException, RelationNotFoundException {
+	delete(String sql, BufferedWriter out) throws IOException, InvalidArgumentException, RelationNotFoundException, SQLFeatureNotSupportedException {
 		System.out.println("delete statement");
 
 		String statement = sql;

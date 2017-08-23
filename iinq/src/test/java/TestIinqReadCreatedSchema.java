@@ -2,7 +2,7 @@
 /**
  @file TestIinqReadCreatedSchema.java
  @author Kai Neubauer
- @brief        Tests that XML files with iinq can be read successfully.
+ @brief Tests that XML files with iinq can be read successfully.
  @copyright Copyright 2017
  The University of British Columbia,
  IonDB Project Contributors (see AUTHORS.md)
@@ -50,6 +50,8 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.ArrayList;
 
+import static org.junit.Assert.assertNotEquals;
+
 public class TestIinqReadCreatedSchema {
 	@Test
 	public void readIinqSources() {
@@ -62,6 +64,31 @@ public class TestIinqReadCreatedSchema {
 			con = DriverManager.getConnection(url);
 			System.out.println("\nConnection successful for " + url);
 			System.out.println("\nGetting metadata.");
+			metadata = ((UnityConnection) con).getGlobalSchema();
+			System.out.println("Found the following schema: ");
+			ArrayList<SourceDatabase> databases = metadata.getAnnotatedDatabasesByName();
+			assertNotEquals(null, databases);
+			System.out.println("\nThe following schema have been detected: \n");
+			for (SourceDatabase db : databases) {
+				System.out.println(db.getDatabaseName());
+				ArrayList<SourceTable> tables = db.getSourceTablesByName();
+				assertNotEquals(null, tables);
+				for (SourceTable table : tables) {
+					System.out.print("\t");
+					System.out.println(table.getTableName());
+					ArrayList<SourceField> fields = table.getSourceFieldList();
+					for (SourceField field : fields) {
+						System.out.print("\t\t");
+						if (field.getDataTypeName().contains("CHAR")) {
+							System.out.printf("%s[%d]\n", field.toShortString(), field.getColumnSize());
+						} else {
+							System.out.println(field.toShortString());
+						}
+					}
+				}
+				System.out.println();
+			}
+
 		} catch (Exception e) {
 			e.printStackTrace();
 		} finally {
