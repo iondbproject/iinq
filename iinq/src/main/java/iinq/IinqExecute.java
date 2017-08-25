@@ -171,6 +171,7 @@ public class IinqExecute {
                 "#include \"../../key_value/kv_system.h\"\n" +
                 "#include \"iinq_user_functions.h\"\n" +
                 "#include \"iinq_execute.h\"\n" +
+                "#include \"../iinq.h\"\n" +
                 "\n" +
                 "#if defined(__cplusplus)\n" +
                 "}\n" +
@@ -237,7 +238,7 @@ public class IinqExecute {
 
     private static String
     ion_switch_key_size(
-            int key_type
+        int key_type
     ) {
         switch (key_type) {
             case 0 : {
@@ -258,6 +259,31 @@ public class IinqExecute {
         }
 
         return "20";
+    }
+
+    private static String
+    ion_switch_value_size(
+        String value_type
+    ) {
+        if (value_type.contains("CHAR") && !value_type.contains("VARCHAR")) {
+            value_type = value_type.substring(value_type.indexOf("[") + 1, value_type.indexOf("]"));
+            return "sizeof(char) * "+value_type;
+        }
+        else if (value_type.contains("VARCHAR")) {
+            value_type = value_type.substring(value_type.indexOf("[") + 1, value_type.indexOf("]"));
+            return "sizeof(char) * "+value_type;
+        }
+        else if (value_type.contains("BOOLEAN")) {
+            return "sizeof(ion_boolean_t)";
+        }
+        else if (value_type.contains("INT")) {
+            return "sizeof(int)";
+        }
+        else if (value_type.contains("FLOAT")) {
+            return "sizeof(float)";
+        }
+
+        return "sizeof(int)";
     }
 
     private static void
@@ -319,7 +345,6 @@ public class IinqExecute {
                 "#include \"../../dictionary/dictionary.h\"\n" +
                 "#include \"../iinq.h\"\n" + "#include \"iinq_execute.h\"\n\n";
 
-
         out.write(contents.getBytes());
     }
 
@@ -341,11 +366,37 @@ public class IinqExecute {
 
         out.write("\tprintf(\""+"\\"+"n"+"***************************************"+"\\"+"n"+"\");\n\n");
 
-        out.write("\tion_cursor_status_t cursor_status;\n\n");
+        out.write("\tion_cursor_status_t cursor_status;\n");
+        out.write("\tunsigned char *value;\n\n");
 
         out.write("\twhile ((cursor_status = cursor->next(cursor, &ion_record)) == cs_cursor_active || " +
                 "cursor_status == cs_cursor_initialized) {\n");
-        out.write("\t\tprintf(\"%s"+"\\"+"n"+"\", (char *) ion_record.value); \n\t}\n");
+        out.write("\t\tvalue = ion_record.value;\n\n");
+
+        String data_type;
+        for (int j = 0; j < Integer.parseInt(get_schema_value(table_name, "NUMBER OF FIELDS: ")); j++) {
+            data_type = ion_switch_value_size(get_schema_value(table_name, "FIELD"+j+" TYPE: "));
+
+            if (data_type.contains("char")) {
+                out.write("\n\t\tprintf(\"%s\t\", (char *) value);\n");
+
+                if (j < (Integer.parseInt(get_schema_value(table_name, "NUMBER OF FIELDS: ")) - 1)) {
+                    out.write("\t\tvalue += " + data_type + ";\n");
+                }
+            }
+
+            /* Implement for all data types - for now assume int if not char or varchar */
+            else {
+                out.write("\n\t\tprintf(\"%i\t\", NEUTRALIZE(value, int));\n");
+
+                if (j < (Integer.parseInt(get_schema_value(table_name, "NUMBER OF FIELDS: ")) - 1)) {
+                    out.write("\t\tvalue += " + data_type + ";\n");
+                }
+            }
+        }
+
+        out.write("\n\t\tprintf(\""+"\\"+"n"+"\");");
+        out.write("\n\t}\n");
         out.write("\n\tprintf(\""+"\\"+"n"+"\");\n\n");
 
         out.write("\tcursor->destroy(&cursor);\n");
@@ -551,13 +602,13 @@ public class IinqExecute {
             i = sql.indexOf(",", i + 1);
         }
 
-        int key_type, pos;
-        String field;
+        int pos;
+        String field, key_type;
         String field_name;
         String field_type;
 
         String[] field_names = new String[num_fields];
-        int[] field_types = new int[num_fields];
+        String[] field_types = new String[num_fields];
 
 	    /* Set up attribute names and types */
         for (int j = 0; j < num_fields - 1; j++) {
@@ -572,10 +623,10 @@ public class IinqExecute {
             field_name = field.substring(0, pos);
             field_type = field.substring(pos + 1, field.length());
 
-            key_type										= ion_switch_key_type(field_type);
+            key_type										= ion_switch_value_size(field_type);
 
             field_names[j] = field_name;
-            field_types[j] = key_type;
+            field_types[j] = field_type;
         }
 
         /* Table set-up */
@@ -596,7 +647,7 @@ public class IinqExecute {
         for (int j = 0; j < num_fields - 1; j++) {
 		/* Primary key attribute information found */
 		    if (primary_key.equals(field_names[j])) {
-		        primary_key_type = field_types[j];
+		        primary_key_type = ion_switch_key_type(field_types[j]);
 		        primary_key_field_num = j;
 		        break;
             }
@@ -610,7 +661,7 @@ public class IinqExecute {
             if (j > 0) {
                 value_size = value_size.concat("+");
             }
-            value_size = value_size.concat(ion_switch_key_size(field_types[j]));
+            value_size = value_size.concat(ion_switch_value_size(field_types[j]));
         }
 
         String schema_name = table_name.substring(0, table_name.length() - 4).toLowerCase().concat(".xml");
@@ -636,7 +687,7 @@ public class IinqExecute {
         contents += "\n\t\tNUMBER OF FIELDS: "+(num_fields - 1);
         contents += "\n\t</num_fields>";
         contents += "\n\t<num_records>";
-        contents += "\n\t\tNUMBER OF RECORDS: 0";
+        contents += "\n\t\t\t\tNUMBER OF RECORDS: 0";
         contents += "\n\t</num_records>";
         contents += "\n\t<primary_key_field>";
         contents += "\n\t\tPRIMARY KEY FIELD: "+primary_key_field_num;
@@ -746,7 +797,10 @@ public class IinqExecute {
         }
 
         String[] fields = new String[count];
+	    out.write("\tunsigned char\t*value = malloc("+get_schema_value(table_name, "VALUE SIZE: ")+");\n");
+        out.write("\tunsigned char\t*data = value;\n\n");
         value = "";
+        String field_value;
 
         for (int j = 0; j < count; j++) {
             pos = sql.indexOf(",");
@@ -762,8 +816,23 @@ public class IinqExecute {
 
             fields[j] = sql.substring(0, pos);
 
+            field_value = get_schema_value(table_name, "FIELD"+j+" TYPE: ");
+
             sql = sql.substring(pos + 2);
             value += fields[j]+",\t";
+
+            if (field_value.contains("CHAR")) {
+                out.write("\tmemcpy(data, \""+fields[j]+"\", sizeof(\""+fields[j]+"\"));\n");
+            }
+
+            else {
+                out.write("\t*("+ion_switch_value_size(field_value)
+                        .substring(ion_switch_value_size(field_value).indexOf("(") + 1, ion_switch_value_size(field_value).indexOf(")"))+" *) data = "+fields[j]+";\n");
+            }
+
+            if (j < count - 1) {
+                out.write("\tdata += " + ion_switch_value_size(field_value) + ";\n\n");
+            }
         }
 
         value = value.substring(0, value.length() - 2);
@@ -771,21 +840,23 @@ public class IinqExecute {
         String key_type = get_schema_value(table_name, "PRIMARY KEY TYPE: ");
         String key_field_num = get_schema_value(table_name, "PRIMARY KEY FIELD: ");
 
-        out.write("\tion_status_t status;\n");
+        out.write("\n\tion_status_t status;\n");
 
         if (key_type.equals("0") || key_type.equals("1")) {
             out.write("\tstatus = dictionary_insert(&dictionary, IONIZE("+fields[Integer.parseInt(key_field_num)]+
-                    ", int), \""+value+"\");");
+                    ", int), value);");
         }
 
         else {
             out.write("\tstatus = dictionary_insert(&dictionary, \""+fields[Integer.parseInt(key_field_num)]+
-                    "\", \""+value+"\");");
+                    "\", value);");
         }
 
         print_error(out, true, 0);
 
-        out.write("\tprintf(\"Record inserted: "+value+"\\"+"n"+"\\"+"n"+"\");");
+        out.write("\tfree(value);\n\n");
+
+        out.write("\tprintf(\"Record inserted: "+value+"\\"+"n"+"\\"+"n"+"\");\n");
 
         increment_num_records(table_name, true);
 
@@ -884,28 +955,18 @@ public class IinqExecute {
         out.write("\tion_status_t status;\n");
         out.write("\tdictionary_build_predicate(&predicate, predicate_all_records);\n");
         out.write("\tion_dict_cursor_t *cursor = NULL;\n");
-        out.write("\tdictionary_find(&dictionary, &predicate, &cursor);\n");
+        out.write("\tdictionary_find(&dictionary, &predicate, &cursor);\n\n");
 
-        out.write("\tint pos;\n");
-        out.write("\tint count = 0;\n" +
-                "\n" +
-                "\tion_record_t updated_records["+get_schema_value(table_name, "NUMBER OF RECORDS: ")+"];\n" +
-                "\n" +
-                "\tfor (int i = 0; i < "+get_schema_value(table_name, "NUMBER OF RECORDS: ")+"; i++) {\n" +
-                "\t\tupdated_records[i].key\t\t= malloc("+get_schema_value(table_name, "PRIMARY KEY SIZE: ")+");\n" +
-                "\t\tupdated_records[i].value\t= malloc("+get_schema_value(table_name, "VALUE SIZE: ")+");\n" +
-                "\t}\n");
-        out.write("\tion_key_t key;\n");
-        out.write("\tion_boolean_t condition_satisfied = boolean_true;\n");
-        out.write("\tchar *old_record, *record, *substring, *pointer, *print_record;\n");
-        out.write("\tchar new_record["+get_schema_value(table_name, "VALUE SIZE: ")+"] = \"\";\n\n");
+        out.write("\tint count = 0;\n");
+
+        String num_records = get_schema_value(table_name, "NUMBER OF RECORDS: ");
+        String key_type = ion_switch_value_size(get_schema_value(table_name, "PRIMARY KEY TYPE: "));
 
         int primary_key_field = Integer.parseInt(get_schema_value(table_name, "PRIMARY KEY FIELD: "));
         boolean update_key = false; /* Whether the key of a record is being updated */
 
         for (int j = 0; j < num_fields; j++) {
             for (int n = 0; n < Integer.parseInt(get_schema_value(table_name, "NUMBER OF FIELDS: ")); n++) {
-                System.out.println("1: "+fields[j]+" 2: "+get_schema_value(table_name, "FIELD"+n+" NAME: "));
                 if (fields[j].substring(0, fields[j].indexOf("=")).trim().equals(get_schema_value(table_name, "FIELD"+n+" NAME: "))) {
                     if (n == primary_key_field) {
                         update_key = true;
@@ -914,37 +975,70 @@ public class IinqExecute {
             }
         }
 
-        boolean implicit_update = false; /* Whether a field is being updated using the value of another field. */
-        String update_value_field = ""; /* Field value that is being used to update a field. */
-        String update_value_value = ""; /* Value that is being added to another field value to update a field. */
-        String update_operator = ""; /* Whether values are being updated through addition or subtraction. */
+        if (key_type.contains("char")) {
+            out.write("\tchar *old_keys["+num_records+"];\n");
+
+            if (update_key) {
+                out.write("\tchar *new_keys[" + num_records + "];\n\n");
+            }
+        }
+
+        /* Update later for all data types */
+        else {
+            out.write("\tint old_keys["+num_records+"];\n");
+
+            if (update_key) {
+                out.write("\tint new_keys[" + num_records + "];\n\n");
+            }
+        }
+
+        out.write("\tunsigned char *new_records["+num_records+"];\n\n");
+
+        out.write("\tfor (int i = 0; i < "+num_records+"; i++) {\n" +
+                "\t\tnew_records[i]\t= malloc("+get_schema_value(table_name, "VALUE SIZE: ")+");\n" +
+                "\t}\n\n");
+        out.write("\tion_record_t ion_record;\n");
+        out.write("\tion_record.key = malloc("+ion_switch_value_size(get_schema_value(table_name, "PRIMARY KEY TYPE: "))+");\n");
+        out.write("\tion_record.value = malloc("+get_schema_value(table_name, "VALUE SIZE: ")+");\n\n");
+        out.write("\tion_boolean_t condition_satisfied;\n");
+        out.write("\n\tunsigned char *record_data;\n");
+        out.write("\tunsigned char *old_data;\n\n");
+
+        String[] update_value_field = new String[num_fields]; /* Field value that is being used to update a field. */
+        String[] update_value_value = new String[num_fields]; /* Value that is being added to another field value to update a field. */
+        String[] update_operator = new String[num_fields]; /* Whether values are being updated through addition or subtraction. */
+        boolean[] implicit_update_field = new boolean[num_fields];
 
         for (int j = 0; j < num_fields; j++) {
             if (fields[j].contains("+") || fields[j].contains("-") || fields[j].contains("*") || fields[j].contains("/")) {
-                implicit_update = true;
+                    implicit_update_field[j] = true;
             }
         }
 
-        if (implicit_update) {
-            if (update_key) {
-                out.write("\tchar\tkey_value[" + get_schema_value(table_name, "VALUE SIZE: ") + "];\n");
-            }
+        out.write("\twhile ((cursor_status = cursor->next(cursor, &ion_record)) == cs_cursor_active || cursor_status == cs_cursor_initialized) {\n\n");
 
-            out.write("\tchar\tnew_value[" + get_schema_value(table_name, "VALUE SIZE: ") + "];\n");
-        }
-
-        out.write("\n\twhile ((cursor_status = cursor->next(cursor, &updated_records[count])) == cs_cursor_active || cursor_status == cs_cursor_initialized) {\n");
-
-        out.write("\t\tsubstring = malloc(strlen(updated_records[count].value));\n");
         out.write("\t\tcondition_satisfied = boolean_true;\n");
 
-        String field = "";
-        String operator = "";
-        String condition = "";
-        String update_value = "";
-        int field_num = 0;
+        String[] field = new String[num_conditions];
+        String[] operator = new String[num_conditions];
+        String[] condition = new String[num_conditions];
+        int[] field_num = new int[num_conditions]; /* Fields which have a WHERE condition corresponding to them */
         int len = 0;
-        String field_type;
+        int field_type;
+
+        out.write("\n\t\twhile (boolean_true == condition_satisfied) {\n");
+        out.write("\t\t\trecord_data = new_records[count];\n");
+        out.write("\t\t\told_data = ion_record.value;\n\n");
+
+        /* Copy old key regardless if the key itself is being updated or not */
+        if (key_type.contains("char")) {
+            out.write("\t\t\tstrcpy(old_keys[count], ion_record.key);\n\n");
+        }
+
+        /* Update for all data types later */
+        else {
+            out.write("\t\t\told_keys[count] = NEUTRALIZE(ion_record.key, int);\n\n");
+        }
 
         for (int j = 0; j < num_conditions; j++) {
 
@@ -952,254 +1046,234 @@ public class IinqExecute {
             if (conditions[j].contains("!=")) {
                 pos = conditions[j].indexOf("!=");
                 len = 2;
-                operator = conditions[j].substring(pos, pos + len);
-            }
-            else if (conditions[j].contains("<=")) {
+                operator[j] = conditions[j].substring(pos, pos + len);
+            } else if (conditions[j].contains("<=")) {
                 pos = conditions[j].indexOf("<=");
                 len = 2;
-                operator = conditions[j].substring(pos, pos + len);
-            }
-            else if (conditions[j].contains(">=")) {
+                operator[j] = conditions[j].substring(pos, pos + len);
+            } else if (conditions[j].contains(">=")) {
                 pos = conditions[j].indexOf(">=");
                 len = 2;
-                operator = conditions[j].substring(pos, pos + len);
-            }
-            else if (conditions[j].contains("=")) {
+                operator[j] = conditions[j].substring(pos, pos + len);
+            } else if (conditions[j].contains("=")) {
                 pos = conditions[j].indexOf("=");
                 len = 1;
-                operator = "==";
-            }
-            else if (conditions[j].contains("<")) {
+                operator[j] = "==";
+            } else if (conditions[j].contains("<")) {
                 pos = conditions[j].indexOf("<");
                 len = 1;
-                operator = conditions[j].substring(pos, pos + len);
-            }
-            else if (conditions[j].contains(">")) {
+                operator[j] = conditions[j].substring(pos, pos + len);
+            } else if (conditions[j].contains(">")) {
                 pos = conditions[j].indexOf(">");
                 len = 1;
-                operator = conditions[j].substring(pos, pos + len);
+                operator[j] = conditions[j].substring(pos, pos + len);
             }
 
             if (0 < num_conditions) {
-                field = conditions[j].substring(0, pos).trim();
-                condition = conditions[j].substring(pos + len).trim();
-            }
-
-            for (int n = 0; n < Integer.parseInt(get_schema_value(table_name, "NUMBER OF FIELDS: ")); n++) {
-                if (field.equals(get_schema_value(table_name, "FIELD"+n+" NAME: "))) {
-                    field_num = n;
-                }
-            }
-
-            out.write("\t\tchar *value;\n\n");
-
-            out.write("\t\tif (boolean_true == condition_satisfied) {\n");
-            out.write("\t\t\tstrcpy(substring, updated_records[count].value);\n\n");
-            out.write("\t\t\tfor (int i = 0; i <= "+field_num+"; i++) {\n");
-            out.write("\t\t\t\tpointer = strstr(substring, \",\");\n\n");
-            out.write("\t\t\t\tif (NULL == pointer) {\n" + "\t\t\t\t\tchar col_val[strlen(substring)];\n\n");
-            out.write("\t\t\t\t\tmemcpy(col_val, substring, strlen(substring) + 1);\n" +
-                    "\t\t\t\t\tcol_val[strlen(substring)]\t= '\\0';\n\n");
-            out.write("\t\t\t\t\tvalue = malloc(strlen(col_val));\n" + "\t\t\t\t\tstrcpy(value, col_val);\n" + "\t\t\t\t}\n");
-            out.write("\t\t\t\telse {\n" + "\t\t\t\t\tpos = (int) (pointer - substring);\n" + "\n" +
-                    "\t\t\t\t\tchar col_val[pos + 1];\n");
-            out.write("\n" + "\t\t\t\t\tmemcpy(col_val, substring, pos);\n" + "\t\t\t\t\tcol_val[pos]\t= '\\0';\n" + "\n");
-            out.write("\t\t\t\t\tsubstring = pointer + 2;\n" + "\n" + "\t\t\t\t\tvalue = malloc(strlen(col_val));\n");
-            out.write("\t\t\t\t\tstrcpy(value, col_val);\n" + "\t\t\t\t}\n" + "\t\t\t}\n");
-
-            field_type = get_schema_value(table_name, "FIELD"+field_num+" TYPE: ");
-
-            if (field_type.equals("0") || field_type.equals("1")) {
-                out.write("\t\t\tif (atoi(value) "+operator+" "+condition+") {\n"+"\t\t\t\tcondition_satisfied = boolean_true;\n\t\t\t}\n");
-                out.write("\t\t\telse {\n\t\t\t\tcondition_satisfied = boolean_false;\n\t\t\t}\n\t\t}\n\n");
-            }
-
-            else {
-                out.write("\n\t\t\tif (0 "+operator+" strncmp(value, \""+condition+"\", strlen(value))) {\n");
-                out.write("\t\t\t\tcondition_satisfied = boolean_true;\n\t\t\t}\n");
-                out.write("\t\t\telse {\n\t\t\t\tcondition_satisfied = boolean_false;\n\t\t\t}\n\t\t}\n\n");
+                field[j] = conditions[j].substring(0, pos).trim();
+                condition[j] = conditions[j].substring(pos + len).trim();
             }
         }
+
+        for (int m = 0; m < num_conditions; m++) {
+            for (int n = 0; n < Integer.parseInt(get_schema_value(table_name, "NUMBER OF FIELDS: ")); n++) {
+                if (field[m].equals(get_schema_value(table_name, "FIELD" + n + " NAME: "))) {
+                    field_num[m] = n;
+                }
+            }
+        }
+
+        out.write("\t\t}\n\n");
 
         /* If boolean_true, record has passed all conditions */
         out.write("\t\tif (boolean_true == condition_satisfied) {\n\n");
-        out.write("\t\t\tchar	old_value[strlen(updated_records[count].value) + 1];\n");
+        out.write("\t\t\trecord_data = updated_records[count].value;\n\n");
 
-        out.write("\t\t\tchar	*field_value;\n\n");
-        out.write("\t\t\tmemcpy(old_value, updated_records[count].value, strlen(updated_records[count].value));\n");
-        out.write("\t\t\told_value[strlen(updated_records[count].value)] = '\\0';\n\n");
-        out.write("\t\t\trecord = malloc(strlen(old_value));\n\t\t\tstrcpy(record, old_value);\n\n");
-        out.write("\t\t\told_record = malloc(strlen(record));\n\t\t\tstrcpy(old_record, record);\n\n");
-
-        out.write("\t\t\tfor (int i = 0; i < "+get_schema_value(table_name, "NUMBER OF FIELDS: ")+"; i++) {\n\n");
-        out.write("\t\t\t\tpointer = strstr(record, \",\");\n\n");
+        String[] update_field = new String[num_fields];
+        int[] update_field_num = new int[num_fields];
+        String[] update_value = new String[num_fields];
 
         for (int j = 0; j < num_fields; j++) {
             pos = fields[j].indexOf("=");
-            field = fields[j].substring(0, pos).trim();
-            update_value = fields[j].substring(pos + 1).trim();
+            update_field[j] = fields[j].substring(0, pos).trim();
+            update_value[j] = (fields[j].substring(pos + 1)).trim();
 
             /* Check if update value contains an operator */
-            if (update_value.contains("+")) {
-                implicit_update = true;
-                pos = update_value.indexOf("+");
-                update_operator = update_value.substring(pos, pos + 1);
-                update_value_field = update_value.substring(0, pos).trim();
-                update_value_value = update_value.substring(pos + 1).trim();
-            }
-            else if (update_value.contains("-")) {
-                implicit_update = true;
-                pos = update_value.indexOf("-");
-                update_operator = update_value.substring(pos, pos + 1);
-                update_value_field = update_value.substring(0, pos).trim();
-                update_value_value = update_value.substring(pos + 1).trim();
-            }
-            else if (update_value.contains("*")) {
-                implicit_update = true;
-                pos = update_value.indexOf("*");
-                update_operator = update_value.substring(pos, pos + 1);
-                update_value_field = update_value.substring(0, pos).trim();
-                update_value_value = update_value.substring(pos + 1).trim();
-            }
-            else if (update_value.contains("/")) {
-                implicit_update = true;
-                pos = update_value.indexOf("/");
-                update_operator = update_value.substring(pos, pos + 1);
-                update_value_field = update_value.substring(0, pos).trim();
-                update_value_value = update_value.substring(pos + 1).trim();
+            if (update_value[j].contains("+")) {
+                pos = update_value[j].indexOf("+");
+                update_operator[j] = update_value[j].substring(pos, pos + 1);
+                update_value_field[j] = update_value[j].substring(0, pos).trim();
+                update_value_value[j] = update_value[j].substring(pos + 1).trim();
+            } else if (update_value[j].contains("-")) {
+                pos = update_value[j].indexOf("-");
+                update_operator[j] = update_value[j].substring(pos, pos + 1);
+                update_value_field[j] = update_value[j].substring(0, pos).trim();
+                update_value_value[j] = update_value[j].substring(pos + 1).trim();
+            } else if (update_value[j].contains("*")) {
+                pos = update_value[j].indexOf("*");
+                update_operator[j] = update_value[j].substring(pos, pos + 1);
+                update_value_field[j] = update_value[j].substring(0, pos).trim();
+                update_value_value[j] = update_value[j].substring(pos + 1).trim();
+            } else if (update_value[j].contains("/")) {
+                pos = update_value[j].indexOf("/");
+                update_operator[j] = update_value[j].substring(pos, pos + 1);
+                update_value_field[j] = update_value[j].substring(0, pos).trim();
+                update_value_value[j] = update_value[j].substring(pos + 1).trim();
             }
 
             for (int n = 0; n < Integer.parseInt(get_schema_value(table_name, "NUMBER OF FIELDS: ")); n++) {
-                if (field.equals(get_schema_value(table_name, "FIELD"+n+" NAME: "))) {
-                    field_num = n;
-                }
-            }
-
-            /* First iteration - if statement */
-            if (0 == j) {
-                out.write("\t\t\t\tif (" + field_num + " == i) {\n");
-            }
-
-            /* After first iteration - else if statement */
-            else {
-                out.write("\t\t\t\telse if (" + field_num + " == i) {\n");
-            }
-
-            if (!implicit_update) {
-                out.write("\t\t\t\t\tstrcat(new_record, \"" + update_value + "\");\n\n");
-
-                if (update_key && primary_key_field == j) {
-                    out.write("\t\t\t\t\tstrcat(key_value, \"" + update_value + "\");\n\n");
-                }
-
-                out.write("\t\t\t\t\tif (NULL != pointer) {\n" + "\t\t\t\t\t\trecord = pointer + 2;\n" +
-                        "\t\t\t\t\t\tstrcat(new_record, \", \");\n"+ "\t\t\t\t\t}\n" + "\t\t\t\t}\n");
-            }
-
-            /* Field is being updated using its previous value */
-            else {
-                out.write("\t\t\t\t\tif (NULL == pointer) {\n\t\t\t\t\t\tchar col_val[strlen(record)];\n\n");
-                out.write("\t\t\t\t\t\tmemcpy(col_val, record, strlen(record) + 1);\n" +
-                        "\t\t\t\t\t\tcol_val[strlen(record)] = '\\0';\n\n");
-
-                if (primary_key_field == j) {
-                    out.write("\t\t\t\t\t\tsprintf(key_value, \"%i\", atoi(col_val) " + update_operator + " " + update_value_value + ");\n");
-                    out.write("\t\t\t\t\t\tstrcat(new_record, key_value);\n" + "\t\t\t\t\t}\n\t\t\t\t\telse {\n");
-                }
-
-                else {
-                    out.write("\t\t\t\t\t\tsprintf(new_value, \"%i\", atoi(col_val) " + update_operator + " " + update_value_value + ");\n");
-                    out.write("\t\t\t\t\t\tstrcat(new_record, new_value);\n" + "\t\t\t\t\t}\n\t\t\t\t\telse {\n");
-                }
-
-                out.write("\t\t\t\t\t\tpos = (int) (pointer - record);\n\n" +
-                        "\t\t\t\t\t\tchar col_val[pos + 1];\n\n\t\t\t\t\t\tmemcpy(col_val, record, pos);\n");
-                out.write("\t\t\t\t\t\tcol_val[pos]	= '\\0';\n\n" +
-                        "\t\t\t\t\t\trecord = pointer + 2;\n\t\t\t\t\t\tfield_value = malloc(strlen(col_val));\n");
-
-                if (primary_key_field == j) {
-                    out.write("\t\t\t\t\t\tsprintf(key_value, \"%i\", atoi(col_val) " + update_operator + " " + update_value_value + ");\n");
-                    out.write("\t\t\t\t\t\tstrcat(new_record, key_value);" +
-                            "\n\t\t\t\t\t\tstrcat(new_record, \", \");\n\t\t\t\t\t}\n\t\t\t\t}\n\n");
-                }
-
-                else {
-                    out.write("\t\t\t\t\t\tsprintf(new_value, \"%i\", atoi(col_val) " + update_operator + " " + update_value_value + ");\n");
-
-                    out.write("\t\t\t\t\t\tstrcat(new_record, new_value);" +
-                            "\n\t\t\t\t\t\tstrcat(new_record, \", \");\n\t\t\t\t\t}\n\t\t\t\t}\n\n");
+                if (update_field[j].equals(get_schema_value(table_name, "FIELD" + n + " NAME: "))) {
+                    update_field_num[j] = n;
                 }
             }
         }
 
-        out.write("\t\t\t\telse if (NULL == pointer) {\n\t\t\t\t\tchar col_val[strlen(record)];\n\n");
-        out.write("\t\t\t\t\tmemcpy(col_val, record, strlen(record) + 1);\n" +
-                "\t\t\t\t\tcol_val[strlen(record)] = '\\0';\n\n");
-        out.write("\t\t\t\t\tstrcat(new_record, col_val);\n" +
-                "\t\t\t\t}\n\t\t\t\telse {\n");
-        out.write("\t\t\t\t\tpos = (int) (pointer - record);\n\n" +
-                "\t\t\t\t\tchar col_val[pos + 1];\n\n\t\t\t\t\tmemcpy(col_val, record, pos);\n");
-        out.write("\t\t\t\t\tcol_val[pos]	= '\\0';\n\n" +
-                "\t\t\t\t\trecord = pointer + 2;\n\t\t\t\t\tfield_value = malloc(strlen(col_val));\n");
-        out.write("\t\t\t\t\tstrcat(new_record, col_val);\n\t\t\t\t\tstrcat(new_record, \", \");" +
-                "\n\t\t\t\t}\n\t\t\t}\n\t\t}" +
-                "\t\telse {\n\t\t\tupdated_records[count].key = NULL;\n" +
-                "\t\t\tupdated_records[count].value = NULL;\n\t\t}\n\t\tcount++;\n\t}\n\n");
+        String val_type;
+        boolean where = false;
+        boolean update_col = false;
 
+        for (int k = 0; k < Integer.parseInt(get_schema_value(table_name, "NUMBER OF FIELDS: ")); k++) {
+            val_type = ion_switch_value_size(get_schema_value(table_name, "FIELD" + k + " TYPE: "));
+
+            if (k == primary_key_field) {
+                out.write("\t\t\told_keys");
+            }
+
+            /* Loop through WHERE conditions */
+            for (int m = 0; m < num_conditions; m++) {
+                if (k == field_num[m]) {
+                    where = true;
+                    if (val_type.contains("char")) {
+                        out.write("\t\t\tif (0 " + operator[m] + " strncmp((char *) old_data, \"" + condition[m] + "\", " + val_type + ")) {\n");
+                    }
+                        /* Update to include all data types */
+                    else {
+                        out.write("\t\t\tif (NEUTRALIZE(old_data, int) " + operator[m] + " " + condition[m] + ") {\n");
+                    }
+                }
+            }
+
+            /* Loop through fields to UPDATE */
+            for (int n = 0; n < num_fields; n++) {
+                /* Field being examined is a field to update */
+                if (k == update_field_num[n]) {
+                    update_col = true;
+                    if (val_type.contains("char")) {
+                        if (where) {
+                            if (k == primary_key_field) {
+                                out.write("\t\t\t\tstrcpy(new_keys[count], "+update_value[n]+", "+val_type+");\n");
+                            }
+                            out.write("\t\t\t\tmemcpy(record_data, " + update_value[n] + ", " + val_type + ");\n");
+                            out.write("\t\t\t\trecord_data += "+val_type+";\n");
+                            out.write("\t\t\t\told_data += "+val_type+";\n\t\t\t}\n");
+                            out.write("\t\t\telse {\n");
+                            out.write("\t\t\t\told_keys[count] = -999;\n");
+                            out.write("\t\t\t\tnew_keys[count] = -999;\n\t\t\t\tbreak;\n\t\t\t}\n");
+                        }
+
+                        else {
+                            if (k == primary_key_field) {
+                                out.write("\t\t\tnew_keys[count] = (NEUTRALIZE(old_data, int) "+operator[n]+" "+condition[n]+");\n");
+                            }
+                            out.write("\t\t\tmemcpy(record_data, " + update_value[n] + ", " + val_type + ");\n");
+                            out.write("\t\t\trecord_data += "+val_type+";\n");
+                            out.write("\t\t\told_data += "+val_type+";\n");
+                        }
+                    }
+                    /* Update to include all data types */
+                    else {
+                        if (where) {
+                            if (k == primary_key_field) {
+                                out.write("\t\t\t\tnew_keys[count] = (NEUTRALIZE(old_data, int) "+operator[n]+" "+condition[n]+");\n");
+                            }
+                            out.write("\t\t\t\t*(int *) record_data = (NEUTRALIZE(old_data, int) "+operator[n]+" "+condition[n]+");\n");
+                            out.write("\t\t\t\trecord_data += "+val_type+";\n");
+                            out.write("\t\t\t\told_data += "+val_type+";\n\t\t\t}\n");
+                            out.write("\t\t\telse {\n");
+                            out.write("\t\t\t\told_keys[count] = -999;\n");
+                            out.write("\t\t\t\tnew_keys[count] = -999;\n\t\t\t\tbreak;\n\t\t\t}\n");
+                        }
+
+                        else {
+                            if (k == primary_key_field) {
+                                out.write("\t\t\tnew_keys[count] = (NEUTRALIZE(old_data, int) "+operator[n]+" "+condition[n]+");\n");
+                            }
+                            out.write("\t\t\t*(int *) record_data = (NEUTRALIZE(old_data, int) "+operator[n]+" "+condition[n]+");\n");
+                            out.write("\t\t\trecord_data += "+val_type+";\n");
+                            out.write("\t\t\told_data += "+val_type+";\n");
+                        }
+                    }
+                }
+
+                if (!update_col && where) {
+                    if (val_type.contains("char")) {
+                        out.write("\t\t\t\tmemcpy(record_data, old_data, "+val_type+");\n");
+                        out.write("\t\t\t\trecord_data += "+val_type+";\n");
+                        out.write("\t\t\t\told_data += "+val_type+";\n\t\t\t}\n");
+                        out.write("\t\t\telse {\n");
+                        out.write("\t\t\t\told_keys[count] = -999;\n");
+                        out.write("\t\t\t\tnew_keys[count] = -999;\n\t\t\t\tbreak;\n\t\t\t}\n");
+                    }
+
+                    /* Update later for all data types */
+                    else {
+                        out.write("\t\t\t\t*(int *) record_data = (NEUTRALIZE(old_data, int));\n");
+                        out.write("\t\t\t\trecord_data += "+val_type+";\n");
+                        out.write("\t\t\t\told_data += "+val_type+";\n\t\t\t}\n");
+                        out.write("\t\t\telse {\n");
+                        out.write("\t\t\t\told_keys[count] = -999;\n");
+                        out.write("\t\t\t\tnew_keys[count] = -999;\n\t\t\t\tbreak;\n\t\t\t}\n");
+                    }
+                }
+
+                if (!where && !update_col) {
+                    if (val_type.contains("char")) {
+                        out.write("\t\t\tmemcpy(record_data, old_data, "+val_type+");\n");
+                        out.write("\t\t\trecord_data += "+val_type+";\n");
+                        out.write("\t\t\told_data += "+val_type+";\n");
+                    }
+
+                    /* Update later for all data types */
+                    else {
+                        out.write("\t\t\t*(int *) record_data = (NEUTRALIZE(old_data, int));\n");
+                        out.write("\t\t\trecord_data += "+val_type+";\n");
+                        out.write("\t\t\told_data += "+val_type+";\n");
+                    }
+                }
+            }
+
+            /* End loop for last column value */
+            if (k == Integer.parseInt(get_schema_value(table_name, "NUMBER OF FIELDS: ")) - 1) {
+                out.write("\t\tbreak;\n");
+                out.write("\t\t}\n\n");
+            }
+        }
+
+        out.write("\t\tcount++;\n\t}\n\n");
 
         out.write("\tfor (int i = 0; i < "+get_schema_value(table_name, "NUMBER OF RECORDS: ")+"; i++) {\n" +
-                "\t\tif (NULL != updated_records[i].key) {\n");
+                "\t\tif (-999 != old_keys[i]) {\n\n");
         if (update_key) {
-            field_type = get_schema_value(table_name, "FIELD"+field_num+" TYPE: ");
 
-            if (field_type.equals("0") || field_type.equals("1")) {
+            out.write("\t\t\tstatus = dictionary_delete(&dictionary, old_keys[i]);");
+            print_error(out, true, 2);
 
-                out.write("\t\t\tstatus = dictionary_delete(&dictionary, updated_records[i].key);");
-                print_error(out, true, 2);
-
-                if (implicit_update) {
-                    out.write("\t\t\tint num = atoi(key_value);\n");
-                }
-
-                else {
-                    out.write("\t\t\tint num = "+update_value+";\n");
-                }
-
-                out.write("\t\t\tkey = IONIZE(num, int);\n");
+            if (ion_switch_value_size(get_schema_value(table_name, "PRIMARY KEY TYPE: ")).contains("char")) {
+                out.write("\t\t\tstatus = dictionary_insert(&dictionary, new_keys[i], updated_records[i].value);\n");
             }
 
+            /* Update for all data types later */
             else {
-                out.write("\t\t\tstatus = dictionary_delete(&dictionary, updated_records[i].key);");
-                print_error(out, true, 3);
-
-                if (implicit_update) {
-                    out.write("\t\t\tkey = malloc(strlen(key_value));\n");
-                    out.write("\t\t\tstrcpy(key, key_value);\n");
-                }
-
-                else {
-                    out.write("\t\t\tkey = malloc(strlen(\"" + update_value + "\"));\n");
-                    out.write("\t\t\tstrcpy(key, \""+update_value+"\");\n");
-                }
+                out.write("\t\t\tstatus = dictionary_insert(&dictionary, IONIZE(new_keys[i],int), updated_records[i].value);");
             }
         }
 
         else {
-            out.write("\t\t\tkey = updated_records[i].key;\n\n");
-        }
-
-        if (update_key) {
-            out.write("\t\t\tstatus = dictionary_insert(&dictionary, key, new_record);");
-        }
-
-        else {
-            out.write("\t\t\tstatus = dictionary_update(&dictionary, key, new_record);");
+            out.write("\t\t\tstatus = dictionary_update(&dictionary, updated_records[i].key, updated_records[i].value);");
         }
 
         print_error(out, true, 2);
-        out.write("\t\t\tprint_record = malloc(strlen(new_record));\n\t\t\tstrcpy(print_record, new_record);\n\n");
 
-        out.write("\t\t\tprintf(\"Updated record: %s"+"\\"+"n"+"\\"+"n"+"\", print_record);\n\n");
         out.write("\t\t\tfree(updated_records[i].key);\n" + "\t\t\tfree(updated_records[i].value);\n");
         out.write("\t\t}\n\t}\n\n");
 
