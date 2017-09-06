@@ -52,6 +52,10 @@ import java.util.ArrayList;
 
 import static org.junit.Assert.assertNotEquals;
 
+
+/**
+ * Test to read schema files created using IinqExecute
+ */
 public class TestIinqReadCreatedSchema {
 	@Test
 	public void readIinqSources() {
