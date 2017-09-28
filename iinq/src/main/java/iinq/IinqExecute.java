@@ -774,7 +774,7 @@ public class IinqExecute {
         /* Write function to file */
 
         out.write("void insert"+insert_count+"() {\n\n");
-        out.write("\tprintf(\"%s"+"\\"+"n"+"\\"+"n"+"\", \""+statement.substring(statement.indexOf("(") + 2, statement.length() - 4)+"\");\n");
+        out.write("\tprintf(\"%s"+"\\"+"n"+"\\"+"n"+"\", \""+statement.substring(statement.indexOf("(") + 2, statement.indexOf(")") - 1)+"\");\n");
         out.write("\tion_err_t error;\n" + "\tion_dictionary_t dictionary;\n" + "\tion_dictionary_handler_t handler;\n");
         out.write("\tdictionary.handler = &handler;\n" + "\n\terror = iinq_open_source(\""+table_name+"\", &dictionary, &handler);");
         print_error(out, false, 0);
@@ -1301,7 +1301,7 @@ public class IinqExecute {
 
         print_error(out, true, 2);
 
-        out.write("\t\t}\t\tfree(new_records[i]);\n\t}\n\n");
+        out.write("\t\t}\n\t\tfree(new_records[i]);\n\t}\n\n");
 
         out.write("\tcursor->destroy(&cursor);\n");
         out.write("\tprint_table_"+table_name.substring(0, table_name.length() - 4).toLowerCase()+"(&dictionary);\n");
@@ -1350,21 +1350,19 @@ public class IinqExecute {
         int pos = sql.indexOf("WHERE");
         String where_condition = "";
         int num_conditions = 0;
-        int i = 0;
+        int i = -1;
 
         /* Get WHERE condition if it exists */
         if (-1 != pos) {
             where_condition = sql.substring(pos + 6, sql.length() - 4);
+            i = 0;
         }
 
         System.out.println("WHERE: "+where_condition+"\n");
 
         /* Calculate number of WHERE conditions in statement */
         while (-1 != i) {
-            if (!where_condition.equals("")) {
-                num_conditions++;
-            }
-
+            num_conditions++;
             i = where_condition.indexOf(",", i + 1);
         }
 
@@ -1372,6 +1370,7 @@ public class IinqExecute {
 
         conditions = get_fields(where_condition, num_conditions);
 
+        /* OLD
         out.write("\tion_predicate_t predicate;\n");
         out.write("\tion_cursor_status_t cursor_status;\n");
         out.write("\tion_status_t status;\n");
@@ -1394,14 +1393,37 @@ public class IinqExecute {
 
         out.write("\n\t\tsubstring = malloc(strlen(deleted_records[count].value));\n");
         out.write("\t\tcondition_satisfied = boolean_true;\n\n");
+        */
 
-        String field = "";
-        String operator = "";
-        String condition = "";
-        String update_value = "";
-        int field_num = 0;
+        out.write("\tion_predicate_t predicate;\n");
+        out.write("\tion_cursor_status_t cursor_status;\n");
+        out.write("\tion_status_t status;\n");
+        out.write("\tdictionary_build_predicate(&predicate, predicate_all_records);\n");
+        out.write("\tion_dict_cursor_t *cursor = NULL;\n");
+        out.write("\tdictionary_find(&dictionary, &predicate, &cursor);\n\n");
+
+        out.write("\tint count = 0;\n");
+
+        String num_records = get_schema_value(table_name, "NUMBER OF RECORDS: ");
+        String key_type = ion_switch_value_size(get_schema_value(table_name, "PRIMARY KEY TYPE: "));
+
+        int primary_key_field = Integer.parseInt(get_schema_value(table_name, "PRIMARY KEY FIELD: "));
+
+        if (key_type.contains("char")) {
+            out.write("\tchar *old_keys["+num_records+"];\n");
+        }
+
+        /* Update later for all data types */
+        else {
+            out.write("\tint old_keys["+num_records+"];\n");
+        }
+
+        int[] field_num = new int[num_conditions];
+        String[] operator = new String[num_conditions];
+        String[] condition = new String[num_conditions];
         int len = 0;
-        String field_type;
+        String field = "";
+        String[] field_type = new String[num_conditions];
 
         for (int j = 0; j < num_conditions; j++) {
             System.out.println(conditions[j]);
@@ -1410,103 +1432,197 @@ public class IinqExecute {
             if (conditions[j].contains("!=")) {
                 pos = conditions[j].indexOf("!=");
                 len = 2;
-                operator = conditions[j].substring(pos, pos + len);
+                operator[j] = conditions[j].substring(pos, pos + len);
             }
             else if (conditions[j].contains("<=")) {
                 pos = conditions[j].indexOf("<=");
                 len = 2;
-                operator = conditions[j].substring(pos, pos + len);
+                operator[j] = conditions[j].substring(pos, pos + len);
             }
             else if (conditions[j].contains(">=")) {
                 pos = conditions[j].indexOf(">=");
                 len = 2;
-                operator = conditions[j].substring(pos, pos + len);
+                operator[j] = conditions[j].substring(pos, pos + len);
             }
             else if (conditions[j].contains("=")) {
                 pos = conditions[j].indexOf("=");
                 len = 1;
-                operator = "==";
+                operator[j] = "==";
             }
             else if (conditions[j].contains("<")) {
                 pos = conditions[j].indexOf("<");
                 len = 1;
-                operator = conditions[j].substring(pos, pos + len);
+                operator[j] = conditions[j].substring(pos, pos + len);
             }
             else if (conditions[j].contains(">")) {
                 pos = conditions[j].indexOf(">");
                 len = 1;
-                operator = conditions[j].substring(pos, pos + len);
+                operator[j] = conditions[j].substring(pos, pos + len);
             }
 
             field = conditions[j].substring(0, pos).trim();
-            condition = conditions[j].substring(pos + len).trim();
+            condition[j] = conditions[j].substring(pos + len).trim();
 
             for (int n = 0; n < Integer.parseInt(get_schema_value(table_name, "NUMBER OF FIELDS: ")); n++) {
                 if (field.equals(get_schema_value(table_name, "FIELD"+n+" NAME: "))) {
-                    field_num = n;
+                    field_num[j] = n;
                 }
             }
 
-            out.write("\t\tif (boolean_true == condition_satisfied) {\n");
-            out.write("\t\t\tstrcpy(substring, deleted_records[count].value);\n\n");
-            out.write("\t\t\tfor (int i = 0; i <= "+field_num+"; i++) {\n");
-            out.write("\t\t\t\tpointer = strstr(substring, \",\");\n\n");
-            out.write("\t\t\t\tif (NULL == pointer) {\n" + "\t\t\t\t\tchar col_val[strlen(substring)];\n\n");
-            out.write("\t\t\t\t\tmemcpy(col_val, substring, strlen(substring) + 1);\n" +
-                    "\t\t\t\t\tcol_val[strlen(substring)]\t= '\\0';\n\n");
-            out.write("\t\t\t\t\tvalue = malloc(strlen(col_val));\n" + "\t\t\t\t\tstrcpy(value, col_val);\n" + "\t\t\t\t}\n");
-            out.write("\t\t\t\telse {\n" + "\t\t\t\t\tpos = (int) (pointer - substring);\n" + "\n" +
-                    "\t\t\t\t\tchar col_val[pos + 1];\n");
-            out.write("\n" + "\t\t\t\t\tmemcpy(col_val, substring, pos);\n" + "\t\t\t\t\tcol_val[pos]\t= '\\0';\n" + "\n");
-            out.write("\t\t\t\t\tsubstring = pointer + 2;\n" + "\n" + "\t\t\t\t\tvalue = malloc(strlen(col_val));\n");
-            out.write("\t\t\t\t\tstrcpy(value, col_val);\n" + "\t\t\t\t}\n" + "\t\t\t}\n");
+//            out.write("\t\tif (boolean_true == condition_satisfied) {\n");
+//            out.write("\t\t\tstrcpy(substring, deleted_records[count].value);\n\n");
+//            out.write("\t\t\tfor (int i = 0; i <= "+field_num[j]+"; i++) {\n");
+//            out.write("\t\t\t\tpointer = strstr(substring, \",\");\n\n");
+//            out.write("\t\t\t\tif (NULL == pointer) {\n" + "\t\t\t\t\tchar col_val[strlen(substring)];\n\n");
+//            out.write("\t\t\t\t\tmemcpy(col_val, substring, strlen(substring) + 1);\n" +
+//                    "\t\t\t\t\tcol_val[strlen(substring)]\t= '\\0';\n\n");
+//            out.write("\t\t\t\t\tvalue = malloc(strlen(col_val));\n" + "\t\t\t\t\tstrcpy(value, col_val);\n" + "\t\t\t\t}\n");
+//            out.write("\t\t\t\telse {\n" + "\t\t\t\t\tpos = (int) (pointer - substring);\n" + "\n" +
+//                    "\t\t\t\t\tchar col_val[pos + 1];\n");
+//            out.write("\n" + "\t\t\t\t\tmemcpy(col_val, substring, pos);\n" + "\t\t\t\t\tcol_val[pos]\t= '\\0';\n" + "\n");
+//            out.write("\t\t\t\t\tsubstring = pointer + 2;\n" + "\n" + "\t\t\t\t\tvalue = malloc(strlen(col_val));\n");
+//            out.write("\t\t\t\t\tstrcpy(value, col_val);\n" + "\t\t\t\t}\n" + "\t\t\t}\n");
 
-            field_type = get_schema_value(table_name, "FIELD"+field_num+" TYPE: ");
+            field_type[j] = get_schema_value(table_name, "FIELD"+field_num[j]+" TYPE: ");
 
-            if (field_type.equals("0") || field_type.equals("1")) {
-                out.write("\n\t\t\tnum = atoi(value);\n\n");
-                out.write("\t\t\tif (num "+operator+" "+condition+") {\n"+"\t\t\t\tcondition_satisfied = boolean_true;\n\t\t\t}\n");
-                out.write("\t\t\telse {\n\t\t\t\tcondition_satisfied = boolean_false;\n\t\t\t}\n\t\t}\n\n");
+//            if (field_type[j].equals("0") || field_type[j].equals("1")) {
+//                out.write("\n\t\t\tnum = atoi(value);\n\n");
+//                out.write("\t\t\tif (num "+operator[j]+" "+condition+") {\n"+"\t\t\t\tcondition_satisfied = boolean_true;\n\t\t\t}\n");
+//                out.write("\t\t\telse {\n\t\t\t\tcondition_satisfied = boolean_false;\n\t\t\t}\n\t\t}\n\n");
+//            }
+//
+//            else {
+//                out.write("\n\t\t\tif (0 "+operator+" strncmp(value, \""+condition+"\", strlen(value))) {\n");
+//                out.write("\t\t\t\tcondition_satisfied = boolean_true;\n\t\t\t}\n");
+//                out.write("\t\t\telse {\n\t\t\t\tcondition_satisfied = boolean_false;\n\t\t\t}\n\t\t}\n\n");
+//            }
+        }
+
+        /* NEW */
+        out.write("\n\tion_record_t ion_record;\n");
+        out.write("\tion_record.key = malloc("+ion_switch_value_size(get_schema_value(table_name, "PRIMARY KEY TYPE: "))+");\n");
+        out.write("\tion_record.value = malloc("+get_schema_value(table_name, "VALUE SIZE: ")+");\n\n");
+        out.write("\tion_boolean_t condition_satisfied;\n");
+        out.write("\twhile ((cursor_status = cursor->next(cursor, &ion_record)) == cs_cursor_active || cursor_status == cs_cursor_initialized) {\n\n");
+        out.write("\t\tcondition_satisfied = boolean_true;\n");
+        out.write("\n\t\twhile (boolean_true == condition_satisfied) {\n");
+
+        if (key_type.contains("char")) {
+            out.write("\t\t\tmemcpy(old_keys[count], ion_record.key, "+key_type+");\n");
+        }
+        /* Update later for all key types */
+        else {
+            out.write("\t\t\told_keys[count] = NEUTRALIZE(ion_record.key, int);\n");
+        }
+
+        String val_type;
+        boolean where;
+        for (int k = 0; k < Integer.parseInt(get_schema_value(table_name, "NUMBER OF FIELDS: ")); k++) {
+            val_type = ion_switch_value_size(get_schema_value(table_name, "FIELD" + k + " TYPE: "));
+            where = false;
+
+            /* Loop through WHERE conditions */
+            for (int m = 0; m < num_conditions; m++) {
+                if (k == field_num[m]) {
+                    where = true;
+                    if (val_type.contains("char")) {
+                        out.write("\t\t\tif (0 " + operator[m] + " strncmp((char *) ion_record.value, \"" + condition[m] + "\", " + val_type + ")) {\n");
+                    }
+                        /* Update to include all data types */
+                    else {
+                        out.write("\t\t\tif (NEUTRALIZE(ion_record.value, int) " + operator[m] + " " + condition[m] + ") {\n");
+                    }
+
+                    out.write("\t\t\t\tion_record.value += "+val_type+";\n\t\t\t}\n");
+                    out.write("\t\t\telse {\n");
+                    if (key_type.contains("char")) {
+                        out.write("\t\t\t\tmemcpy(old_keys[count], \"-999\", "+key_type+");\n");
+                    }
+                    /* Update later for all data types */
+                    else {
+                        out.write("\t\t\t\told_keys[count] = -999;\n");
+                    }
+                    out.write("\t\t\t\tbreak;\n\t\t\t}\n\n");
+                }
             }
 
-            else {
-                out.write("\n\t\t\tif (0 "+operator+" strncmp(value, \""+condition+"\", strlen(value))) {\n");
-                out.write("\t\t\t\tcondition_satisfied = boolean_true;\n\t\t\t}\n");
-                out.write("\t\t\telse {\n\t\t\t\tcondition_satisfied = boolean_false;\n\t\t\t}\n\t\t}\n\n");
+            if (!where) {
+                out.write("\t\t\tion_record.value += "+val_type+";\n\n");
+            }
+
+            /* End loop for last column value */
+            if (k == Integer.parseInt(get_schema_value(table_name, "NUMBER OF FIELDS: ")) - 1) {
+                out.write("\t\t\tbreak;\n");
+                out.write("\t\t}\n\n");
             }
         }
 
-        /* If boolean_true, record has passed all conditions */
-        out.write("\t\tif (boolean_false == condition_satisfied) {\n");
+        out.write("\t\tcount++;\n\t}\n\n");
+        out.write("\tfor (int i = 0; i < "+get_schema_value(table_name, "NUMBER OF RECORDS: ")+"; i++) {\n");
+        if (key_type.contains("char")) {
+            out.write("\t\tif (!old_keys[i].equals(\"-999\") {\n");
+        }
+        /* Update later for all data types */
+        else {
+            out.write("\t\tif (-999 != old_keys[i]) {\n");
+        }
 
-        out.write("\t\t\tdeleted_records[count].key = NULL;\n" +
-                "\t\t\tdeleted_records[count].value = NULL;\n");
+        if (key_type.contains("char")) {
+            out.write("\t\t\tstatus = dictionary_delete(&dictionary, old_keys[i]);");
+        }
+        /* Update later for all data types */
+        else {
+            out.write("\t\t\tstatus = dictionary_delete(&dictionary, IONIZE(old_keys[i], int));");
+        }
+        print_error(out, true, 2);
+        out.write("\t\t}\n\t}\n\n");
 
-        out.write("\t\t}\n\n\t\tcount++;\n\t}\n\n");
+        /* Causes error */
+//        out.write("\tfree(ion_record.key);\n\tfree(ion_record.value);\n");
 
-        out.write("\tfor (int i = 0; i < "+get_schema_value(table_name, "NUMBER OF RECORDS: ")+"; i++) {\n" +
-                "\t\tif (NULL != deleted_records[i].key) {\n" +
-                "\t\t\tstatus = dictionary_delete(&dictionary, deleted_records[i].key);\n" +
-                "\n" +
-                "\t\t\tif (err_ok != status.error) {\n" +
-                "\t\t\t\tprintf(\"Error occurred deleting record from table. Error code: %i\\n\", status.error);\n" +
-                "\t\t\t\treturn;\n" +
-                "\t\t\t}\n" +
-                "\n" +
-                "\t\t\tprintf(\"Record deleted: %s"+"\\"+"n"+"\\"+"n"+"\", (char *) deleted_records[i].value);\n"+
-                "\t\t\tfree(deleted_records[i].key);\n" + "\t\t\tfree(deleted_records[i].value);\n" +
-                "\t\t}\n" +
-                "\t}\n");
-
+        out.write("\tcursor->destroy(&cursor);\n");
         increment_num_records(table_name, false);
-
-        out.write("\n\tcursor->destroy(&cursor);\n");
         out.write("\tprint_table_"+table_name.substring(0, table_name.length() - 4).toLowerCase()+"(&dictionary);\n");
 
         out.write("\terror = ion_close_dictionary(&dictionary);");
         print_error(out, false, 0);
 
+        out.write("\terror = ion_close_dictionary(&dictionary);");
+        print_error(out, false, 0);
         out.write("}\n\n");
+        /* END NEW */
+
+//        /* If boolean_true, record has passed all conditions */
+//        out.write("\t\tif (boolean_false == condition_satisfied) {\n");
+//
+//        out.write("\t\t\tdeleted_records[count].key = NULL;\n" +
+//                "\t\t\tdeleted_records[count].value = NULL;\n");
+//
+//        out.write("\t\t}\n\n\t\tcount++;\n\t}\n\n");
+//
+//        out.write("\tfor (int i = 0; i < "+num_records+"; i++) {\n" +
+//                "\t\tif (NULL != deleted_records[i].key) {\n" +
+//                "\t\t\tstatus = dictionary_delete(&dictionary, deleted_records[i].key);\n" +
+//                "\n" +
+//                "\t\t\tif (err_ok != status.error) {\n" +
+//                "\t\t\t\tprintf(\"Error occurred deleting record from table. Error code: %i\\n\", status.error);\n" +
+//                "\t\t\t\treturn;\n" +
+//                "\t\t\t}\n" +
+//                "\n" +
+//                "\t\t\tprintf(\"Record deleted: %s"+"\\"+"n"+"\\"+"n"+"\", (char *) deleted_records[i].value);\n"+
+//                "\t\t\tfree(deleted_records[i].key);\n" + "\t\t\tfree(deleted_records[i].value);\n" +
+//                "\t\t}\n" +
+//                "\t}\n");
+
+//        increment_num_records(table_name, false);
+//
+//        out.write("\n\tcursor->destroy(&cursor);\n");
+//        out.write("\tprint_table_"+table_name.substring(0, table_name.length() - 4).toLowerCase()+"(&dictionary);\n");
+//
+//        out.write("\terror = ion_close_dictionary(&dictionary);");
+//        print_error(out, false, 0);
+//
+//        out.write("}\n\n");
 
         file_setup(header_written, first_function,  "delete"+delete_count, "DELETE");
         first_function = false;
