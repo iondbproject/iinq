@@ -46,8 +46,8 @@ public class IinqExecute {
     private static int drop_count = 1;
 
     private static boolean header_written = false;
-    private static boolean first_function = true;
     private static boolean print_written = false;
+    private static boolean insert_written = false;
 
     public static void main(String args[]) throws IOException {
         FileInputStream in = null;
@@ -83,6 +83,11 @@ public class IinqExecute {
 
                 /* INSERT statements exists in code that is not a comment */
                 else if ((sql.toUpperCase()).contains("INSERT INTO") && !sql.contains("/*")) {
+                    if(!insert_written) {
+                        insertGeneral(buff_out);
+                        insert_written = false;
+                    }
+
                     insert(sql, buff_out);
                     insert_count++;
                 }
@@ -108,6 +113,8 @@ public class IinqExecute {
 
             buff_in.close();
             buff_out.close();
+
+            function_close();
         }
 
         finally {
@@ -405,7 +412,7 @@ public class IinqExecute {
     }
 
     private static void
-    file_setup (boolean header_written, boolean first_function, String function, String keyword) throws IOException {
+    file_setup (boolean header_written, String function, String keyword) throws IOException {
         /* Write header file */
         String header_path = "/Users/danaklamut/ClionProjects/iondb/src/iinq/iinq_interface/iinq_user_functions.h";
         BufferedReader header_file = null;
@@ -423,7 +430,9 @@ public class IinqExecute {
                 contents += line + '\n';
 
                 if (line.contains("void") && 0 == count) {
-                    contents += "\nvoid " + function + "();\n";
+                    if ((insert_count == 1) || (!keyword.contains("INSERT"))) {
+                        contents += "\nvoid " + function + "();\n";
+                    }
                     count++;
                 }
             }
@@ -448,7 +457,9 @@ public class IinqExecute {
             contents = "";
             print_top_header(header);
 
-            contents += "void " + function + "();\n\n";
+            if ((insert_count == 1) || (!keyword.contains("INSERT"))) {
+                contents += "void " + function + "();\n\n";
+            }
             contents += "#if defined(__cplusplus)\n" + "}\n" + "#endif\n" + "\n" + "#endif\n";
 
             header.write(contents.getBytes());
@@ -466,7 +477,10 @@ public class IinqExecute {
         while(null != (line = ex_file.readLine())) {
             if ((line.toUpperCase()).contains(keyword) && !line.contains("/*") && !found) {
                 contents += "/* "+line + " */\n";
-                contents += "\t" + function +"();\n";
+
+                if ((insert_count == 1) || (!keyword.contains("INSERT"))) {
+                    contents += "\t" + function + "();\n";
+                }
                 found = true;
             }
 
@@ -747,9 +761,26 @@ public class IinqExecute {
 
         System.out.println("schema "+schema_name);
 
-        file_setup(header_written, first_function, "create_table"+create_count, "CREATE TABLE");
-        first_function = false;
+        file_setup(header_written,"create_table"+create_count, "CREATE TABLE");
         header_written = true;
+    }
+
+    private static void
+    insertGeneral(BufferedWriter out) throws IOException {
+        out.write("void insert(char *table_name, void *key, unsigned char *value) {\n\n");
+
+        out.write("\tion_err_t error;\n" + "\tion_dictionary_t dictionary;\n" + "\tion_dictionary_handler_t handler;\n");
+        out.write("\tdictionary.handler = &handler;\n" + "\n\terror = iinq_open_source(table_name, &dictionary, &handler);");
+        print_error(out, false, 0);
+
+        out.write("\tion_status_t status;\n");
+        out.write("\tstatus = dictionary_insert(&dictionary, key, value);");
+
+        print_error(out, true, 0);
+        out.write("\terror = ion_close_dictionary(&dictionary);");
+        print_error(out, false, 0);
+
+        out.write("\t/* End insert */\n\n\n");
     }
 
     private static void
@@ -773,11 +804,7 @@ public class IinqExecute {
 
         /* Write function to file */
 
-        out.write("void insert"+insert_count+"() {\n\n");
-        out.write("\tprintf(\"%s"+"\\"+"n"+"\\"+"n"+"\", \""+statement.substring(statement.indexOf("(") + 2, statement.indexOf(")") - 1)+"\");\n");
-        out.write("\tion_err_t error;\n" + "\tion_dictionary_t dictionary;\n" + "\tion_dictionary_handler_t handler;\n");
-        out.write("\tdictionary.handler = &handler;\n" + "\n\terror = iinq_open_source(\""+table_name+"\", &dictionary, &handler);");
-        print_error(out, false, 0);
+        out.write("void insertFields() {\n\n");
 
         int pos = sql.indexOf("(");
 
@@ -797,8 +824,8 @@ public class IinqExecute {
         }
 
         String[] fields = new String[count];
-	    out.write("\tunsigned char\t*value = malloc("+get_schema_value(table_name, "VALUE SIZE: ")+");\n");
-        out.write("\tunsigned char\t*data = value;\n\n");
+	    out.write("\tunsigned char\t*value"+insert_count+" = malloc("+get_schema_value(table_name, "VALUE SIZE: ")+");\n");
+        out.write("\tunsigned char\t*data"+insert_count+" = value"+insert_count+";\n\n");
         value = "";
         String field_value;
 
@@ -810,7 +837,7 @@ public class IinqExecute {
             }
 
             if (-1 == pos) {
-                out.write("printf(\"Error occurred inserting values, please check that a value has been listed for each column in table.\");\n");
+                out.write("printf(\"Error parsing values to be inserted, please check that a value has been listed for each column in table.\");\n");
                 return;
             }
 
@@ -822,16 +849,16 @@ public class IinqExecute {
             value += fields[j]+",\t";
 
             if (field_value.contains("CHAR")) {
-                out.write("\tmemcpy(data, \""+fields[j]+"\", sizeof(\""+fields[j]+"\"));\n");
+                out.write("\tmemcpy(data"+insert_count+", \""+fields[j]+"\", sizeof(\""+fields[j]+"\"));\n");
             }
 
             else {
                 out.write("\t*("+ion_switch_value_size(field_value)
-                        .substring(ion_switch_value_size(field_value).indexOf("(") + 1, ion_switch_value_size(field_value).indexOf(")"))+" *) data = "+fields[j]+";\n");
+                        .substring(ion_switch_value_size(field_value).indexOf("(") + 1, ion_switch_value_size(field_value).indexOf(")"))+" *) data"+insert_count+" = "+fields[j]+";\n");
             }
 
             if (j < count - 1) {
-                out.write("\tdata += " + ion_switch_value_size(field_value) + ";\n\n");
+                out.write("\tdata"+insert_count+" += " + ion_switch_value_size(field_value) + ";\n\n");
             }
         }
 
@@ -840,34 +867,19 @@ public class IinqExecute {
         String key_type = get_schema_value(table_name, "PRIMARY KEY TYPE: ");
         String key_field_num = get_schema_value(table_name, "PRIMARY KEY FIELD: ");
 
-        out.write("\n\tion_status_t status;\n");
-
         if (key_type.equals("0") || key_type.equals("1")) {
-            out.write("\tstatus = dictionary_insert(&dictionary, IONIZE("+fields[Integer.parseInt(key_field_num)]+
-                    ", int), value);");
+            out.write("\tinsert(\""+table_name+"\", IONIZE("+fields[Integer.parseInt(key_field_num)]+", int), value"+insert_count+");\n\n");
         }
 
         else {
-            out.write("\tstatus = dictionary_insert(&dictionary, \""+fields[Integer.parseInt(key_field_num)]+
-                    "\", value);");
+            out.write("\tinsert(\""+table_name+"\", "+fields[Integer.parseInt(key_field_num)]+", value"+insert_count+");\n");
         }
 
-        print_error(out, true, 0);
+        out.write("\tfree(value"+insert_count+");\n");
+        out.write("\t/* End insert fields */\n\n\n");
 
-        out.write("\tfree(value);\n\n");
+        file_setup(header_written, "insertFields" , "INSERT INTO");
 
-        out.write("\tprintf(\"Record inserted: "+value+"\\"+"n"+"\\"+"n"+"\");\n");
-
-        increment_num_records(table_name, true);
-
-        out.write("\tprint_table_"+table_name.substring(0, table_name.length() - 4).toLowerCase()+"(&dictionary);\n");
-        out.write("\terror = ion_close_dictionary(&dictionary);");
-        print_error(out, false, 0);
-
-        out.write("}\n\n");
-
-        file_setup(header_written, first_function,  "insert"+insert_count, "INSERT INTO");
-        first_function = false;
         header_written = true;
     }
 
@@ -1313,8 +1325,7 @@ public class IinqExecute {
 
         out.write("}\n\n");
 
-        file_setup(header_written, first_function,  "update"+update_count, "UPDATE");
-        first_function = false;
+        file_setup(header_written, "update"+update_count, "UPDATE");
         header_written = true;
     }
 
@@ -1624,8 +1635,7 @@ public class IinqExecute {
 //
 //        out.write("}\n\n");
 
-        file_setup(header_written, first_function,  "delete"+delete_count, "DELETE");
-        first_function = false;
+        file_setup(header_written,"delete"+delete_count, "DELETE");
         header_written = true;
     }
 
@@ -1661,8 +1671,35 @@ public class IinqExecute {
 
         out.write("\n}\n\n");
 
-        file_setup(header_written, first_function,  "drop_table"+drop_count, "DROP TABLE");
-        first_function = false;
+        file_setup(header_written,"drop_table"+drop_count, "DROP TABLE");
         header_written = true;
+    }
+
+    private static void
+    function_close() throws IOException {
+        /* Closes insert functions because there do not exist any more commands to be read */
+        String path = "/Users/danaklamut/ClionProjects/iondb/src/iinq/iinq_interface/iinq_user_functions.c";
+        BufferedReader file = new BufferedReader(new FileReader(path));
+
+        String contents = "";
+        String line;
+
+        while(null != (line = file.readLine())) {
+            if ((line.contains("/* End insert fields */")) || (line.contains("/* End insert */"))) {
+                contents += "}" + '\n';
+            }
+
+            else {
+                contents += line + '\n';
+            }
+        }
+
+        File ex_output_file = new File(path);
+        FileOutputStream out = new FileOutputStream(ex_output_file, false);
+
+        out.write(contents.getBytes());
+
+        file.close();
+        out.close();
     }
 }
