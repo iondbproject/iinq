@@ -47,7 +47,18 @@ public class IinqExecute {
 
     private static boolean header_written = false;
     private static boolean print_written = false;
-    private static boolean insert_written = false;
+    private static boolean param_written = false;
+
+    /* Variables for INSERT supported prepared statements on multiple tables */
+    private static String table;
+    private static String[] fields;
+    private static int count;
+    private static String insert;
+    private static int pos;
+    private static String value;
+    private static boolean[] prep_fields;
+    private static String key_type;
+    private static String key_field_num;
 
     public static void main(String args[]) throws IOException {
         FileInputStream in = null;
@@ -109,6 +120,7 @@ public class IinqExecute {
             buff_in.close();
             buff_out.close();
 
+            params(table, fields, count, insert, pos, value, prep_fields, key_type, key_field_num);
             function_close();
         }
 
@@ -769,9 +781,7 @@ public class IinqExecute {
 
         sql = sql.trim();
 
-        String var_name = sql.substring(18, sql.indexOf("=") - 1);
-
-        sql = sql.substring(47);
+        sql = sql.substring(sql.indexOf("=")+27);
 
         String table_name = (sql.substring(0, sql.indexOf(" "))) + ".inq";
         System.out.println(table_name);
@@ -785,16 +795,16 @@ public class IinqExecute {
 
         /* Write function to file */
 
-        int pos = sql.indexOf("(");
+        pos = sql.indexOf("(");
 
         sql = sql.substring(pos + 1);
 
         /* INSERT statement */
-        String value = sql.substring(0, sql.length() - 5);
+        value = sql.substring(0, sql.length() - 5);
         System.out.println(value + "\n");
 
 	    /* Get key value from record to be inserted */
-        int count = 1;
+        count = 1;
 
         /* Count number of fields */
         for (int i = 0; i < sql.length(); i++) {
@@ -803,30 +813,30 @@ public class IinqExecute {
             }
         }
 
-        boolean int_prep = false;
-        boolean float_prep = false;
-        boolean string_prep = false;
-        boolean prep = false;
-
-        boolean[] prep_fields = new boolean[count];
+        prep_fields = new boolean[count];
 
 	    /* Check if the INSERT statement is a prepared statement */
-        prep = sql.contains("(?)");
+        boolean prep = sql.contains("(?)");
+        System.out.println("PREP: "+prep);
 
-        String[] fields = new String[count];
+        fields = new String[count];
         value = "";
         String field_value;
 
-        String key_type = get_schema_value(table_name, "PRIMARY KEY TYPE: ");
-        String key_field_num = get_schema_value(table_name, "PRIMARY KEY FIELD: ");
+        key_type = get_schema_value(table_name, "PRIMARY KEY TYPE: ");
+        key_field_num = get_schema_value(table_name, "PRIMARY KEY FIELD: ");
+        String table_name_sub = table_name.substring(0, table_name.length()-4);
 
-        out.write("iinq_prepared_sql SQL_prepare(char *sql) {\n");
+        out.write("iinq_prepared_sql SQL_"+table_name_sub+"(char *sql) {\n");
         out.write("\tiinq_prepared_sql p = {0};\n");
 
         if (prep) {
-            out.write("\tp.setInt = setInt;\n");
+            out.write("\tp.setParam = setParam;\n");
         }
+
         out.write("\tp.execute = execute;\n");
+        out.write("\tp.table = malloc(sizeof(\"" + table_name_sub + "\"));\n");
+        out.write("\tstrncpy(p.table, \""+table_name_sub+"\", sizeof(\""+table_name_sub+"\"));\n");
         out.write("\tp.value = malloc(" + get_schema_value(table_name, "VALUE SIZE: ") + ");\n\n");
         out.write("\tunsigned char\t*data = p.value;\n\n");
 
@@ -834,7 +844,8 @@ public class IinqExecute {
             pos = sql.indexOf(",");
 
             if (-1 == pos) {
-                pos = sql.indexOf(")");
+                String temp = sql.substring(0, sql.lastIndexOf(")"));
+                pos = temp.lastIndexOf(")");
             }
 
             if (-1 == pos) {
@@ -857,6 +868,8 @@ public class IinqExecute {
             }
 
             prep_fields[j] = fields[j].contains("(?)");
+            System.out.println("FIELD: "+fields[j]);
+            System.out.println("PREP FIELD: "+prep_fields[j]);
 
             if (j < count - 1) {
                 out.write("\tdata += " + ion_switch_value_size(field_value) + ";\n\n");
@@ -867,84 +880,191 @@ public class IinqExecute {
         out.write("}\n\n");
 
         /* INSERT statement is a prepared statement */
-        if (prep) {
-            /* Assuming setInt() only at this point */
-            out.write("void setInt(iinq_prepared_sql p, int param_num, int val) {\n");
-            out.write("\tunsigned char\t*value = malloc(" + get_schema_value(table_name, "VALUE SIZE: ") + ");\n");
-            out.write("\tunsigned char\t*data = value;\n\n");
+        if (prep && !param_written) {
+            out.write("size_t calculateOffset(char *table, int field_num) {\n");
+            out.write("\tint table_num = 0;\n");
+            out.write("\tif (strcmp(table, \"" +table_name.substring(0, table_name.length()-4)+"\") == 0) {\n");
+            out.write("\t\ttable_num = 1;\n");
+            out.write("\t}\n\n");
 
-            boolean written = false;
+            out.write("\t/* INSERT 1 */\n\n");
+
+            out.write("\tswitch (table_num) {\n");
+            out.write("\t\tcase 1 : {\n"); /* Add more tables here */
+            out.write("\t\t\tswitch (field_num) {\n");
+
+            String offset = "";
+
+            for(int i = 0; i < fields.length; i++) {
+                out.write("\t\t\t\tcase "+(i+1)+" :\n");
+
+                if (i > 0) {
+                    offset += "+";
+                }
+
+                offset += ion_switch_value_size(get_schema_value(table_name, "FIELD" + i + " TYPE: "));
+                out.write("\t\t\t\t\treturn "+offset+";\n");
+            }
+
+            out.write("\t\t\t\tdefault:\n\t\t\t\t\treturn 0;\n");
+            out.write("\t\t\t}\n\t\t}\n");
+            out.write("\t\t/* INSERT 2 */\n");
+            out.write("\t\tdefault:\n\t\t\treturn 0;\n");
+            out.write("\t}\n}\n\n");
+
+            out.write("void setParam(iinq_prepared_sql p, int field_num, void *val) {\n");
+            out.write("\tunsigned char\t*data = p.value;\n\n");
 
             for (int j = 0; j < count; j++) {
 
                 field_value = get_schema_value(table_name, "FIELD" + j + " TYPE: ");
 
-                if(sql.length() > pos + 2) {
+                if (sql.length() > pos + 2) {
                     sql = sql.substring(pos + 2);
                 }
 
                 value += fields[j] + ",\t";
 
-                /* If the value is not parameterized */
-                if (!prep_fields[j]) {
-                    if (!written) {
-                        out.write("\tdata += " + ion_switch_value_size(field_value));
-                    }
-
-                    else {
-                        out.write("\t + " + ion_switch_value_size(field_value));
-                    }
-
-                    written = true;
-                }
-
-                /* Is a parameterized value */
-                else {
-
-                    if (written) {
-                        out.write("\t;\n\n");
-                    }
-
-                    out.write("\tif (param_num == " + j + ") {\n");
+                /* We have found a parameterized value */
+                if (prep_fields[j]) {
+                    /* Assume user numbers fields starting with 1 */
+                    out.write("\tif (field_num == " + (j+1) + " && strcmp(p.table, \""+table_name_sub+"\") == 0) {\n");
+                    out.write("\t\t data += calculateOffset(p.table, field_num);\n");
 
                     if (field_value.contains("CHAR")) {
-                        out.write("\t\tmemcpy(data, \"val\", sizeof(\"val\"));\n");
+                        out.write("\t\tmemcpy(data, \"val\", sizeof(val));\n");
                     } else {
                         out.write("\t\t*(" + ion_switch_value_size(field_value)
-                                .substring(ion_switch_value_size(field_value).indexOf("(") + 1, ion_switch_value_size(field_value).indexOf(")")) + " *) data = val;\n");
+                                .substring(ion_switch_value_size(field_value).indexOf("(") + 1, ion_switch_value_size(field_value).indexOf(")")) +
+                                " *) data = (int) val;\n");
                     }
-
                     out.write("\t}\n");
-
-                    if (j < count - 1) {
-                        out.write("\tdata += " + ion_switch_value_size(field_value));
-                        written = true;
-                    }
                 }
             }
 
-            if (written) {
-                out.write("\t;\n\n");
-            }
-
-            out.write("\tmemcpy(p.value, value, sizeof(&value));\n");
-            out.write("\tfree(value);\n");
+            out.write("/* INSERT 3 */\n");
             out.write("}\n\n");
         }
 
-        /* Set-up execute() function */
-        out.write("void execute(iinq_prepared_sql p) {\n");
+        if (!param_written) {
+            /* Set-up execute() function */
+            out.write("void execute(iinq_prepared_sql p) {\n");
+            out.write("\tif (strcmp(p.table, \""+table_name_sub+"\") == 0) {\n");
 
-        if (key_type.equals("0") || key_type.equals("1")) {
-            out.write("\tinsert(\""+table_name+"\", IONIZE("+fields[Integer.parseInt(key_field_num)]+", int), p.value);\n\n");
+            if (key_type.equals("0") || key_type.equals("1")) {
+                out.write("\t\tinsert(\"" + table_name + "\", IONIZE(" + fields[Integer.parseInt(key_field_num)] + ", int), p.value);\n");
+            } else {
+                out.write("\t\tinsert(\"" + table_name + "\", " + fields[Integer.parseInt(key_field_num)] + ", p.value);\n");
+            }
+            out.write("\t}\n");
+            out.write("/* INSERT 4 */\n");
+
+            out.write("\tfree(p.value);\n");
+            out.write("}\n\n");
         }
 
-        else {
-            out.write("\tinsert(\""+table_name+"\", "+fields[Integer.parseInt(key_field_num)]+", p.value);\n");
+        table = table_name_sub;
+        insert = sql;
+        param_written = true;
+    }
+
+    /* Concatenates information for additional tables onto already written INSERT functions */
+    private static void
+    params(
+        String table,
+        String[] fields,
+        int count,
+        String sql,
+        int pos,
+        String value,
+        boolean[] prep_fields,
+        String key_type,
+        String key_field_num
+    ) throws IOException {
+        System.out.println("HELLOOOOO");
+        String path = "/Users/danaklamut/ClionProjects/iondb/src/iinq/iinq_interface/iinq_user_functions.c";
+        BufferedReader file = new BufferedReader(new FileReader(path));
+
+        String field_value;
+        String contents = "";
+        String line;
+
+        while (null != (line = file.readLine())) {
+            if (line.contains("/* INSERT 1 */")) {
+                System.out.println("in here 1");
+                contents += "\tif (strcmp(table, \""+table+"\") == 0) {\n";
+                contents += "\t\ttable_num = "+insert_count+";\n\t}\n";
+            }
+            else if (line.contains("/* INSERT 2 */")) {
+                System.out.println("in here 2");
+                contents += "\t\tcase "+insert_count+" : {\n";
+                contents += "\t\t\tswitch (field_num) {\n";
+
+                String offset = "";
+
+                for(int i = 0; i < fields.length; i++) {
+                    contents += "\t\t\t\tcase "+(i+1)+" :\n";
+
+                    if (i > 0) {
+                        offset += "+";
+                    }
+
+                    offset += ion_switch_value_size(get_schema_value(table+".inq", "FIELD" + i + " TYPE: "));
+                    contents += "\t\t\t\t\treturn "+offset+";\n";
+                }
+                contents += "\t\t\t\tdefault:\n\t\t\t\t\treturn 0;\n";
+                contents += "\t\t\t}\n\t\t}\n";
+            }
+            else if (line.contains("/* INSERT 3 */")) {
+                System.out.println("in here 3");
+                for (int j = 0; j < count; j++) {
+
+                    field_value = get_schema_value(table+".inq", "FIELD" + j + " TYPE: ");
+
+                    if (sql.length() > pos + 2) {
+                        sql = sql.substring(pos + 2);
+                    }
+
+                    value += fields[j] + ",\t";
+
+                    /* We have found a parameterized value */
+                    if (prep_fields[j]) {
+                    /* Assume user numbers fields starting with 1 */
+                        contents += "\tif (field_num == " + (j+1) + " && strcmp(p.table, \""+table+"\") == 0) {\n";
+                        contents += "\t\t data += calculateOffset(p.table, field_num);\n";
+
+                        if (field_value.contains("CHAR")) {
+                            contents += "\t\tmemcpy(data, \"val\", sizeof(val));\n";
+                        } else {
+                            contents += "\t\t*(" + ion_switch_value_size(field_value)
+                                    .substring(ion_switch_value_size(field_value).indexOf("(") + 1, ion_switch_value_size(field_value).indexOf(")")) +
+                                    " *) data = (int) val;\n";
+                        }
+                        contents += "\t}\n";
+                    }
+                }
+            }
+            else if (line.contains("/* INSERT 4 */")) {
+                System.out.println("in here 4");
+                contents += "\tif (strcmp(p.table, \""+table+"\") == 0) {\n";
+
+                if (key_type.equals("0") || key_type.equals("1")) {
+                    contents += "\t\tinsert(\"" + table + "\", IONIZE(" + fields[Integer.parseInt(key_field_num)] + ", int), p.value);\n";
+                } else {
+                    contents += "\t\tinsert(\"" + table + "\", " + fields[Integer.parseInt(key_field_num)] + ", p.value);\n";
+                }
+                contents += "\t}\n";
+            }
+            contents += line + '\n';
         }
 
-        out.write("\tfree(p.value);\n");
-        out.write("}\n\n");
+        File ex_output_file = new File(path);
+        FileOutputStream out = new FileOutputStream(ex_output_file, false);
+
+        out.write(contents.getBytes());
+
+        file.close();
+        out.close();
     }
 
     private static void
@@ -1749,11 +1869,8 @@ public class IinqExecute {
         String line;
 
         while(null != (line = file.readLine())) {
-            if ((line.contains("/* End insert fields */")) || (line.contains("/* End insert */"))) {
-                contents += "}" + '\n';
-            }
-
-            else {
+            if (!((line.contains("/* INSERT 1 */")) || (line.contains("/* INSERT 2 */"))
+                    || (line.contains("/* INSERT 3 */")) || (line.contains("/* INSERT 4 */")))) {
                 contents += line + '\n';
             }
         }
