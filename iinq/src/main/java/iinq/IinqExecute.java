@@ -867,6 +867,9 @@ public class IinqExecute {
         out.write("\tp.value = malloc(" + get_schema_value(table_name, "VALUE SIZE: ") + ");\n\n");
         out.write("\tunsigned char\t*data = p.value;\n\n");
 
+        ArrayList<Integer> int_fields = new ArrayList<>();
+        ArrayList<Integer> string_fields = new ArrayList<>();
+
         for (int j = 0; j < count; j++) {
             pos = sql.indexOf(",");
 
@@ -885,6 +888,13 @@ public class IinqExecute {
             field_value = get_schema_value(table_name, "FIELD" + j + " TYPE: ");
 
             sql = sql.substring(pos + 2);
+
+            if (field_value.contains("CHAR")) {
+                string_fields.add(j+1);
+            }
+            else {
+                int_fields.add(j+1);
+            }
 
             if (field_value.contains("CHAR") && !fields[j].contains("(?)")) {
                 out.write("\tmemcpy(data, \"" + fields[j] + "\", sizeof(\"" + fields[j] + "\"));\n");
@@ -939,29 +949,58 @@ public class IinqExecute {
 
             for (int j = 0; j < count; j++) {
 
-                field_value = get_schema_value(table_name, "FIELD" + j + " TYPE: ");
-
                 if (sql.length() > pos + 2) {
                     sql = sql.substring(pos + 2);
                 }
 
                 value += fields[j] + ",\t";
+            }
 
-                /* We have found a parameterized value */
-                if (prep_fields[j]) {
-                    /* Assume user numbers fields starting with 1 */
-                    out.write("\tif (field_num == " + (j+1) + " && *(int *) p.table == "+table_id+") {\n");
-                    out.write("\t\t data += calculateOffset(p.table, field_num);\n");
+            out.write("\tif (*(int *) p.table == "+table_id+") {\n");
+            boolean first = true;
 
-                    if (field_value.contains("CHAR")) {
-                        out.write("\t\tmemcpy(data, \"val\", sizeof(val));\n");
-                    } else {
-                        out.write("\t\t*(" + ion_switch_value_size(field_value)
-                                .substring(ion_switch_value_size(field_value).indexOf("(") + 1, ion_switch_value_size(field_value).indexOf(")")) +
-                                " *) data = (int) val;\n");
+            if (int_fields.get(0) != null) {
+                out.write("\t\tif (field_num ==");
+
+                for (int i = 0; i < int_fields.size(); i++) {
+                    if (int_fields.get(i) != null) {
+                        System.out.println("int field: "+int_fields.get(i));
+                        if (first) {
+                            System.out.println("FIRST FIELD: "+int_fields.get(i));
+                            out.write(" "+int_fields.get(i));
+                            first = false;
+                        } else {
+                            out.write(" || field_num == " + int_fields.get(i));
+                        }
                     }
-                    out.write("\t}\n");
                 }
+
+                out.write(") {\n");
+                out.write("\t\t\tdata += calculateOffset(p.table, field_num);\n");
+                out.write("\t\t\t*(int *) data = (int) val;\n\t\t}\n");
+            }
+
+            if (string_fields.get(0) != null) {
+                out.write("\t\tif (field_num ==");
+                first = true;
+
+                for (int i = 0; i < string_fields.size(); i++) {
+                    if (string_fields.get(i) != null) {
+                        System.out.println("string field: "+string_fields.get(i));
+                        if (first) {
+                            out.write(" "+string_fields.get(i));
+                            first = false;
+                        } else {
+                            out.write(" || field_num == " + string_fields.get(i));
+                        }
+                    }
+                }
+
+                out.write(") {\n");
+                out.write("\t\t\tdata += calculateOffset(p.table, field_num);\n");
+                out.write("\t\t\tmemcpy(data, val, sizeof(val));\n\t\t}\n");
+
+                out.write("\t}\n\n");
             }
 
             out.write("/* INSERT 3 */\n");
@@ -986,7 +1025,7 @@ public class IinqExecute {
         }
 
         else {
-            inserts.add(new insert(table_name_sub, fields, count, sql, pos, value, prep_fields, key_type, key_field_num, table_id));
+            inserts.add(new insert(table_name_sub, fields, int_fields, string_fields, count, sql, pos, value, prep_fields, key_type, key_field_num, table_id));
         }
         param_written = true;
     }
@@ -998,12 +1037,12 @@ public class IinqExecute {
         String path = "/Users/danaklamut/ClionProjects/iondb/src/iinq/iinq_interface/iinq_user_functions.c";
         BufferedReader file = new BufferedReader(new FileReader(path));
 
-        String field_value;
         String contents = "";
         String line;
         boolean written;
         String table_name;
         ArrayList<String> offset_written = new ArrayList<>();
+        ArrayList<String> params_written = new ArrayList<>();
         ArrayList<String> execute_written = new ArrayList<>();
 
         while (null != (line = file.readLine())) {
@@ -1060,45 +1099,87 @@ public class IinqExecute {
                 int pos;
                 String value;
                 String[] fields;
+                ArrayList<Integer> int_fields;
+                ArrayList<Integer> string_fields;
                 boolean[] prep_fields;
                 int table_id;
 
                 for (int i = 0; i < inserts.size(); i++) {
-                    count = inserts.get(i).count;
-                    sql = inserts.get(i).sql;
-                    pos = inserts.get(i).pos;
-                    value = inserts.get(i).value;
-                    fields = inserts.get(i).fields;
-                    prep_fields = inserts.get(i).prep_fields;
-                    table_id = inserts.get(i).id;
                     table_name = inserts.get(i).name;
+                    written = table_name.equals(written_table);
 
-                    System.out.println("in here 3");
-                    for (int j = 0; j < count; j++) {
-
-                        field_value = get_schema_value(table_name + ".inq", "FIELD" + j + " TYPE: ");
-
-                        if (sql.length() > pos + 2) {
-                            sql = sql.substring(pos + 2);
-                        }
-
-                        value += fields[j] + ",\t";
-
-                    /* We have found a parameterized value */
-                        if (prep_fields[j]) {
-                    /* Assume user numbers fields starting with 1 */
-                            contents += "\tif (field_num == " + (j + 1) + " && *(int *) p.table == " + table_id + ") {\n";
-                            contents += "\t\t data += calculateOffset(p.table, field_num);\n";
-
-                            if (field_value.contains("CHAR")) {
-                                contents += "\t\tmemcpy(data, \"val\", sizeof(val));\n";
-                            } else {
-                                contents += "\t\t*(" + ion_switch_value_size(field_value)
-                                        .substring(ion_switch_value_size(field_value).indexOf("(") + 1, ion_switch_value_size(field_value).indexOf(")")) +
-                                        " *) data = (int) val;\n";
+                    if (!written) {
+                        for (int l = 0; l < params_written.size(); l++) {
+                            if (table_name.equals(params_written.get(l))) {
+                                written = true;
                             }
-                            contents += "\t}\n";
                         }
+                    }
+
+                    if (!written) {
+                        params_written.add(table_name);
+
+                        count = inserts.get(i).count;
+                        sql = inserts.get(i).sql;
+                        pos = inserts.get(i).pos;
+                        value = inserts.get(i).value;
+                        fields = inserts.get(i).fields;
+                        int_fields = inserts.get(i).int_fields;
+                        string_fields = inserts.get(i).string_fields;
+                        prep_fields = inserts.get(i).prep_fields;
+                        table_id = inserts.get(i).id;
+
+                        System.out.println("in here 3");
+                        for (int j = 0; j < count; j++) {
+
+                            if (sql.length() > pos + 2) {
+                                sql = sql.substring(pos + 2);
+                            }
+
+                            value += fields[j] + ",\t";
+                        }
+
+                        contents += "\tif (*(int *) p.table == "+table_id+") {\n";
+
+                        if (int_fields.get(0) != null) {
+                            contents += "\t\tif (field_num == ";
+
+                            for (int k = 0; k < int_fields.size(); k++) {
+                                if (int_fields.get(k) != null) {
+                                    System.out.println("int field: "+int_fields.get(k));
+                                    if (k == 0) {
+                                        contents += int_fields.get(k);
+                                    } else {
+                                        contents += " || field_num == " + int_fields.get(k);
+                                    }
+                                }
+                            }
+
+                            contents += ") {\n";
+                            contents += "\t\t\tdata += calculateOffset(p.table, field_num);\n";
+                            contents += "\t\t\t*(int *) data = (int) val;\n\t\t}\n";
+                        }
+
+                        if (string_fields.get(0) != null) {
+                            contents += "\t\tif (field_num == ";
+
+                            for (int k = 0; k < string_fields.size(); k++) {
+                                if (string_fields.get(k) != null) {
+                                    System.out.println("string field: "+string_fields.get(k));
+                                    if (k == 0) {
+                                        contents += string_fields.get(k);
+                                    } else {
+                                        contents += " || field_num == " + string_fields.get(k);
+                                    }
+                                }
+                            }
+
+                            contents += ") {\n";
+                            contents += "\t\t\tdata += calculateOffset(p.table, field_num);\n";
+                            contents += "\t\t\tmemcpy(data, val, sizeof(val));\n\t\t}\n";
+                        }
+
+                        contents += "\t}\n";
                     }
                 }
             }

@@ -1,11 +1,15 @@
 package iinq;
 
+import java.util.ArrayList;
+
 /**
  * Created by danaklamut on 2018-02-12.
  */
 public class insert {
     public String name;
     public String[] fields;
+    public ArrayList<Integer> int_fields;
+    public ArrayList<Integer> string_fields;
     public int count;
     public String sql;
     public int pos;
@@ -18,6 +22,8 @@ public class insert {
     public insert(
         String table_name,
         String[] field_array,
+        ArrayList<Integer> int_cols,
+        ArrayList<Integer> string_cols,
         int num_count,
         String sql_statement,
         int pos_val,
@@ -29,6 +35,8 @@ public class insert {
     ) {
         name = table_name;
         fields = field_array;
+        int_fields = int_cols;
+        string_fields = string_cols;
         count = num_count;
         sql = sql_statement;
         pos = pos_val;
