@@ -56,7 +56,9 @@ public class IinqExecute {
     private static String[] table_names = new String[10];   /* Currently supports up to 10 unique tables*/
     private static boolean new_table;
     private static ArrayList<insert> inserts = new ArrayList<>();
+    private static ArrayList<insert_fields> insert_fields = new ArrayList<>();
     private static String written_table;
+    private static ArrayList<String> function_headers = new ArrayList<>();
 
     public static void main(String args[]) throws IOException {
 
@@ -82,7 +84,6 @@ public class IinqExecute {
             String sql;
             buff_out.write("#include \"iinq_user_functions.h\"\n\n");
 
-            print_header();
             main_setup();
 
             /* File is read line by line */
@@ -125,6 +126,8 @@ public class IinqExecute {
             buff_out.close();
 
             params();
+            write_headers();
+            insert_setup();
             function_close();
         }
 
@@ -136,73 +139,6 @@ public class IinqExecute {
                 out.close();
             }
         }
-    }
-
-    private static void
-    print_header() throws IOException {
-
-        String contents = "";
-
-        contents += "/******************************************************************************/\n" +
-                "/**\n" +
-                "@file\t\tiinq_user.h\n" +
-                "@author\t\tDana Klamut\n" +
-                "@brief\t\tThis code contains definitions for iinq user functions\n" +
-                "@copyright\tCopyright 2017\n" +
-                "\t\t\tThe University of British Columbia,\n" +
-                "\t\t\tIonDB Project Contributors (see AUTHORS.md)\n" +
-                "@par Redistribution and use in source and binary forms, with or without\n" +
-                "\tmodification, are permitted provided that the following conditions are met:\n" +
-                "\n" +
-                "@par 1.Redistributions of source code must retain the above copyright notice,\n" +
-                "\tthis list of conditions and the following disclaimer.\n" +
-                "\n" +
-                "@par 2.Redistributions in binary form must reproduce the above copyright notice,\n" +
-                "\tthis list of conditions and the following disclaimer in the documentation\n" +
-                "\tand/or other materials provided with the distribution.\n" +
-                "\n" +
-                "@par 3.Neither the name of the copyright holder nor the names of its contributors\n" +
-                "\tmay be used to endorse or promote products derived from this software without\n" +
-                "\tspecific prior written permission.\n" +
-                "\n" +
-                "@par THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS \"AS IS\"\n" +
-                "\tAND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE\n" +
-                "\tIMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE\n" +
-                "\tARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE\n" +
-                "\tLIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR\n" +
-                "\tCONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF\n" +
-                "\tSUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS\n" +
-                "\tINTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN\n" +
-                "\tCONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)\n" +
-                "\tARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE\n" +
-                "\tPOSSIBILITY OF SUCH DAMAGE.\n" +
-                "*/\n" +
-                "/******************************************************************************/\n" +
-                "\n" +
-                "#if !defined(IINQ_USER_H_)\n" +
-                "#define IINQ_USER_H_\n" +
-                "\n" +
-                "#if defined(__cplusplus)\n" +
-                "extern \"C\" {\n" +
-                "#endif\n" +
-                "\n" +
-                "#include \"../../key_value/kv_system.h\"\n" +
-                "#include \"iinq_user_functions.h\"\n" +
-                "#include \"iinq_execute.h\"\n" +
-                "#include \"../iinq.h\"\n" +
-                "\n" +
-                "#if defined(__cplusplus)\n" +
-                "}\n" +
-                "#endif\n" +
-                "\n" +
-                "#endif\n";
-
-        File file = new File("/Users/danaklamut/ClionProjects/iondb/src/iinq/iinq_interface/iinq_user.h");
-        FileOutputStream out = new FileOutputStream(file, false);
-
-        out.write(contents.getBytes());
-
-        out.close();
     }
 
     private static void
@@ -423,6 +359,101 @@ public class IinqExecute {
         out.write("\tcursor->destroy(&cursor);\n");
         out.write("\tfree(ion_record.key);\n");
         out.write("\tfree(ion_record.value);\n}\n\n");
+    }
+
+    private static void
+    write_headers () throws IOException {
+        /* Write header file */
+        String header_path = "/Users/danaklamut/ClionProjects/iondb/src/iinq/iinq_interface/iinq_user_functions.h";
+
+        /* Create schema table header file */
+        String contents = "";
+
+        File output_file = new File(header_path);
+
+        /* Create header file if it does not previously exist*/
+        if (!output_file.exists()) {
+            output_file.createNewFile();
+        }
+
+        FileOutputStream header = new FileOutputStream(output_file, false);
+
+        print_top_header(header);
+
+        for (int i = 0; i < function_headers.size(); i++) {
+            contents += function_headers.get(i);
+        }
+
+        contents += "\n#if defined(__cplusplus)\n" + "}\n" + "#endif\n" + "\n" + "#endif\n";
+
+        header.write(contents.getBytes());
+
+        header.close();
+    }
+
+    private static void
+    insert_setup () throws IOException {
+
+        /* Add new functions to be run to executable */
+        String ex_path = "/Users/danaklamut/ClionProjects/iondb/src/iinq/iinq_interface/iinq_user.c";
+        BufferedReader ex_file = new BufferedReader(new FileReader(ex_path));
+
+        String contents = "";
+        String line;
+        iinq.insert_fields insert;
+        int count = 0;
+
+        while(null != (line = ex_file.readLine())) {
+            if ((line.toUpperCase()).contains("INSERT") && !line.contains("/*") && !line.contains("//")) {
+                contents += "/* "+line + " */\n";
+
+                String temp = line.substring(0, line.indexOf("SQL_prepare"));
+
+                insert = insert_fields.get(count);
+
+                if (insert != null) {
+                    contents += "\t" + temp + "SQL_" + insert.table + "(";
+
+                    for (int j = 0; j < insert.fields.size(); j++) {
+                        if (insert.fields.get(j) != null) {
+
+                            if (j > 0) {
+                                contents += ", ";
+                            }
+
+                            if (insert.field_types.get(j).equals("char")) {
+                                contents += "\"" + insert.fields.get(j) + "\"";
+                            }
+
+                            else {
+                                if (insert.fields.get(j).contains("(?)")) {
+                                    contents += "NULL";
+                                }
+
+                                else {
+                                    contents += insert.fields.get(j);
+                                }
+                            }
+                        }
+                    }
+
+                    contents += ");\n";
+                    count++;
+                }
+            }
+
+            else {
+                contents += line + '\n';
+            }
+        }
+
+        File ex_output_file = new File(ex_path);
+        FileOutputStream ex_out = new FileOutputStream(ex_output_file, false);
+
+        ex_out.write(contents.getBytes());
+
+        ex_file.close();
+        ex_out.close();
     }
 
     private static void
@@ -776,6 +807,7 @@ public class IinqExecute {
         System.out.println("schema "+schema_name);
 
         file_setup(header_written,"create_table"+create_count, "CREATE TABLE");
+        function_headers.add("void create_table"+create_count+"();\n");
         header_written = true;
     }
 
@@ -854,88 +886,180 @@ public class IinqExecute {
         System.out.println("NEW TABLE?: "+new_table);
         System.out.println("TABLE ID: "+table_id);
 
-        out.write("iinq_prepared_sql SQL_"+table_name_sub+insert_count+"(char *sql) {\n");
-        out.write("\tiinq_prepared_sql p = {0};\n");
-
-        if (prep) {
-            out.write("\tp.setParam = setParam;\n");
-        }
-
-        out.write("\tp.execute = execute;\n");
-        out.write("\tp.table = malloc(sizeof(int));\n");
-        out.write("\t*(int *) p.table = "+table_id+";\n");
-        out.write("\tp.value = malloc(" + get_schema_value(table_name, "VALUE SIZE: ") + ");\n\n");
-        out.write("\tunsigned char\t*data = p.value;\n\n");
-
         ArrayList<Integer> int_fields = new ArrayList<>();
         ArrayList<Integer> string_fields = new ArrayList<>();
 
-        for (int j = 0; j < count; j++) {
-            pos = sql.indexOf(",");
+        ArrayList<String> field_values = new ArrayList<>();
+        ArrayList<String> field_types = new ArrayList<>();
 
-            if (-1 == pos) {
-                String temp = sql.substring(0, sql.lastIndexOf(")"));
-                pos = temp.lastIndexOf(")");
-            }
+        String prepare_function = "";
 
-            if (-1 == pos) {
-                out.write("printf(\"Error parsing values to be inserted, please check that a value has been listed for each column in table.\");\n");
-                return;
-            }
-
-            fields[j] = sql.substring(0, pos);
-
-            field_value = get_schema_value(table_name, "FIELD" + j + " TYPE: ");
-
-            sql = sql.substring(pos + 2);
-
-            if (field_value.contains("CHAR")) {
-                string_fields.add(j+1);
-            }
-            else {
-                int_fields.add(j+1);
-            }
-
-            if (field_value.contains("CHAR") && !fields[j].contains("(?)")) {
-                out.write("\tmemcpy(data, \"" + fields[j] + "\", sizeof(\"" + fields[j] + "\"));\n");
-            }
-            else if (!fields[j].contains("(?)")){
-                out.write("\t*(" + ion_switch_value_size(field_value)
-                        .substring(ion_switch_value_size(field_value).indexOf("(") + 1, ion_switch_value_size(field_value).indexOf(")")) + " *) data = " + fields[j] + ";\n");
-            }
-
-            prep_fields[j] = fields[j].contains("(?)");
-            System.out.println("FIELD: "+fields[j]);
-            System.out.println("PREP FIELD: "+prep_fields[j]);
-
-            if (j < count - 1) {
-                out.write("\tdata += " + ion_switch_value_size(field_value) + ";\n\n");
-            }
+        if (new_table) {
+            out.write("iinq_prepared_sql SQL_" + table_name_sub + "(");
+            prepare_function += "iinq_prepared_sql SQL_"+table_name_sub+"(";
         }
 
-        out.write("\treturn p;\n");
-        out.write("}\n\n");
+            for (int j = 0; j < count; j++) {
+                pos = sql.indexOf(",");
+
+                if (-1 == pos) {
+                    String temp = sql.substring(0, sql.lastIndexOf(")"));
+                    pos = temp.lastIndexOf(")");
+                }
+
+                if (-1 == pos) {
+                    System.out.println("Error parsing values to be inserted, please check that a value has been listed for each column in table.");
+                    return;
+                }
+
+                fields[j] = sql.substring(0, pos);
+
+                field_value = get_schema_value(table_name, "FIELD" + j + " TYPE: ");
+
+                /* To be added in function call */
+                field_values.add(fields[j]);
+
+                sql = sql.substring(pos + 2);
+
+                if (field_value.contains("CHAR")) {
+                    string_fields.add(j + 1);
+                } else {
+                    int_fields.add(j + 1);
+                }
+
+                if (j > 0) {
+                    if (new_table) {
+                        out.write(", ");
+                        prepare_function += ", ";
+                    }
+                }
+
+                if (field_value.contains("CHAR")) {
+                    field_types.add("char");
+
+                    if (new_table) {
+                        out.write("char *value_" + (j + 1));
+                        prepare_function += "char *value_" + (j + 1);
+                    }
+                } else {
+                    field_types.add("int");
+
+                    if (new_table) {
+                        out.write("int value_" + (j + 1));
+                        prepare_function += "int value_" + (j + 1);
+                    }
+                }
+
+                prep_fields[j] = fields[j].contains("(?)");
+
+                if (new_table) {
+                    System.out.println("FIELD: " + fields[j]);
+                    System.out.println("PREP FIELD: " + prep_fields[j]);
+                }
+            }
+
+            if (new_table) {
+                prepare_function += ");\n";
+
+                out.write(") {\n");
+                out.write("\tiinq_prepared_sql p = {0};\n");
+
+                if (prep) {
+                    out.write("\tp.setParam = setParam;\n");
+                }
+
+                out.write("\tp.execute = execute;\n");
+                out.write("\tp.table = malloc(sizeof(int));\n");
+                out.write("\t*(int *) p.table = " + table_id + ";\n");
+                out.write("\tp.value = malloc(" + get_schema_value(table_name, "VALUE SIZE: ") + ");\n");
+                out.write("\tunsigned char\t*data = p.value;\n");
+                out.write("\tp.key = malloc(" + ion_switch_key_size(Integer.parseInt(key_type)) + ");\n");
+
+                if (key_type.equals("0") || key_type.equals("1")) {
+                    out.write("\t*(int *) p.key = value_" + (Integer.parseInt(key_field_num) + 1) + ";\n\n");
+                } else {
+                    out.write("\tmemcpy(p.key, value_" + (Integer.parseInt(key_field_num) + 1) + ", " + key_type + ");\n\n");
+                }
+
+                for (int i = 0; i < fields.length; i++) {
+                    field_value = get_schema_value(table_name, "FIELD" + i + " TYPE: ");
+                    String value_size = ion_switch_value_size(field_value);
+
+                    if (field_value.contains("CHAR")) {
+                        out.write("\tmemcpy(data, value_" + (i + 1) + ", " + value_size + ");\n");
+                    } else {
+                        out.write("\t*(int *) data = value_" + (i + 1) + ";\n");
+                    }
+
+                    if (i < fields.length - 1) {
+                        out.write("\tdata += calculateOffset(p.table, " + (i + 1) + ");\n\n");
+                    }
+                }
+
+                out.write("\n\treturn p;\n");
+                out.write("}\n\n");
+        }
+
+        String offset_header = "";
+        String param_header = "";
 
         /* INSERT statement is a prepared statement */
         if (prep && !param_written) {
             written_table = table_name_sub;
-            out.write("size_t calculateOffset(const unsigned char *table, int field_num) {\n");
-            out.write("\tsize_t offset = 0;\n\n");
+            out.write("size_t calculateOffset(const unsigned char *table, int field_num) {\n\n");
             out.write("\tswitch (*(int *) table) {\n");
             out.write("\t\tcase "+table_id+" : {\n");
             out.write("\t\t\tswitch (field_num) {\n");
 
+            offset_header = "size_t calculateOffset(const unsigned char *table, int field_num);\n";
+
             String offset = "";
+            int int_count = 0;
+            boolean char_present = false;
+            int char_multiplier;
+            String value_size = "";
 
             for(int i = 0; i < fields.length; i++) {
-                out.write("\t\t\t\tcase "+(i+1)+" :\n");
+                char_multiplier = 0;
+                int_count = 0;
 
-                if (i > 0) {
-                    offset += "+";
+                for (int j = 0; j <= i; j++) {
+                    value_size = ion_switch_value_size(get_schema_value(table_name, "FIELD" + j + " TYPE: "));
+
+                    if (value_size.contains("char")) {
+                        char_multiplier += Integer.parseInt(value_size.substring(value_size.indexOf("*") + 1).trim());
+                        char_present = true;
+                    }
+
+                    if (value_size.contains("int")) {
+                        int_count++;
+                    }
                 }
 
-                offset += ion_switch_value_size(get_schema_value(table_name, "FIELD" + i + " TYPE: "));
-                out.write("\t\t\t\t\treturn "+offset+";\n");
+                out.write("\t\t\t\tcase "+(i+1)+" :\n");
+                out.write("\t\t\t\t\treturn ");
+
+                if (int_count > 0) {
+                    if (int_count > 1) {
+                        out.write("(sizeof(int) * " + int_count + ")");
+                    }
+
+                    else {
+                        out.write("sizeof(int)");
+                    }
+
+                    if (char_present) {
+                        out.write("+");
+                    }
+
+                    else {
+                        out.write(";\n");
+                    }
+                }
+
+                if (char_present) {
+                    out.write("(sizeof(char) * "+char_multiplier+");\n");
+                }
             }
 
             out.write("\t\t\t\tdefault:\n\t\t\t\t\treturn 0;\n");
@@ -946,6 +1070,8 @@ public class IinqExecute {
 
             out.write("void setParam(iinq_prepared_sql p, int field_num, void *val) {\n");
             out.write("\tunsigned char\t*data = p.value;\n\n");
+
+            param_header = "void setParam(iinq_prepared_sql p, int field_num, void *val);\n";
 
             for (int j = 0; j < count; j++) {
 
@@ -976,7 +1102,7 @@ public class IinqExecute {
                 }
 
                 out.write(") {\n");
-                out.write("\t\t\tdata += calculateOffset(p.table, field_num);\n");
+                out.write("\t\t\tdata += calculateOffset(p.table, (field_num - 1));\n");
                 out.write("\t\t\t*(int *) data = (int) val;\n\t\t}\n");
             }
 
@@ -997,7 +1123,7 @@ public class IinqExecute {
                 }
 
                 out.write(") {\n");
-                out.write("\t\t\tdata += calculateOffset(p.table, field_num);\n");
+                out.write("\t\t\tdata += calculateOffset(p.table, (field_num - 1));\n");
                 out.write("\t\t\tmemcpy(data, val, sizeof(val));\n\t\t}\n");
 
                 out.write("\t}\n\n");
@@ -1012,10 +1138,12 @@ public class IinqExecute {
             out.write("void execute(iinq_prepared_sql p) {\n");
             out.write("\tif (*(int *) p.table == "+table_id+") {\n");
 
+            function_headers.add("void execute(iinq_prepared_sql p);\n");
+
             if (key_type.equals("0") || key_type.equals("1")) {
-                out.write("\t\tinsert(\"" + table_name + "\", IONIZE(" + fields[Integer.parseInt(key_field_num)] + ", int), p.value);\n");
+                out.write("\t\tinsert(\"" + table_name + "\", IONIZE(*(int *) p.key, int), p.value);\n");
             } else {
-                out.write("\t\tinsert(\"" + table_name + "\", " + fields[Integer.parseInt(key_field_num)] + ", p.value);\n");
+                out.write("\t\tinsert(\"" + table_name + "\", p.key, p.value);\n");
             }
             out.write("\t}\n");
             out.write("/* INSERT 4 */\n");
@@ -1027,7 +1155,21 @@ public class IinqExecute {
         else {
             inserts.add(new insert(table_name_sub, fields, int_fields, string_fields, count, sql, pos, value, prep_fields, key_type, key_field_num, table_id));
         }
+
+        if (!prepare_function.equals("")) {
+            function_headers.add(prepare_function);
+        }
+
+        if (!offset_header.equals("")) {
+            function_headers.add(offset_header);
+        }
+
+        if (!param_header.equals("")) {
+            function_headers.add(param_header);
+        }
+
         param_written = true;
+        insert_fields.add(new insert_fields(table_name_sub, field_values, field_types));
     }
 
     /* Concatenates information for additional tables onto already written INSERT functions */
@@ -1075,17 +1217,52 @@ public class IinqExecute {
                         contents += "\t\t\tswitch (field_num) {\n";
                         System.out.println("offset name: "+table_name);
 
-                        String offset = "";
+                        int int_count;
+                        boolean char_present = false;
+                        int char_multiplier;
+                        String value_size = "";
 
                         for(int i = 0; i < fields.length; i++) {
-                            contents += "\t\t\t\tcase "+(i+1)+" :\n";
+                            char_multiplier = 0;
+                            int_count = 0;
 
-                            if (i > 0) {
-                                offset += "+";
+                            for (int k = 0; k <= i; k++) {
+                                value_size = ion_switch_value_size(get_schema_value(table_name+".inq", "FIELD" + k + " TYPE: "));
+
+                                if (value_size.contains("char")) {
+                                    char_multiplier += Integer.parseInt(value_size.substring(value_size.indexOf("*") + 1).trim());
+                                    char_present = true;
+                                }
+
+                                if (value_size.contains("int")) {
+                                    int_count++;
+                                }
                             }
 
-                            offset += ion_switch_value_size(get_schema_value(table_name+".inq", "FIELD" + i + " TYPE: "));
-                            contents += "\t\t\t\t\treturn "+offset+";\n";
+                            contents += "\t\t\t\tcase "+(i+1)+" :\n";
+                            contents += "\t\t\t\t\treturn ";
+
+                            if (int_count > 0) {
+                                if (int_count > 1) {
+                                    contents += "(sizeof(int) * " + int_count + ")";
+                                }
+
+                                else {
+                                    contents += "sizeof(int)";
+                                }
+
+                                if (char_present) {
+                                    contents += "+";
+                                }
+
+                                else {
+                                    contents += ";\n";
+                                }
+                            }
+
+                            if (char_present) {
+                                contents += "(sizeof(char) * "+char_multiplier+");\n";
+                            }
                         }
 
                         contents += "\t\t\t\tdefault:\n\t\t\t\t\treturn 0;\n";
@@ -1156,7 +1333,7 @@ public class IinqExecute {
                             }
 
                             contents += ") {\n";
-                            contents += "\t\t\tdata += calculateOffset(p.table, field_num);\n";
+                            contents += "\t\t\tdata += calculateOffset(p.table, (field_num - 1));\n";
                             contents += "\t\t\t*(int *) data = (int) val;\n\t\t}\n";
                         }
 
@@ -1175,7 +1352,7 @@ public class IinqExecute {
                             }
 
                             contents += ") {\n";
-                            contents += "\t\t\tdata += calculateOffset(p.table, field_num);\n";
+                            contents += "\t\t\tdata += calculateOffset(p.table, (field_num - 1));\n";
                             contents += "\t\t\tmemcpy(data, val, sizeof(val));\n\t\t}\n";
                         }
 
@@ -1212,14 +1389,15 @@ public class IinqExecute {
                         key_type = inserts.get(i).key_type;
                         fields = inserts.get(i).fields;
                         key_field_num = inserts.get(i).key_field_num;
+                        table_name = inserts.get(i).name;
 
                         System.out.println("in here 4");
                         contents += "\tif (*(int *) p.table == " + table_id + ") {\n";
 
                         if (key_type.equals("0") || key_type.equals("1")) {
-                            contents += "\t\tinsert(\"" + table + "\", IONIZE(" + fields[Integer.parseInt(key_field_num)] + ", int), p.value);\n";
+                            contents += "\t\tinsert(\"" + table_name + ".inq\", IONIZE(*(int *) p.key, int), p.value);\n";
                         } else {
-                            contents += "\t\tinsert(\"" + table + "\", " + fields[Integer.parseInt(key_field_num)] + ", p.value);\n";
+                            contents += "\t\tinsert(\"" + table_name + ".inq\", p.key, p.value);\n";
                         }
                         contents += "\t}\n";
                     }
