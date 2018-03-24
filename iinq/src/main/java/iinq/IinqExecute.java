@@ -42,7 +42,6 @@ public class IinqExecute {
 
     private static int create_count = 1;
     private static int insert_count = 1;
-    private static int update_count = 1;
     private static int drop_count = 1;
     private static int tables_count = 0;
 
@@ -50,6 +49,7 @@ public class IinqExecute {
     private static boolean print_written = false;
     private static boolean param_written = false;
     private static boolean delete_written = false;
+    private static boolean update_written = false;
 
     /* Variables for INSERT supported prepared statements on multiple tables */
     private static ArrayList<String> table_names = new ArrayList<>();
@@ -60,6 +60,7 @@ public class IinqExecute {
     private static ArrayList<String> function_headers = new ArrayList<>();
     private static ArrayList<tableInfo> calculateInfo = new ArrayList<>();
     private static ArrayList<delete_fields> delete_fields = new ArrayList<>();
+    private static ArrayList<update_fields> update_fields = new ArrayList<>();
 
     public static void main(String args[]) throws IOException {
 
@@ -102,7 +103,6 @@ public class IinqExecute {
                 /* UPDATE statements exists in code that is not a comment */
                 else if ((sql.toUpperCase()).contains("UPDATE") && !sql.contains("/*")) {
                     update(sql, buff_out);
-                    update_count++;
                 }
 
                 /* DELETE statements exists in code that is not a comment */
@@ -126,6 +126,7 @@ public class IinqExecute {
             write_headers();
             insert_setup();
             delete_setup();
+            update_setup();
             function_close();
         }
 
@@ -484,6 +485,82 @@ public class IinqExecute {
                         }
                         else {
                             contents += "\"" + delete.values.get(j) + "\"";
+                        }
+                    }
+
+                    contents += ");\n";
+                    count++;
+                }
+            }
+
+            else {
+                contents += line + '\n';
+            }
+        }
+
+        File ex_output_file = new File(ex_path);
+        FileOutputStream ex_out = new FileOutputStream(ex_output_file, false);
+
+        ex_out.write(contents.getBytes());
+
+        ex_file.close();
+        ex_out.close();
+    }
+
+    private static void
+    update_setup () throws IOException {
+
+        /* Add new functions to be run to executable */
+        String ex_path = "/Users/danaklamut/ClionProjects/iondb/src/iinq/iinq_interface/iinq_user.c";
+        BufferedReader ex_file = new BufferedReader(new FileReader(ex_path));
+
+        String contents = "";
+        String line;
+        iinq.update_fields update;
+        int count = 0;
+
+        while(null != (line = ex_file.readLine())) {
+            if ((line.toUpperCase()).contains("UPDATE") && !line.contains("/*") && !line.contains("//")) {
+                contents += "/* "+line + " */\n";
+
+                update = update_fields.get(count);
+
+                if (update != null) {
+                    contents += "\tupdate("+update.table_id+", \""+update.table_name+"\", "+update.key_size+", "
+                            +update.value_size+", "+update.num_wheres*3+", "+update.num_updates*4+", "
+                            +(update.num_wheres*3 + update.num_updates*4);
+
+                    for (int j = 0; j < update.num_wheres; j++) {
+                        contents += ", " + update.where_fields.get(j) + ", " + update.where_operators.get(j) + ", ";
+
+                        if (update.where_field_types.get(j).contains("INT")) {
+                            contents += update.where_values.get(j);
+                        }
+                        else {
+                            contents += "\"" + update.where_values.get(j) + "\"";
+                        }
+                    }
+
+                    for (int i = 0; i < update.num_updates; i++) {
+                        if (!update.implicit.get(i)) {
+                            contents += ", " + update.update_fields.get(i) + ", 0, 0, ";
+
+                            if (update.update_field_types.get(i).contains("INT")) {
+                                contents += update.update_values.get(i);
+                            }
+                            else {
+                                contents += "\"" + update.update_values.get(i) + "\"";
+                            }
+                        }
+                        else {
+                            contents += ", " + update.update_fields.get(i) + ", " + update.implicit_fields.get(i) + ", " + update.update_operators.get(i) + ", ";
+
+                            if (update.update_field_types.get(i).contains("INT")) {
+                                contents += update.update_values.get(i);
+                            }
+                            else {
+                                contents += "\"" + update.update_values.get(i) + "\"";
+                            }
                         }
                     }
 
@@ -1060,68 +1137,15 @@ public class IinqExecute {
             written_table = table_name_sub;
 
             out.write("void setParam(iinq_prepared_sql p, int field_num, void *val) {\n");
-            out.write("\tunsigned char\t*data = p.value;\n\n");
+            out.write("\tunsigned char\t*data\t\t= p.value;\n\n");
+            out.write("\tiinq_field_t type\t\t= getFieldType(p.table, field_num);");
+            out.write("\tdata += calculateOffset(p.table, (field_num - 1));\n\n");
+            out.write("\tif (type == iinq_int) {\n");
+            out.write("\t\t*(int *) data = (int) val;\n\t}\n");
+            out.write("\telse {\n");
+            out.write("\t\tmemcpy(data, val, sizeof(val));\n\t}\n}\n\n");
 
             param_header = "void setParam(iinq_prepared_sql p, int field_num, void *val);\n";
-
-            for (int j = 0; j < count; j++) {
-
-                if (sql.length() > pos + 2) {
-                    sql = sql.substring(pos + 2);
-                }
-
-                value += fields[j] + ",\t";
-            }
-
-            out.write("\tif (*(int *) p.table == "+table_id+") {\n");
-            boolean first = true;
-
-            if (int_fields.get(0) != null) {
-                out.write("\t\tif (field_num ==");
-
-                for (int i = 0; i < int_fields.size(); i++) {
-                    if (int_fields.get(i) != null) {
-                        System.out.println("int field: "+int_fields.get(i));
-                        if (first) {
-                            System.out.println("FIRST FIELD: "+int_fields.get(i));
-                            out.write(" "+int_fields.get(i));
-                            first = false;
-                        } else {
-                            out.write(" || field_num == " + int_fields.get(i));
-                        }
-                    }
-                }
-
-                out.write(") {\n");
-                out.write("\t\t\tdata += calculateOffset(p.table, (field_num - 1));\n");
-                out.write("\t\t\t*(int *) data = (int) val;\n\t\t}\n");
-            }
-
-            if (string_fields.get(0) != null) {
-                out.write("\t\tif (field_num ==");
-                first = true;
-
-                for (int i = 0; i < string_fields.size(); i++) {
-                    if (string_fields.get(i) != null) {
-                        System.out.println("string field: "+string_fields.get(i));
-                        if (first) {
-                            out.write(" "+string_fields.get(i));
-                            first = false;
-                        } else {
-                            out.write(" || field_num == " + string_fields.get(i));
-                        }
-                    }
-                }
-
-                out.write(") {\n");
-                out.write("\t\t\tdata += calculateOffset(p.table, (field_num - 1));\n");
-                out.write("\t\t\tmemcpy(data, val, sizeof(val));\n\t\t}\n");
-
-                out.write("\t}\n\n");
-            }
-
-            out.write("/* INSERT 3 */\n");
-            out.write("}\n\n");
         }
 
         if (!param_written) {
@@ -1174,91 +1198,7 @@ public class IinqExecute {
         ArrayList<String> execute_written = new ArrayList<>();
 
         while (null != (line = file.readLine())) {
-            if (line.contains("/* INSERT 3 */")) {
-                int count;
-                String sql;
-                int pos;
-                String[] fields;
-                ArrayList<Integer> int_fields;
-                ArrayList<Integer> string_fields;
-                int table_id;
-
-                for (int i = 0; i < inserts.size(); i++) {
-                    table_name = inserts.get(i).name;
-                    written = table_name.equals(written_table);
-
-                    if (!written) {
-                        for (int l = 0; l < params_written.size(); l++) {
-                            if (table_name.equals(params_written.get(l))) {
-                                written = true;
-                            }
-                        }
-                    }
-
-                    if (!written) {
-                        params_written.add(table_name);
-
-                        count = inserts.get(i).count;
-                        sql = inserts.get(i).sql;
-                        pos = inserts.get(i).pos;
-                        fields = inserts.get(i).fields;
-                        int_fields = inserts.get(i).int_fields;
-                        string_fields = inserts.get(i).string_fields;
-                        table_id = inserts.get(i).id;
-
-                        System.out.println("in here 3");
-                        for (int j = 0; j < count; j++) {
-
-                            if (sql.length() > pos + 2) {
-                                sql = sql.substring(pos + 2);
-                            }
-                        }
-
-                        contents += "\tif (*(int *) p.table == "+table_id+") {\n";
-
-                        if (int_fields.get(0) != null) {
-                            contents += "\t\tif (field_num == ";
-
-                            for (int k = 0; k < int_fields.size(); k++) {
-                                if (int_fields.get(k) != null) {
-                                    System.out.println("int field: "+int_fields.get(k));
-                                    if (k == 0) {
-                                        contents += int_fields.get(k);
-                                    } else {
-                                        contents += " || field_num == " + int_fields.get(k);
-                                    }
-                                }
-                            }
-
-                            contents += ") {\n";
-                            contents += "\t\t\tdata += calculateOffset(p.table, (field_num - 1));\n";
-                            contents += "\t\t\t*(int *) data = (int) val;\n\t\t}\n";
-                        }
-
-                        if (string_fields.get(0) != null) {
-                            contents += "\t\tif (field_num == ";
-
-                            for (int k = 0; k < string_fields.size(); k++) {
-                                if (string_fields.get(k) != null) {
-                                    System.out.println("string field: "+string_fields.get(k));
-                                    if (k == 0) {
-                                        contents += string_fields.get(k);
-                                    } else {
-                                        contents += " || field_num == " + string_fields.get(k);
-                                    }
-                                }
-                            }
-
-                            contents += ") {\n";
-                            contents += "\t\t\tdata += calculateOffset(p.table, (field_num - 1));\n";
-                            contents += "\t\t\tmemcpy(data, val, sizeof(val));\n\t\t}\n";
-                        }
-
-                        contents += "\t}\n";
-                    }
-                }
-            }
-            else if (line.contains("/* INSERT 4 */")) {
+            if (line.contains("/* INSERT 4 */")) {
                 int table_id;
                 String key_type;
 
@@ -1404,13 +1344,30 @@ public class IinqExecute {
     update(String sql, BufferedWriter out) throws IOException {
         System.out.println("update statement");
 
-        String statement = sql;
-
         sql = sql.trim();
         sql = sql.substring(20);
 
         String table_name = (sql.substring(0, sql.indexOf(" ")))+".inq";
+        String table_name_sub = table_name.substring(0, table_name.length()-4);
         System.out.println(table_name);
+
+        boolean table_found = false;
+        int table_id = 0;
+
+        /* Check if that table name already has an ID */
+        for (int i = 0; i < table_names.size(); i++) {
+            if (table_names.get(i).equals(table_name_sub)) {
+                table_id = i;
+                new_table = false;
+                table_found = true;
+            }
+        }
+
+        if (!table_found) {
+            table_names.add(table_name_sub);
+            table_id = insert_count - 1;
+            new_table = true;
+        }
 
         sql = sql.substring(table_name.length() + 1);
 
@@ -1421,15 +1378,102 @@ public class IinqExecute {
 
         print_written = true;
 
-        /* Write function to file */
+        if (!update_written) {
+            out.write("void update(int id, char *name, size_t key_size, size_t value_size, int num_wheres, int num_update, int num, ...) {\n\n");
+            out.write("\tva_list valist;\n");
+            out.write("\tva_start(valist, num);\n\n");
+            out.write("\tunsigned char *table_id = malloc(sizeof(int));\n");
+            out.write("\t*(int *) table_id = id;\n\n");
+            out.write("\tchar *table_name = malloc(sizeof(char)*20);\n");
+            out.write("\tmemcpy(table_name, name, sizeof(char)*20);\n\n");
 
-        out.write("void update"+update_count+"() {\n\n");
-        out.write("\tprintf(\"%s"+"\\"+"n"+"\\"+"n"+"\", \""+statement.substring(statement.indexOf("(") + 2, statement.length() - 4)+"\");\n");
-        out.write("\tion_err_t error;\n" + "\tion_dictionary_t dictionary;\n" + "\tion_dictionary_handler_t handler;\n");
-        out.write("\tdictionary.handler = &handler;\n" + "\n\terror = iinq_open_source(\""+table_name+"\", &dictionary, &handler);");
-        print_error(out, false, 0);
+            out.write("\tion_err_t                  error;\n");
+            out.write("\tion_dictionary_t           dictionary;\n");
+            out.write("\tion_dictionary_handler_t   handler;\n\n");
 
-        int pos = sql.indexOf("WHERE");
+            out.write("\tdictionary.handler = &handler;\n\n");
+            out.write("\terror              = iinq_open_source(table_name, &dictionary, &handler);");
+            print_error(out, false, 0);
+
+            out.write("\tion_predicate_t predicate;\n");
+            out.write("\tdictionary_build_predicate(&predicate, predicate_all_records);\n\n");
+
+            out.write("\tion_dict_cursor_t *cursor = NULL;\n");
+            out.write("\tdictionary_find(&dictionary, &predicate, &cursor);\n\n");
+            out.write("\tion_record_t ion_record;\n");
+            out.write("\tion_record.key     = malloc(key_size);\n");
+            out.write("\tion_record.value   = malloc(value_size);\n\n");
+
+            out.write("\tion_cursor_status_t status;\n\n");
+            out.write("\tint count = 0;\n");
+            out.write("\tion_key_t keys[100];\n");
+            out.write("\tion_value_t values[100];\n");
+            out.write("\tion_boolean_t condition_satisfied;\n\n");
+
+            out.write("\twhile ((status = iinq_next_record(cursor, &ion_record)) == cs_cursor_initialized || status == cs_cursor_active) {\n");
+            out.write("\t\tcondition_satisfied = where(table_id, &ion_record, num_wheres, &valist);\n\n");
+            out.write("\t\tif (condition_satisfied || num_wheres == 0) {\n");
+            out.write("\t\t\tkeys[count]    = malloc(key_size);\n");
+            out.write("\t\t\tvalues[count]  = malloc(value_size);\n");
+            out.write("\t\t\tmemcpy(keys[count], ion_record.key, key_size);\n");
+            out.write("\t\t\tmemcpy(values[count], ion_record.value, value_size);\n");
+            out.write("\t\t\tcount++;\n\t\t}\n\t}\n\n");
+
+            out.write("\tcursor->destroy(&cursor);\n\n");
+
+            out.write("\tint update_fields[num_update/4];\n");
+            out.write("\tint implicit_fields[num_update/4];\n");
+            out.write("\tiinq_math_operator_t operators[num_update/4];\n");
+            out.write("\tvoid *field_values[num_update/4];\n\n");
+
+            out.write("\tfor (int i = 0; i < num_wheres; i++) {\n");
+            out.write("\t\tva_arg(valist, void *);\n\t}\n\n");
+
+            out.write("\tfor (int i = 0; i < num_update/4; i++) {\n");
+            out.write("\t\tupdate_fields[i]     = va_arg(valist, int);\n");
+            out.write("\t\timplicit_fields[i]   = va_arg(valist, int);\n");
+            out.write("\t\toperators[i]         = va_arg(valist, iinq_math_operator_t);\n");
+            out.write("\t\tfield_values[i]      = va_arg(valist, void *);\n\t}\n\n");
+
+            out.write("\tva_end(valist);\n\n");
+            out.write("\tfor (int i = 0; i < count; i++) {\n");
+            out.write("\t\tfor (int j = 0; j < num_update/4; j++) {\n");
+            out.write("\t\t\tunsigned char *value;\n");
+            out.write("\t\t\tif (implicit_fields[j] != 0) {\n");
+            out.write("\t\t\t\tint new_value;\n");
+            out.write("\t\t\t\tvalue = values[i] + calculateOffset(table_id, implicit_fields[j] - 1);\n\n");
+
+            out.write("\t\t\t\tswitch (operators[j]) {\n");
+            out.write("\t\t\t\t\tcase iinq_add :\n");
+            out.write("\t\t\t\t\t\tnew_value = (NEUTRALIZE(value, int) + (int) field_values[j]);\n");
+            out.write("\t\t\t\t\t\tbreak;\n");
+            out.write("\t\t\t\t\tcase iinq_subtract :\n");
+            out.write("\t\t\t\t\t\tnew_value = (NEUTRALIZE(value, int) - (int) field_values[j]);\n");
+            out.write("\t\t\t\t\t\tbreak;\n");
+            out.write("\t\t\t\t\tcase iinq_multiply :\n");
+            out.write("\t\t\t\t\t\tnew_value = (NEUTRALIZE(value, int) * (int) field_values[j]);\n");
+            out.write("\t\t\t\t\t\tbreak;\n");
+            out.write("\t\t\t\t\tcase iinq_divide :\n");
+            out.write("\t\t\t\t\t\tnew_value = (NEUTRALIZE(value, int) / (int) field_values[j]);\n");
+            out.write("\t\t\t\t\t\tbreak;\n\t\t\t\t}\n");
+            out.write("\t\t\t\tvalue = values[i] + calculateOffset(table_id, update_fields[j] - 1);\n");
+            out.write("\t\t\t\t*(int *) value = new_value;\n\t\t\t}\n");
+
+            out.write("\t\t\telse {\n");
+            out.write("\t\t\t\tvalue = values[i] + calculateOffset(table_id, update_fields[j] - 1);\n\n");
+            out.write("\t\t\t\tif (getFieldType(table_id, update_fields[j]) == iinq_int) {\n");
+            out.write("\t\t\t\t\t*(int *) value = (int) field_values[j];\n\t\t\t\t}\n");
+            out.write("\t\t\t\telse {\n");
+            out.write("\t\t\t\t\tmemcpy(value, field_values[j], sizeof(field_values[j]));\n\t\t\t\t}\n\t\t\t}\n\n");
+            out.write("\t\t\tiinq_execute(table_name, keys[i], values[i], iinq_update_t);\n");
+            out.write("\t\t}\n\t}\n}\n\n");
+
+            function_headers.add("void update(int id, char *name, size_t key_size, size_t value_size, int num_wheres, int num_update, int num, ...);\n");
+        }
+
+        update_written = true;
+
+        int pos = sql.toUpperCase().indexOf("WHERE");
         String where_condition = "";
         int num_conditions = 0;
         int i = -1;
@@ -1475,99 +1519,14 @@ public class IinqExecute {
             i = update.indexOf(",", i + 1);
         }
 
-        String[] fields;
+        ArrayList<Integer> where_field      = new ArrayList<>(); /* Field value that is being used to update a field. */
+        ArrayList<String> where_value       = new ArrayList<>(); /* Value that is being added to another field value to update a field. */
+        ArrayList<String> where_operator    = new ArrayList<>(); /* Whether values are being updated through addition or subtraction. */
+        ArrayList<String> iinq_field_types  = new ArrayList<>();
+        ArrayList<String> where_field_type  = new ArrayList<>();
 
-        fields = get_fields(update, num_fields);
-
-        out.write("\tion_predicate_t predicate;\n");
-        out.write("\tion_cursor_status_t cursor_status;\n");
-        out.write("\tion_status_t status;\n");
-        out.write("\tdictionary_build_predicate(&predicate, predicate_all_records);\n");
-        out.write("\tion_dict_cursor_t *cursor = NULL;\n");
-        out.write("\tdictionary_find(&dictionary, &predicate, &cursor);\n\n");
-
-        out.write("\tint count = 0;\n");
-
-        String num_records = get_schema_value(table_name, "NUMBER OF RECORDS: ");
-        String key_type = ion_switch_value_size(get_schema_value(table_name, "PRIMARY KEY TYPE: "));
-
-        int primary_key_field = Integer.parseInt(get_schema_value(table_name, "PRIMARY KEY FIELD: "));
-        boolean update_key = false; /* Whether the key of a record is being updated */
-
-        for (int j = 0; j < num_fields; j++) {
-            for (int n = 0; n < Integer.parseInt(get_schema_value(table_name, "NUMBER OF FIELDS: ")); n++) {
-                if (fields[j].substring(0, fields[j].indexOf("=")).trim().equals(get_schema_value(table_name, "FIELD"+n+" NAME: "))) {
-                    if (n == primary_key_field) {
-                        update_key = true;
-                    }
-                }
-            }
-        }
-
-        if (key_type.contains("char")) {
-            out.write("\tchar *old_keys["+num_records+"];\n");
-
-            if (update_key) {
-                out.write("\tchar *new_keys[" + num_records + "];\n\n");
-            }
-        }
-
-        /* Update later for all data types */
-        else {
-            out.write("\tint old_keys["+num_records+"];\n");
-
-            if (update_key) {
-                out.write("\tint new_keys[" + num_records + "];\n\n");
-            }
-        }
-
-        out.write("\tunsigned char *new_records["+num_records+"];\n\n");
-
-        out.write("\tfor (int i = 0; i < "+num_records+"; i++) {\n" +
-                "\t\tnew_records[i]\t= malloc("+get_schema_value(table_name, "VALUE SIZE: ")+");\n" +
-                "\t}\n\n");
-        out.write("\tion_record_t ion_record;\n");
-        out.write("\tion_record.key = malloc("+ion_switch_value_size(get_schema_value(table_name, "PRIMARY KEY TYPE: "))+");\n");
-        out.write("\tion_record.value = malloc("+get_schema_value(table_name, "VALUE SIZE: ")+");\n\n");
-        out.write("\tion_boolean_t condition_satisfied;\n");
-        out.write("\n\tunsigned char *record_data;\n");
-        out.write("\tunsigned char *old_data;\n\n");
-
-        String[] update_value_field = new String[num_fields]; /* Field value that is being used to update a field. */
-        String[] update_value_value = new String[num_fields]; /* Value that is being added to another field value to update a field. */
-        String[] update_operator = new String[num_fields]; /* Whether values are being updated through addition or subtraction. */
-        boolean[] implicit_update_field = new boolean[num_fields];
-
-        for (int j = 0; j < num_fields; j++) {
-            if (fields[j].contains("+") || fields[j].contains("-") || fields[j].contains("*") || fields[j].contains("/")) {
-                    implicit_update_field[j] = true;
-            }
-        }
-
-        out.write("\twhile ((cursor_status = cursor->next(cursor, &ion_record)) == cs_cursor_active || cursor_status == cs_cursor_initialized) {\n\n");
-
-        out.write("\t\tcondition_satisfied = boolean_true;\n");
-
-        String[] field = new String[num_conditions];
-        String[] operator = new String[num_conditions];
-        String[] condition = new String[num_conditions];
-        int[] field_num = new int[num_conditions]; /* Fields which have a WHERE condition corresponding to them */
         int len = 0;
-        int field_type;
-
-        out.write("\n\t\twhile (boolean_true == condition_satisfied) {\n");
-        out.write("\t\t\trecord_data = new_records[count];\n");
-        out.write("\t\t\told_data = ion_record.value;\n\n");
-
-        /* Copy old key regardless if the key itself is being updated or not */
-        if (key_type.contains("char")) {
-            out.write("\t\t\tstrcpy(old_keys[count], ion_record.key);\n\n");
-        }
-
-        /* Update for all data types later */
-        else {
-            out.write("\t\t\told_keys[count] = NEUTRALIZE(ion_record.key, int);\n\n");
-        }
+        String field = "";
 
         for (int j = 0; j < num_conditions; j++) {
 
@@ -1575,275 +1534,131 @@ public class IinqExecute {
             if (conditions[j].contains("!=")) {
                 pos = conditions[j].indexOf("!=");
                 len = 2;
-                operator[j] = conditions[j].substring(pos, pos + len);
+                where_operator.add("iinq_not_equal");
             } else if (conditions[j].contains("<=")) {
                 pos = conditions[j].indexOf("<=");
                 len = 2;
-                operator[j] = conditions[j].substring(pos, pos + len);
+                where_operator.add("iinq_less_than_equal_to");
             } else if (conditions[j].contains(">=")) {
                 pos = conditions[j].indexOf(">=");
                 len = 2;
-                operator[j] = conditions[j].substring(pos, pos + len);
+                where_operator.add("iinq_greater_than_equal_to");
             } else if (conditions[j].contains("=")) {
                 pos = conditions[j].indexOf("=");
                 len = 1;
-                operator[j] = "==";
+                where_operator.add("iinq_equal");
             } else if (conditions[j].contains("<")) {
                 pos = conditions[j].indexOf("<");
                 len = 1;
-                operator[j] = conditions[j].substring(pos, pos + len);
+                where_operator.add("iinq_less_than");
             } else if (conditions[j].contains(">")) {
                 pos = conditions[j].indexOf(">");
                 len = 1;
-                operator[j] = conditions[j].substring(pos, pos + len);
+                where_operator.add("iinq_greater_than");
             }
 
-            if (0 < num_conditions) {
-                field[j] = conditions[j].substring(0, pos).trim();
-                condition[j] = conditions[j].substring(pos + len).trim();
+            field = conditions[j].substring(0, pos).trim();
+            where_value.add(conditions[j].substring(pos + len).trim());
+        }
+
+        for (int n = 0; n < Integer.parseInt(get_schema_value(table_name, "NUMBER OF FIELDS: ")); n++) {
+
+            String field_type = get_schema_value(table_name, "FIELD"+n+" TYPE: ");
+
+            if (field_type.contains("CHAR")) {
+                iinq_field_types.add("iinq_char");
+            }
+            else {
+                iinq_field_types.add("iinq_int");
+            }
+
+            if (field.equals(get_schema_value(table_name, "FIELD"+n+" NAME: "))) {
+                where_field.add(n+1);
+                where_field_type.add(field_type);
             }
         }
 
-        for (int m = 0; m < num_conditions; m++) {
-            for (int n = 0; n < Integer.parseInt(get_schema_value(table_name, "NUMBER OF FIELDS: ")); n++) {
-                if (field[m].equals(get_schema_value(table_name, "FIELD" + n + " NAME: "))) {
-                    field_num[m] = n;
-                }
-            }
-        }
+        ArrayList<Integer> update_field_nums    = new ArrayList<>();
+        ArrayList<Boolean> implicit             = new ArrayList<>();
+        ArrayList<Integer> implicit_fields      = new ArrayList<>();
+        ArrayList<String> update_operators      = new ArrayList<>();
+        ArrayList<String> update_values         = new ArrayList<>();
+        ArrayList<String> update_field_types    = new ArrayList<>();
+        ArrayList<String>   field_sizes         = new ArrayList<>();
 
-        String[] update_field = new String[num_fields];
-        int[] update_field_num = new int[num_fields];
-        String[] update_value = new String[num_fields];
+        String[] fields;
+
+        fields = get_fields(update, num_fields);
+
+        String set_string = "";
+        String update_field = "";
+        String implicit_field = "";
+        boolean is_implicit = false;
+        String update_value = "";
 
         for (int j = 0; j < num_fields; j++) {
             pos = fields[j].indexOf("=");
-            update_field[j] = fields[j].substring(0, pos).trim();
-            update_value[j] = (fields[j].substring(pos + 1)).trim();
-            update_operator[j] = "=";
+            update_field = fields[j].substring(0, pos).trim();
+            set_string = fields[j].substring(pos + 1).trim();
+            update_value = set_string;
 
             /* Check if update value contains an operator */
-            if (update_value[j].contains("+")) {
-                update_operator[j] = "+";
-                pos = update_value[j].indexOf("+");
-                update_operator[j] = update_value[j].substring(pos, pos + 1);
-                update_value_field[j] = update_value[j].substring(0, pos).trim();
-                update_value_value[j] = update_value[j].substring(pos + 1).trim();
-            } else if (update_value[j].contains("-")) {
-                update_operator[j] = "-";
-                pos = update_value[j].indexOf("-");
-                update_operator[j] = update_value[j].substring(pos, pos + 1);
-                update_value_field[j] = update_value[j].substring(0, pos).trim();
-                update_value_value[j] = update_value[j].substring(pos + 1).trim();
-            } else if (update_value[j].contains("*")) {
-                update_operator[j] = "*";
-                pos = update_value[j].indexOf("*");
-                update_operator[j] = update_value[j].substring(pos, pos + 1);
-                update_value_field[j] = update_value[j].substring(0, pos).trim();
-                update_value_value[j] = update_value[j].substring(pos + 1).trim();
-            } else if (update_value[j].contains("/")) {
-                update_operator[j] = "/";
-                pos = update_value[j].indexOf("/");
-                update_operator[j] = update_value[j].substring(pos, pos + 1);
-                update_value_field[j] = update_value[j].substring(0, pos).trim();
-                update_value_value[j] = update_value[j].substring(pos + 1).trim();
+            if (set_string.contains("+")) {
+                update_operators.add("iinq_add");
+                pos = set_string.indexOf("+");
+                implicit_field = set_string.substring(0, pos).trim();
+                update_value = set_string.substring(pos + 1).trim();
+                is_implicit = true;
+            } else if (set_string.contains("-")) {
+                update_operators.add("iinq_subtract");
+                pos = set_string.indexOf("-");
+                implicit_field = set_string.substring(0, pos).trim();
+                update_value = set_string.substring(pos + 1).trim();
+                is_implicit = true;
+            } else if (set_string.contains("*")) {
+                update_operators.add("iinq_multiply");
+                pos = set_string.indexOf("*");
+                implicit_field = set_string.substring(0, pos).trim();
+                update_value = set_string.substring(pos + 1).trim();
+                is_implicit = true;
+            } else if (set_string.contains("/")) {
+                update_operators.add("iinq_divide");
+                pos = set_string.indexOf("/");
+                implicit_field = set_string.substring(0, pos).trim();
+                update_value = set_string.substring(pos + 1).trim();
+                is_implicit = true;
             }
+
+            update_values.add(update_value);
+            implicit.add(is_implicit);
 
             for (int n = 0; n < Integer.parseInt(get_schema_value(table_name, "NUMBER OF FIELDS: ")); n++) {
-                if (update_field[j].equals(get_schema_value(table_name, "FIELD" + n + " NAME: "))) {
-                    update_field_num[j] = n;
+                String field_type = get_schema_value(table_name, "FIELD"+n+" TYPE: ");
+                field_sizes.add(ion_switch_value_size(field_type));
+
+                if (update_field.equals(get_schema_value(table_name, "FIELD" + n + " NAME: "))) {
+                    update_field_nums.add(n+1);
+                    update_field_types.add(field_type);
+                }
+                if (implicit_field.equals(get_schema_value(table_name, "FIELD"+n+" NAME: "))) {
+                    implicit_fields.add(n+1);
                 }
             }
         }
 
-        String val_type;
-        boolean where;
-        boolean update_col;
-        boolean implicit_update;
+        if (new_table) {
+            tableInfo table = new tableInfo(table_id, Integer.parseInt(get_schema_value(table_name, "NUMBER OF FIELDS: ")), iinq_field_types, field_sizes);
 
-        for (int k = 0; k < Integer.parseInt(get_schema_value(table_name, "NUMBER OF FIELDS: ")); k++) {
-            val_type = ion_switch_value_size(get_schema_value(table_name, "FIELD" + k + " TYPE: "));
-            update_col = false;
-            where = false;
-            implicit_update = true;
-
-            /* Loop through WHERE conditions */
-            for (int m = 0; m < num_conditions; m++) {
-                if (k == field_num[m]) {
-                    where = true;
-                    if (val_type.contains("char")) {
-                        out.write("\t\t\tif (0 " + operator[m] + " strncmp((char *) old_data, \"" + condition[m] + "\", " + val_type + ")) {\n");
-                    }
-                        /* Update to include all data types */
-                    else {
-                        out.write("\t\t\tif (NEUTRALIZE(old_data, int) " + operator[m] + " " + condition[m] + ") {\n");
-                    }
-                }
-            }
-
-            /* Loop through fields to UPDATE */
-            for (int n = 0; n < num_fields; n++) {
-                /* Field being examined is a field to update */
-                if (k == update_field_num[n]) {
-                    update_col = true;
-
-                    if (update_operator[n].equals("=")) {
-                        implicit_update = false;
-                    }
-
-                    if (val_type.contains("char")) {
-                        if (where) {
-                            if (k == primary_key_field) {
-                                out.write("\t\t\t\tstrcpy(new_keys[count], " + update_value[n] + ", " + val_type + ");\n");
-                            }
-                            out.write("\t\t\t\tmemcpy(record_data, " + update_value[n] + ", " + val_type + ");\n");
-                            out.write("\t\t\t\trecord_data += " + val_type + ";\n");
-                            out.write("\t\t\t\told_data += " + val_type + ";\n\t\t\t}\n");
-                            out.write("\t\t\telse {\n");
-                            out.write("\t\t\t\told_keys[count] = -999;\n");
-                            out.write("\t\t\t\tnew_keys[count] = -999;\n\t\t\t\tbreak;\n\t\t\t}\n");
-                        } else {
-                            if (k == primary_key_field) {
-                                out.write("\t\t\t\tstrcpy(new_keys[count], " + update_value[n] + ", " + val_type + ");\n");
-                            }
-                            out.write("\t\t\tmemcpy(record_data, " + update_value_value[n] + ", " + val_type + ");\n");
-                            out.write("\t\t\trecord_data += " + val_type + ";\n");
-                            out.write("\t\t\told_data += " + val_type + ";\n");
-                        }
-                    }
-                    /* Update to include all data types */
-                    else {
-                        if (where && implicit_update) {
-                            if (k == primary_key_field) {
-                                out.write("\t\t\t\tnew_keys[count] = (NEUTRALIZE(old_data, int) " + update_operator[n] + " " + update_value_value[n] + ");\n");
-                            }
-                            out.write("\t\t\t\t*(int *) record_data = (NEUTRALIZE(old_data, int) " + update_operator[n] + " " + update_value_value[n] + ");\n");
-                            out.write("\t\t\t\trecord_data += " + val_type + ";\n");
-                            out.write("\t\t\t\told_data += " + val_type + ";\n\t\t\t}\n");
-                            out.write("\t\t\telse {\n");
-                            out.write("\t\t\t\told_keys[count] = -999;\n");
-                            out.write("\t\t\t\tnew_keys[count] = -999;\n\t\t\t\tbreak;\n\t\t\t}\n\n");
-                        }
-                        else if (where && !implicit_update) {
-                            if (k == primary_key_field) {
-                                out.write("\t\t\t\tnew_keys[count] = " + update_value[n] + ";\n");
-                            }
-                            out.write("\t\t\t\t*(int *) record_data = " + update_value[n] + ";\n");
-                            out.write("\t\t\t\trecord_data += " + val_type + ";\n");
-                            out.write("\t\t\t\told_data += " + val_type + ";\n\t\t\t}\n");
-                            out.write("\t\t\telse {\n");
-                            out.write("\t\t\t\told_keys[count] = -999;\n");
-                            out.write("\t\t\t\tnew_keys[count] = -999;\n\t\t\t\tbreak;\n\t\t\t}\n\n");
-                        }
-                        else if (!where && implicit_update) {
-                            if (k == primary_key_field) {
-                                out.write("\t\t\tnew_keys[count] = (NEUTRALIZE(old_data, int) " + update_operator[n] + " " + update_value_value[n] + ");\n");
-                            }
-                            out.write("\t\t\t*(int *) record_data = (NEUTRALIZE(old_data, int) " + update_operator[n] + " " + update_value_value[n] + ");\n");
-                            out.write("\t\t\trecord_data += " + val_type + ";\n");
-                            out.write("\t\t\told_data += " + val_type + ";\n\n");
-                        }
-                        else {
-                            if (k == primary_key_field) {
-                                out.write("\t\t\tnew_keys[count] = " + update_value[n] + ";\n");
-                            }
-                            out.write("\t\t\t*(int *) record_data = " + update_value[n] + ";\n");
-                            out.write("\t\t\trecord_data += " + val_type + ";\n");
-                            out.write("\t\t\told_data += " + val_type + ";\n\n");
-                        }
-                    }
-                }
-            }
-
-            if (!update_col && where) {
-                if (val_type.contains("char")) {
-                    out.write("\t\t\t\tmemcpy(record_data, old_data, "+val_type+");\n");
-                    out.write("\t\t\t\trecord_data += "+val_type+";\n");
-                    out.write("\t\t\t\told_data += "+val_type+";\n\t\t\t}\n");
-                    out.write("\t\t\telse {\n");
-                    out.write("\t\t\t\told_keys[count] = -999;\n");
-                    out.write("\t\t\t\tnew_keys[count] = -999;\n\t\t\t\tbreak;\n\t\t\t}\n\n");
-                }
-
-                /* Update later for all data types */
-                else {
-                    out.write("\t\t\t\t*(int *) record_data = (NEUTRALIZE(old_data, int));\n");
-                    out.write("\t\t\t\trecord_data += "+val_type+";\n");
-                    out.write("\t\t\t\told_data += "+val_type+";\n\t\t\t}\n");
-                    out.write("\t\t\telse {\n");
-                    out.write("\t\t\t\told_keys[count] = -999;\n");
-                    out.write("\t\t\t\tnew_keys[count] = -999;\n\t\t\t\tbreak;\n\t\t\t}\n\n");
-                }
-            }
-
-            if (!where && !update_col) {
-                if (val_type.contains("char")) {
-                    out.write("\t\t\tmemcpy(record_data, old_data, "+val_type+");\n");
-                    out.write("\t\t\trecord_data += "+val_type+";\n");
-                    out.write("\t\t\told_data += "+val_type+";\n\n");
-                }
-
-                /* Update later for all data types */
-                else {
-                    out.write("\t\t\t*(int *) record_data = (NEUTRALIZE(old_data, int));\n");
-                    out.write("\t\t\trecord_data += "+val_type+";\n");
-                    out.write("\t\t\told_data += "+val_type+";\n\n");
-                }
-            }
-
-            /* End loop for last column value */
-            if (k == Integer.parseInt(get_schema_value(table_name, "NUMBER OF FIELDS: ")) - 1) {
-                out.write("\t\t\tbreak;\n");
-                out.write("\t\t}\n\n");
-            }
+            calculateInfo.add(table);
+            tables_count++;
         }
 
-        out.write("\t\tcount++;\n\t}\n\n");
+        String key_size = get_schema_value(table_name, "PRIMARY KEY SIZE: ");
+        String value_size = get_schema_value(table_name, "VALUE SIZE: ");
 
-        out.write("\tfor (int i = 0; i < "+get_schema_value(table_name, "NUMBER OF RECORDS: ")+"; i++) {\n" +
-                "\t\tif (-999 != old_keys[i]) {\n\n");
-        if (update_key) {
-
-            if (ion_switch_value_size(get_schema_value(table_name, "PRIMARY KEY TYPE: ")).contains("char")) {
-                out.write("\t\t\tstatus = dictionary_delete(&dictionary, old_keys[i]);");
-                print_error(out, true, 2);
-                out.write("\t\t\tstatus = dictionary_insert(&dictionary, new_keys[i], new_records[i]);\n");
-            }
-
-            /* Update for all data types later */
-            else {
-                out.write("\t\t\tstatus = dictionary_delete(&dictionary, IONIZE(old_keys[i], int));");
-                print_error(out, true, 2);
-                out.write("\t\t\tstatus = dictionary_insert(&dictionary, IONIZE(new_keys[i], int), new_records[i]);");
-            }
-        }
-
-        else {
-            if (ion_switch_value_size(get_schema_value(table_name, "PRIMARY KEY TYPE: ")).contains("char")) {
-                out.write("\t\t\tstatus = dictionary_update(&dictionary, old_keys[i], new_records[i]);");
-            }
-
-            else {
-                out.write("\t\t\tstatus = dictionary_update(&dictionary, IONIZE(old_keys[i], int), new_records[i]);");
-            }
-        }
-
-        print_error(out, true, 2);
-
-        out.write("\t\t}\n\t\tfree(new_records[i]);\n\t}\n\n");
-
-        out.write("\tcursor->destroy(&cursor);\n");
-        out.write("\tprint_table_"+table_name.substring(0, table_name.length() - 4).toLowerCase()+"(&dictionary);\n");
-
-        out.write("\terror = ion_close_dictionary(&dictionary);");
-        print_error(out, false, 0);
-
-        out.write("\tfree(ion_record.key);\n\tfree(ion_record.value);\n");
-
-        out.write("}\n\n");
-
-        file_setup(header_written, "update"+update_count, "UPDATE");
-        header_written = true;
+        update_fields.add(new update_fields(table_name, table_id, num_conditions, num_fields, where_field, where_operator,
+                where_value, where_field_type, key_size, value_size, update_field_nums, implicit, implicit_fields, update_operators,
+                update_values, update_field_types));
     }
 
     private static void
@@ -2000,7 +1815,7 @@ public class IinqExecute {
             else if (conditions[j].contains(">")) {
                 pos = conditions[j].indexOf(">");
                 len = 1;
-                operators.add("greater than");
+                operators.add("iinq_greater than");
             }
 
             field = conditions[j].substring(0, pos).trim();
