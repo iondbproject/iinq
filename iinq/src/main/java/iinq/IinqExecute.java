@@ -40,16 +40,16 @@ import java.util.ArrayList;
 
 public class IinqExecute {
 
-    private static int create_count = 1;
-    private static int insert_count = 1;
-    private static int drop_count = 1;
+    private static int table_id_count = 0;
     private static int tables_count = 0;
 
-    private static boolean header_written = false;
-    private static boolean print_written = false;
-    private static boolean param_written = false;
-    private static boolean delete_written = false;
-    private static boolean update_written = false;
+    private static boolean print_written    = false;
+    private static boolean param_written    = false;
+    private static boolean delete_written   = false;
+    private static boolean update_written   = false;
+    private static boolean select_written   = false;
+    private static boolean create_written   = false;
+    private static boolean drop_written     = false;
 
     /* Variables for INSERT supported prepared statements on multiple tables */
     private static ArrayList<String> table_names = new ArrayList<>();
@@ -61,6 +61,9 @@ public class IinqExecute {
     private static ArrayList<tableInfo> calculateInfo = new ArrayList<>();
     private static ArrayList<delete_fields> delete_fields = new ArrayList<>();
     private static ArrayList<update_fields> update_fields = new ArrayList<>();
+    private static ArrayList<select_fields> select_fields = new ArrayList<>();
+    private static ArrayList<create_fields> create_fields = new ArrayList<>();
+    private static ArrayList<String> drop_tables = new ArrayList<>();
 
     public static void main(String args[]) throws IOException {
 
@@ -91,13 +94,11 @@ public class IinqExecute {
                 /* CREATE TABLE statements exists in code that is not a comment */
                 if ((sql.toUpperCase()).contains("CREATE TABLE") && !sql.contains("/*")) {
                     create_table(sql, buff_out);
-                    create_count++;
                 }
 
                 /* INSERT statements exists in code that is not a comment */
                 else if ((sql.toUpperCase()).contains("INSERT INTO") && !sql.contains("/*")) {
                     insert(sql, buff_out);
-                    insert_count++;
                 }
 
                 /* UPDATE statements exists in code that is not a comment */
@@ -113,7 +114,10 @@ public class IinqExecute {
                 /* DROP TABLE statements exists in code that is not a comment */
                 else if ((sql.toUpperCase()).contains("DROP TABLE") && !sql.contains("/*")) {
                     drop_table(sql, buff_out);
-                    drop_count++;
+                }
+
+                else if ((sql.toUpperCase()).contains("SELECT") && !sql.contains("/*")) {
+                    select(sql, buff_out);
                 }
             }
 
@@ -124,9 +128,12 @@ public class IinqExecute {
 
             params();
             write_headers();
+            create_setup();
             insert_setup();
             delete_setup();
             update_setup();
+            select_setup();
+            drop_setup();
             function_close();
         }
 
@@ -174,15 +181,17 @@ public class IinqExecute {
     ion_switch_key_type(
         String key_type
     ) {
-        if (key_type.equals("CHAR")) {
+        key_type = key_type.toUpperCase();
+
+        if (key_type.contains("CHAR")) {
             return 2;
         }
 
-        if (key_type.equals("VARCHAR")) {
+        if (key_type.contains("VARCHAR")) {
             return 3;
         }
 
-        if (key_type.equals("INT")) {
+        if (key_type.contains("INT")) {
             return 0;
         }
 
@@ -240,51 +249,14 @@ public class IinqExecute {
     }
 
     private static void
-    print_error (BufferedWriter out, boolean status, int num_tabs) throws IOException {
+    print_error (BufferedWriter out) throws IOException {
         out.newLine();
         out.newLine();
 
-        if (!status) {
-            if (0 != num_tabs) {
-                for (int i = 0; i < num_tabs; i++) {
-                    out.write("\t");
-                }
-            }
-            out.write("\tif (err_ok != error) {");
-        }
-
-        else {
-            if (0 != num_tabs) {
-                for (int i = 0; i < num_tabs; i++) {
-                    out.write("\t");
-                }
-            }
-            out.write("\tif (err_ok != status.error) {");
-        }
-
-        out.newLine();
-        if (0 != num_tabs) {
-            for (int i = 0; i < num_tabs; i++) {
-                out.write("\t");
-            }
-        }
-        out.write("\t\tprintf(\"Error occurred. Error code: %i"+"\\"+"n"+"\", error);");
-        out.newLine();
-        if (0 != num_tabs) {
-            for (int i = 0; i < num_tabs; i++) {
-                out.write("\t");
-            }
-        }
+        out.write("\tif (err_ok != error) {\n");
+        out.write("\t\tprintf(\"Error occurred. Error code: %i"+"\\"+"n"+"\", error);\n");
         out.write("\t\treturn; \n");
-
-        if (0 != num_tabs) {
-            for (int i = 0; i < num_tabs; i++) {
-                out.write("\t");
-            }
-        }
-        out.write("\t}");
-        out.newLine();
-        out.newLine();
+        out.write("\t}\n\n");
     }
 
     private static void
@@ -584,76 +556,125 @@ public class IinqExecute {
     }
 
     private static void
-    file_setup (boolean header_written, String function, String keyword) throws IOException {
-        /* Write header file */
-        String header_path = "/Users/danaklamut/ClionProjects/iondb/src/iinq/iinq_interface/iinq_user_functions.h";
-        BufferedReader header_file = null;
-
-        if (header_written) {
-            header_file = new BufferedReader(new FileReader(header_path));
-        }
-
-        String contents = "";
-        String line = "";
-        int count = 0;
-
-        if(header_written) {
-            while (null != (line = header_file.readLine())) {
-                contents += line + '\n';
-
-                if (line.contains("void") && 0 == count) {
-                    if ((insert_count == 1) || (!keyword.contains("INSERT"))) {
-                        contents += "\nvoid " + function + "();\n";
-                    }
-                    count++;
-                }
-            }
-            header_file.close();
-        }
-
-        File output_file = new File(header_path);
-
-        /* Create header file if it does not previously exist*/
-        if (!output_file.exists()) {
-            output_file.createNewFile();
-        }
-
-        FileOutputStream header = new FileOutputStream(output_file, false);
-
-        if (header_written) {
-            header.write(contents.getBytes());
-        }
-
-        /* Create schema table header file */
-        else {
-            contents = "";
-            print_top_header(header);
-
-            if ((insert_count == 1) || (!keyword.contains("INSERT"))) {
-                contents += "void " + function + "();\n\n";
-            }
-            contents += "#if defined(__cplusplus)\n" + "}\n" + "#endif\n" + "\n" + "#endif\n";
-
-            header.write(contents.getBytes());
-        }
-
-        header.close();
+    select_setup () throws IOException {
 
         /* Add new functions to be run to executable */
         String ex_path = "/Users/danaklamut/ClionProjects/iondb/src/iinq/iinq_interface/iinq_user.c";
         BufferedReader ex_file = new BufferedReader(new FileReader(ex_path));
 
-        contents = "";
-        boolean found = false;
+        String contents = "";
+        String line;
+        iinq.select_fields select;
+        int count = 0;
 
         while(null != (line = ex_file.readLine())) {
-            if ((line.toUpperCase()).contains(keyword) && !line.contains("/*") && !found) {
+            if ((line.toUpperCase()).contains("SELECT") && !line.contains("/*") && !line.contains("//")) {
                 contents += "/* "+line + " */\n";
 
-                if ((insert_count == 1) || (!keyword.contains("INSERT"))) {
-                    contents += "\t" + function + "();\n";
+                select = select_fields.get(count);
+
+                if (select != null) {
+                    contents += "\tiinq_select("+select.table_id+", \""+select.table_name+"\", "+select.key_size+", "
+                            +select.value_size+", "+select.num_wheres*3+", "+select.num_fields+", "
+                            +(select.num_wheres*3 + select.num_fields);
+
+                    for (int j = 0; j < select.num_wheres; j++) {
+                        contents += ", " + select.where_fields.get(j) + ", " + select.where_operators.get(j) + ", ";
+
+                        if (select.where_field_types.get(j).contains("INT")) {
+                            contents += select.where_values.get(j);
+                        }
+                        else {
+                            contents += "\"" + select.where_values.get(j) + "\"";
+                        }
+                    }
+
+                    for (int i = 0; i < select.num_fields; i++) {
+                        contents += ", " + select.fields.get(i);
+                    }
+
+                    contents += ");\n";
+                    count++;
                 }
-                found = true;
+            }
+
+            else {
+                contents += line + '\n';
+            }
+        }
+
+        File ex_output_file = new File(ex_path);
+        FileOutputStream ex_out = new FileOutputStream(ex_output_file, false);
+
+        ex_out.write(contents.getBytes());
+
+        ex_file.close();
+        ex_out.close();
+    }
+
+    private static void
+    create_setup () throws IOException {
+
+        /* Add new functions to be run to executable */
+        String ex_path = "/Users/danaklamut/ClionProjects/iondb/src/iinq/iinq_interface/iinq_user.c";
+        BufferedReader ex_file = new BufferedReader(new FileReader(ex_path));
+
+        String contents = "";
+        String line;
+        iinq.create_fields create;
+        int count = 0;
+
+        while(null != (line = ex_file.readLine())) {
+            if ((line.toUpperCase()).contains("CREATE TABLE") && !line.contains("/*") && !line.contains("//")) {
+                contents += "/* "+line + " */\n";
+
+                create = create_fields.get(count);
+
+                if (create != null) {
+                    contents += "\tcreate_table(\""+create.table_name+"\", "+create.key_type+", "+create.key_size+", "
+                            +create.value_size+");\n";
+
+                    count++;
+                }
+            }
+
+            else {
+                contents += line + '\n';
+            }
+        }
+
+        File ex_output_file = new File(ex_path);
+        FileOutputStream ex_out = new FileOutputStream(ex_output_file, false);
+
+        ex_out.write(contents.getBytes());
+
+        ex_file.close();
+        ex_out.close();
+    }
+
+    private static void
+    drop_setup () throws IOException {
+
+        /* Add new functions to be run to executable */
+        String ex_path = "/Users/danaklamut/ClionProjects/iondb/src/iinq/iinq_interface/iinq_user.c";
+        BufferedReader ex_file = new BufferedReader(new FileReader(ex_path));
+
+        String contents = "";
+        String line;
+        String table;
+        int count = 0;
+
+        while(null != (line = ex_file.readLine())) {
+            if ((line.toUpperCase()).contains("DROP TABLE") && !line.contains("/*") && !line.contains("//")) {
+                contents += "/* "+line + " */\n";
+
+                table = drop_tables.get(count);
+
+                if (table != null) {
+                    contents += "\tdrop_table(\""+table+"\");\n";
+
+                    count++;
+                }
             }
 
             else {
@@ -769,8 +790,6 @@ public class IinqExecute {
     create_table(String sql, BufferedWriter out) throws IOException {
         System.out.println("create statement");
 
-        String statement = sql;
-
         sql = sql.trim();
         sql = sql.substring(26);
 
@@ -789,7 +808,8 @@ public class IinqExecute {
         }
 
         int pos;
-        String field, key_type;
+        String field;
+        int key_type = 2;
         String field_name;
         String field_type;
 
@@ -809,7 +829,7 @@ public class IinqExecute {
             field_name = field.substring(0, pos);
             field_type = field.substring(pos + 1, field.length());
 
-            key_type										= ion_switch_value_size(field_type);
+            key_type = ion_switch_key_type(field_type);
 
             field_names[j] = field_name;
             field_types[j] = field_type;
@@ -841,13 +861,38 @@ public class IinqExecute {
 
         primary_key_size = ion_switch_key_size(primary_key_type);
 
+        String value_calculation = "";
         String value_size = "";
+        int int_count = 0;
+        boolean char_present = false;
+        int char_multiplier = 0;
 
         for (int j = 0; j < num_fields - 1; j++) {
-            if (j > 0) {
-                value_size = value_size.concat("+");
+            value_size = ion_switch_value_size(field_types[j]);
+            if (value_size.contains("char")) {
+                char_multiplier += Integer.parseInt(value_size.substring(value_size.indexOf("*") + 1).trim());
+                char_present = true;
             }
-            value_size = value_size.concat(ion_switch_value_size(field_types[j]));
+
+            if (value_size.contains("int")) {
+                int_count++;
+            }
+        }
+
+        if (int_count > 0) {
+            if (int_count > 1) {
+                value_calculation += "(sizeof(int) * " + int_count + ")";
+                System.out.println("Int mult: "+int_count);
+            }
+
+            else {
+                value_calculation += "sizeof(int)";
+            }
+
+            if (char_present) {
+                value_calculation += "+(sizeof(char) * "+char_multiplier+")";
+                System.out.println("Char mult: "+char_multiplier);
+            }
         }
 
         String schema_name = table_name.substring(0, table_name.length() - 4).toLowerCase().concat(".xml");
@@ -867,7 +912,7 @@ public class IinqExecute {
         contents += "\n\t\tPRIMARY KEY SIZE: "+primary_key_size;
         contents += "\n\t</primary_key_size>";
         contents += "\n\t<value_size>";
-        contents += "\n\t\tVALUE SIZE: "+value_size;
+        contents += "\n\t\tVALUE SIZE: "+value_calculation;
         contents += "\n\t</value_size>";
         contents += "\n\t<num_fields>";
         contents += "\n\t\tNUMBER OF FIELDS: "+(num_fields - 1);
@@ -909,33 +954,30 @@ public class IinqExecute {
         print_written = true;
 
         /* Create CREATE TABLE method */
-        out.write("void create_table" + create_count +"() {\n");
-        out.write("\tprintf(\"%s"+"\\"+"n"+"\\"+"n"+"\", \""+statement.substring(statement.indexOf("(") + 2, statement.length() - 4)+"\");\n");
-        out.newLine();
-        out.write("\tion_err_t error;");
-        out.newLine();
-        out.write("\tion_dictionary_t dictionary;");
-        out.newLine();
-        out.write("\tion_dictionary_handler_t handler;");
-        out.newLine();
-        out.write("\n\terror = iinq_create_source(\""+table_name+"\", "+primary_key_type+", "+primary_key_size+", "+value_size+");");
-        print_error(out, false, 0);
-        out.write("\tdictionary.handler = &handler;");
-        out.newLine();
-        out.write("\terror = iinq_open_source(\""+table_name+"\", &dictionary, &handler);");
-        print_error(out, false, 0);
+        if (!create_written) {
+            out.write("void create_table(char *table_name, ion_key_type_t key_type, ion_key_size_t key_size, ion_value_size_t value_size) {\n");
+            out.write("\tion_err_t error;\n\n");
+            out.write("\terror = iinq_create_source(table_name, key_type, key_size, value_size);");
 
-        out.write("\tprint_table_"+table_name.substring(0, table_name.length() - 4).toLowerCase()+"(&dictionary);\n");
-        out.write("\terror = ion_close_dictionary(&dictionary);");
-        print_error(out, false, 0);
+            print_error(out);
 
-        out.write("}\n\n");
+            out.write("}\n\n");
 
-        System.out.println("schema "+schema_name);
+            function_headers.add("void create_table(char *table_name, ion_key_type_t key_type, ion_key_size_t key_size, ion_value_size_t value_size);\n");
+        }
 
-        file_setup(header_written,"create_table"+create_count, "CREATE TABLE");
-        function_headers.add("void create_table"+create_count+"();\n");
-        header_written = true;
+        create_written = true;
+
+        String ion_key = "";
+
+        if (key_type == 0) {
+            ion_key = "key_type_numeric_unsigned";
+        }
+        else if (key_type == 2) {
+            ion_key = "key_type_char_array";
+        }
+
+        create_fields.add(new create_fields(table_name, ion_key, primary_key_size, value_calculation));
     }
 
     private static void
@@ -1004,7 +1046,8 @@ public class IinqExecute {
 
         if (!table_found) {
             table_names.add(table_name_sub);
-            table_id = insert_count - 1;
+            table_id = table_id_count;
+            table_id_count++;
             new_table = true;
         }
 
@@ -1277,7 +1320,7 @@ public class IinqExecute {
                 int int_count;
                 boolean char_present = false;
                 int char_multiplier;
-                String value_size = "";
+                String value_size;
 
                 for(int j = 0; j < num_fields; j++) {
                     char_multiplier = 0;
@@ -1365,7 +1408,8 @@ public class IinqExecute {
 
         if (!table_found) {
             table_names.add(table_name_sub);
-            table_id = insert_count - 1;
+            table_id = table_id_count;
+            table_id_count++;
             new_table = true;
         }
 
@@ -1393,7 +1437,7 @@ public class IinqExecute {
 
             out.write("\tdictionary.handler = &handler;\n\n");
             out.write("\terror              = iinq_open_source(table_name, &dictionary, &handler);");
-            print_error(out, false, 0);
+            print_error(out);
 
             out.write("\tion_predicate_t predicate;\n");
             out.write("\tdictionary_build_predicate(&predicate, predicate_all_records);\n\n");
@@ -1590,11 +1634,11 @@ public class IinqExecute {
 
         fields = get_fields(update, num_fields);
 
-        String set_string = "";
-        String update_field = "";
+        String set_string;
+        String update_field;
         String implicit_field = "";
         boolean is_implicit = false;
-        String update_value = "";
+        String update_value;
 
         for (int j = 0; j < num_fields; j++) {
             pos = fields[j].indexOf("=");
@@ -1662,6 +1706,246 @@ public class IinqExecute {
     }
 
     private static void
+    select(String sql, BufferedWriter out) throws IOException {
+        System.out.println("select statement");
+
+        sql = sql.trim();
+
+        String table_name = sql.substring(sql.indexOf("FROM") + 5);
+        int pos = table_name.indexOf(" ");
+
+        if (pos == -1) {
+            pos = table_name.indexOf(";");
+        }
+
+        table_name = (table_name.substring(0, pos))+".inq";
+        String table_name_sub = table_name.substring(0, table_name.length()-4);
+        System.out.println(table_name);
+
+        boolean table_found = false;
+        int table_id = 0;
+
+        /* Check if that table name already has an ID */
+        for (int i = 0; i < table_names.size(); i++) {
+            if (table_names.get(i).equals(table_name_sub)) {
+                table_id = i;
+                new_table = false;
+                table_found = true;
+            }
+        }
+
+        if (!table_found) {
+            table_names.add(table_name_sub);
+            table_id = table_id_count;
+            table_id_count++;
+            new_table = true;
+        }
+
+        /* Create print table method if it doesn't already exist */
+        if (!print_written) {
+            print_table(out, table_name);
+        }
+
+        print_written = true;
+
+        if (!select_written) {
+            out.write("void iinq_select(int id, char *name, size_t key_size, size_t value_size, int num_wheres, int num_fields, int num, ...) {\n\n");
+            out.write("\tva_list valist;\n");
+            out.write("\tva_start(valist, num);\n\n");
+            out.write("\tunsigned char *table_id = malloc(sizeof(int));\n");
+            out.write("\t*(int *) table_id = id;\n\n");
+            out.write("\tchar *table_name = malloc(sizeof(char)*20);\n");
+            out.write("\tmemcpy(table_name, name, sizeof(char)*20);\n\n");
+
+            out.write("\tion_err_t                  error;\n");
+            out.write("\tion_dictionary_t           dictionary;\n");
+            out.write("\tion_dictionary_handler_t   handler;\n\n");
+
+            out.write("\tdictionary.handler = &handler;\n\n");
+            out.write("\terror              = iinq_open_source(table_name, &dictionary, &handler);");
+            print_error(out);
+
+            out.write("\tion_predicate_t predicate;\n");
+            out.write("\tdictionary_build_predicate(&predicate, predicate_all_records);\n\n");
+
+            out.write("\tion_dict_cursor_t *cursor = NULL;\n");
+            out.write("\tdictionary_find(&dictionary, &predicate, &cursor);\n\n");
+            out.write("\tion_record_t ion_record;\n");
+            out.write("\tion_record.key     = malloc(key_size);\n");
+            out.write("\tion_record.value   = malloc(value_size);\n\n");
+
+            out.write("\tion_cursor_status_t status;\n\n");
+            out.write("\tint count = 0;\n");
+            out.write("\tion_value_t values[100];\n");
+            out.write("\tion_boolean_t condition_satisfied;\n\n");
+
+            out.write("\twhile ((status = iinq_next_record(cursor, &ion_record)) == cs_cursor_initialized || status == cs_cursor_active) {\n");
+            out.write("\t\tcondition_satisfied = where(table_id, &ion_record, num_wheres, &valist);\n\n");
+            out.write("\t\tif (condition_satisfied || num_wheres == 0) {\n");
+            out.write("\t\t\tvalues[count]  = malloc(value_size);\n");
+            out.write("\t\t\tmemcpy(values[count], ion_record.value, value_size);\n");
+            out.write("\t\t\tcount++;\n\t\t}\n\t}\n\n");
+
+            out.write("\tcursor->destroy(&cursor);\n\n");
+
+            out.write("\tint fields[num_fields];\n\n");
+
+            out.write("\tfor (int i = 0; i < num_wheres; i++) {\n");
+            out.write("\t\tva_arg(valist, void *);\n\t}\n\n");
+
+            out.write("\tfor (int i = 0; i < num_fields; i++) {\n");
+            out.write("\t\tfields[i]     = va_arg(valist, int);\n\t}\n\n");
+
+            out.write("\tva_end(valist);\n\n");
+            out.write("\tfor (int i = 0; i < count; i++) {\n");
+            out.write("\t\tfor (int j = 0; j < num_fields; j++) {\n");
+            out.write("\t\t\tif (getFieldType(table_id, fields[j]) == iinq_int) {\n");
+            out.write("\t\t\t\tprintf(\"%i\", NEUTRALIZE(values[i] = values[i] + calculateOffset(table_id, fields[j] - 1), int));\n");
+            out.write("\t\t\t}\n");
+            out.write("\t\t\telse {\n");
+            out.write("\t\t\t\tprintf(\"%s\", (char *) (values[i] = values[i] + calculateOffset(table_id, fields[j] - 1)));\n");
+            out.write("\t\t\t}\n");
+            out.write("\t\t\tprintf(\""+"\\"+"t\");\n");
+            out.write("\t\t}\n");
+            out.write("\t\tprintf(\""+"\\"+"n\");\n\t}\n}\n\n");
+
+            function_headers.add("void iinq_select(int id, char *name, size_t key_size, size_t value_size, int num_wheres, int num_fields, int num, ...);\n");
+        }
+
+        select_written = true;
+
+        pos = sql.toUpperCase().indexOf("WHERE");
+        String where_condition = "";
+        int num_conditions = 0;
+        int i = -1;
+
+        /* Get WHERE condition if it exists */
+        if (-1 != pos) {
+            where_condition = sql.substring(pos + 6, sql.length() - 4);
+            i = 0;
+        }
+
+        System.out.println(where_condition+"\n");
+
+        /* Calculate number of WHERE conditions in statement */
+
+        while (-1 != i) {
+            num_conditions++;
+            i = where_condition.indexOf(",", i + 1);
+        }
+
+        String[] conditions;
+
+        conditions = get_fields(where_condition, num_conditions);
+
+        /* Get fields to select */
+        String field_list;
+        pos = sql.toUpperCase().indexOf("SELECT");
+        field_list = sql.substring(pos + 7, sql.toUpperCase().indexOf("FROM") - 1);
+
+        int num_fields = 0;
+        i = 0;
+
+        System.out.println(field_list+"\n");
+
+        /* Calculate number of fields to select in statement */
+        while (-1 != i) {
+            num_fields++;
+            i = field_list.indexOf(",", i + 1);
+        }
+
+        ArrayList<Integer> where_field      = new ArrayList<>(); /* Field value that is being used to update a field. */
+        ArrayList<String> where_value       = new ArrayList<>(); /* Value that is being added to another field value to update a field. */
+        ArrayList<String> where_operator    = new ArrayList<>(); /* Whether values are being updated through addition or subtraction. */
+        ArrayList<String> iinq_field_types  = new ArrayList<>();
+        ArrayList<String> where_field_type  = new ArrayList<>();
+
+        int len = 0;
+        String field = "";
+
+        for (int j = 0; j < num_conditions; j++) {
+
+            /* Set up field, operator, and condition for each WHERE clause */
+            if (conditions[j].contains("!=")) {
+                pos = conditions[j].indexOf("!=");
+                len = 2;
+                where_operator.add("iinq_not_equal");
+            } else if (conditions[j].contains("<=")) {
+                pos = conditions[j].indexOf("<=");
+                len = 2;
+                where_operator.add("iinq_less_than_equal_to");
+            } else if (conditions[j].contains(">=")) {
+                pos = conditions[j].indexOf(">=");
+                len = 2;
+                where_operator.add("iinq_greater_than_equal_to");
+            } else if (conditions[j].contains("=")) {
+                pos = conditions[j].indexOf("=");
+                len = 1;
+                where_operator.add("iinq_equal");
+            } else if (conditions[j].contains("<")) {
+                pos = conditions[j].indexOf("<");
+                len = 1;
+                where_operator.add("iinq_less_than");
+            } else if (conditions[j].contains(">")) {
+                pos = conditions[j].indexOf(">");
+                len = 1;
+                where_operator.add("iinq_greater_than");
+            }
+
+            field = conditions[j].substring(0, pos).trim();
+            where_value.add(conditions[j].substring(pos + len).trim());
+        }
+
+        for (int n = 0; n < Integer.parseInt(get_schema_value(table_name, "NUMBER OF FIELDS: ")); n++) {
+
+            String field_type = get_schema_value(table_name, "FIELD"+n+" TYPE: ");
+
+            if (field_type.contains("CHAR")) {
+                iinq_field_types.add("iinq_char");
+            }
+            else {
+                iinq_field_types.add("iinq_int");
+            }
+
+            if (field.equals(get_schema_value(table_name, "FIELD"+n+" NAME: "))) {
+                where_field.add(n+1);
+                where_field_type.add(field_type);
+            }
+        }
+
+        ArrayList<Integer> select_field_nums    = new ArrayList<>();
+        ArrayList<String>   field_sizes         = new ArrayList<>();
+
+        String[] fields;
+
+        fields = get_fields(field_list, num_fields);
+
+        for (int j = 0; j < num_fields; j++) {
+            for (int n = 0; n < Integer.parseInt(get_schema_value(table_name, "NUMBER OF FIELDS: ")); n++) {
+                String field_type = get_schema_value(table_name, "FIELD"+n+" TYPE: ");
+                field_sizes.add(ion_switch_value_size(field_type));
+
+                if ((fields[j].trim()).equals(get_schema_value(table_name, "FIELD" + n + " NAME: "))) {
+                    select_field_nums.add(n+1);
+                }
+            }
+        }
+
+        if (new_table) {
+            tableInfo table = new tableInfo(table_id, Integer.parseInt(get_schema_value(table_name, "NUMBER OF FIELDS: ")), iinq_field_types, field_sizes);
+
+            calculateInfo.add(table);
+            tables_count++;
+        }
+
+        String value_size = get_schema_value(table_name, "VALUE SIZE: ");
+        String key_size = get_schema_value(table_name, "PRIMARY KEY SIZE: ");
+
+        select_fields.add(new select_fields(table_name, table_id, num_conditions, num_fields, where_field, where_operator,
+                        where_value, where_field_type, key_size, value_size, select_field_nums));
+    }
+
+    private static void
     delete(String sql, BufferedWriter out) throws IOException {
         System.out.println("delete statement");
 
@@ -1686,7 +1970,8 @@ public class IinqExecute {
 
         if (!table_found) {
             table_names.add(table_name_sub);
-            table_id = insert_count - 1;
+            table_id = table_id_count;
+            table_id_count++;
             new_table = true;
         }
 
@@ -1718,7 +2003,7 @@ public class IinqExecute {
 
             out.write("\tdictionary.handler = &handler;\n\n");
             out.write("\terror              = iinq_open_source(table_name, &dictionary, &handler);");
-            print_error(out, false, 0);
+            print_error(out);
 
             out.write("\tion_predicate_t predicate;\n");
             out.write("\tdictionary_build_predicate(&predicate, predicate_all_records);\n\n");
@@ -1781,7 +2066,7 @@ public class IinqExecute {
         ArrayList<String>   iinq_field_types  = new ArrayList<>();
         ArrayList<String>   field_sizes       = new ArrayList<>();
         int len = 0;
-        String field = "";
+        String field;
 
         for (int j = 0; j < num_conditions; j++) {
             System.out.println(conditions[j]);
@@ -1856,34 +2141,35 @@ public class IinqExecute {
 
         sql = sql.trim();
 
-        /* Write function to file */
-
-        out.write("void drop_table"+drop_count+"() {\n\n");
-        out.write("\tprintf(\"%s"+"\\"+"n"+"\\"+"n"+"\", \""+sql.substring(sql.indexOf("(") + 2, sql.length() - 4)+"\");\n");
-
         sql = sql.substring(24);
 
-        String table_name = (sql.substring(0, sql.indexOf(";")))+".inq";
+        String table_name = (sql.substring(0, sql.indexOf(";"))) + ".inq";
         System.out.println(table_name);
 
-        out.write("\tion_err_t error;\n\n");
-        out.write("\terror = iinq_drop(\""+table_name+"\");");
-        print_error(out, false, 0);
+        /* Write function to file */
+        if (!drop_written) {
+            out.write("void drop_table(char *table_name) {\n\n");
+            out.write("\tion_err_t error;\n\n");
+            out.write("\terror = iinq_drop(table_name);");
+            print_error(out);
 
-        File file = new File("/Users/danaklamut/ClionProjects/iondb/src/iinq/iinq_interface/"+
-                table_name.substring(0, table_name.length() - 4).toLowerCase()+".xml");
+            File file = new File("/Users/danaklamut/ClionProjects/iondb/src/iinq/iinq_interface/" +
+                    table_name.substring(0, table_name.length() - 4).toLowerCase() + ".xml");
 
-        if (!file.delete()) {
-            out.write("\tprintf(\"Error occurred deleting table."+"\\"+"n"+"\");");
+            if (!file.delete()) {
+                out.write("\tprintf(\"Error occurred deleting table." + "\\" + "n" + "\");");
+            }
+
+            out.write("\tprintf(\"Table %s has been deleted." + "\\" + "n" + "\", table_name);");
+
+            out.write("\n}\n\n");
+
+            function_headers.add("void drop_table(char *table_name);");
         }
 
-        out.write("\tprintf(\"Table "+table_name.substring(0, table_name.length() - 4)+
-                " has been deleted."+"\\"+"n"+"\");");
+        drop_written = true;
 
-        out.write("\n}\n\n");
-
-        file_setup(header_written,"drop_table"+drop_count, "DROP TABLE");
-        header_written = true;
+        drop_tables.add(table_name);
     }
 
     private static void
