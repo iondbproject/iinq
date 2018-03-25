@@ -52,18 +52,19 @@ public class IinqExecute {
     private static boolean drop_written     = false;
 
     /* Variables for INSERT supported prepared statements on multiple tables */
-    private static ArrayList<String> table_names = new ArrayList<>();
+    private static ArrayList<String>        table_names         = new ArrayList<>();
+    private static ArrayList<insert>        inserts             = new ArrayList<>();
+    private static ArrayList<insert_fields> insert_fields       = new ArrayList<>();
+    private static ArrayList<String>        function_headers    = new ArrayList<>();
+    private static ArrayList<tableInfo>     calculateInfo       = new ArrayList<>();
+    private static ArrayList<delete_fields> delete_fields       = new ArrayList<>();
+    private static ArrayList<update_fields> update_fields       = new ArrayList<>();
+    private static ArrayList<select_fields> select_fields       = new ArrayList<>();
+    private static ArrayList<create_fields> create_fields       = new ArrayList<>();
+    private static ArrayList<String>        drop_tables         = new ArrayList<>();
+
     private static boolean new_table;
-    private static ArrayList<insert> inserts = new ArrayList<>();
-    private static ArrayList<insert_fields> insert_fields = new ArrayList<>();
     private static String written_table;
-    private static ArrayList<String> function_headers = new ArrayList<>();
-    private static ArrayList<tableInfo> calculateInfo = new ArrayList<>();
-    private static ArrayList<delete_fields> delete_fields = new ArrayList<>();
-    private static ArrayList<update_fields> update_fields = new ArrayList<>();
-    private static ArrayList<select_fields> select_fields = new ArrayList<>();
-    private static ArrayList<create_fields> create_fields = new ArrayList<>();
-    private static ArrayList<String> drop_tables = new ArrayList<>();
 
     public static void main(String args[]) throws IOException {
 
