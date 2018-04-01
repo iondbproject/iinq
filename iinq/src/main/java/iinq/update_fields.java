@@ -18,6 +18,7 @@ public class update_fields {
     public ArrayList<String> where_field_types;
     public String key_size;
     public String value_size;
+    public String ion_key;
     public ArrayList<Integer> update_fields;
     public ArrayList<Boolean> implicit;
     public ArrayList<Integer> implicit_fields;
@@ -26,7 +27,7 @@ public class update_fields {
     public ArrayList<String> update_field_types;
 
     public update_fields(String name, int id, int num_w, int num_u, ArrayList<Integer> cols, ArrayList<String> ops,
-                         ArrayList<String> vals, ArrayList<String> types_w, String size_k, String size_v,
+                         ArrayList<String> vals, ArrayList<String> types_w, String size_k, String size_v, String key_i,
                          ArrayList<Integer> fields_u, ArrayList<Boolean> bool_i, ArrayList<Integer> fields_i, ArrayList<String> ops_u,
                          ArrayList<String> vals_u, ArrayList<String> types_u) {
         table_name = name;
@@ -39,6 +40,7 @@ public class update_fields {
         where_field_types = types_w;
         key_size = size_k;
         value_size = size_v;
+        ion_key = key_i;
         update_fields = fields_u;
         implicit = bool_i;
         implicit_fields = fields_i;

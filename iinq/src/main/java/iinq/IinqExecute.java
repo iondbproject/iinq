@@ -88,36 +88,36 @@ public class IinqExecute {
             main_setup();
 
             /* File is read line by line */
-            while (((sql = buff_in.readLine()) != null) && (!sql.contains("return")))   {
+            while (((sql = buff_in.readLine()) != null) && (!sql.contains("return 0;")))   {
                 /* Verify file contents are as expected*/
                 System.out.println (sql);
 
                 /* CREATE TABLE statements exists in code that is not a comment */
-                if ((sql.toUpperCase()).contains("CREATE TABLE") && !sql.contains("/*")) {
+                if ((sql.toUpperCase()).contains("CREATE TABLE") && !sql.contains("/*") && !sql.contains("//")) {
                     create_table(sql, buff_out);
                 }
 
                 /* INSERT statements exists in code that is not a comment */
-                else if ((sql.toUpperCase()).contains("INSERT INTO") && !sql.contains("/*")) {
+                else if ((sql.toUpperCase()).contains("INSERT INTO") && !sql.contains("/*") && !sql.contains("//")) {
                     insert(sql, buff_out);
                 }
 
                 /* UPDATE statements exists in code that is not a comment */
-                else if ((sql.toUpperCase()).contains("UPDATE") && !sql.contains("/*")) {
+                else if ((sql.toUpperCase()).contains("UPDATE") && !sql.contains("/*") && !sql.contains("//")) {
                     update(sql, buff_out);
                 }
 
                 /* DELETE statements exists in code that is not a comment */
-                else if ((sql.toUpperCase()).contains("DELETE FROM") && !sql.contains("/*")) {
+                else if ((sql.toUpperCase()).contains("DELETE FROM") && !sql.contains("/*") && !sql.contains("//")) {
                     delete(sql, buff_out);
                 }
 
                 /* DROP TABLE statements exists in code that is not a comment */
-                else if ((sql.toUpperCase()).contains("DROP TABLE") && !sql.contains("/*")) {
+                else if ((sql.toUpperCase()).contains("DROP TABLE") && !sql.contains("/*") && !sql.contains("//")) {
                     drop_table(sql, buff_out);
                 }
 
-                else if ((sql.toUpperCase()).contains("SELECT") && !sql.contains("/*")) {
+                else if ((sql.toUpperCase()).contains("SELECT") && !sql.contains("/*") && !sql.contains("//")) {
                     select(sql, buff_out);
                 }
             }
@@ -447,8 +447,8 @@ public class IinqExecute {
                 delete = delete_fields.get(count);
 
                 if (delete != null) {
-                    contents += "\tdelete("+delete.table_id+", \""+delete.table_name+"\", "+delete.key_size+", "
-                            +delete.value_size+", "+delete.num_wheres*3;
+                    contents += "\tdelete_record("+delete.table_id+", \""+delete.table_name+"\", "+delete.ion_key+", "
+                            + delete.key_size+", " +delete.value_size+", "+delete.num_wheres*3;
 
                     for (int j = 0; j < delete.num_wheres; j++) {
                         contents += ", " + delete.fields.get(j) + ", " + delete.operators.get(j) + ", ";
@@ -499,9 +499,9 @@ public class IinqExecute {
                 update = update_fields.get(count);
 
                 if (update != null) {
-                    contents += "\tupdate("+update.table_id+", \""+update.table_name+"\", "+update.key_size+", "
-                            +update.value_size+", "+update.num_wheres*3+", "+update.num_updates*4+", "
-                            +(update.num_wheres*3 + update.num_updates*4);
+                    contents += "\tupdate("+update.table_id+", \""+update.table_name+"\", "+update.ion_key+", "
+                            +update.key_size+", " +update.value_size+", "+update.num_wheres*3+", "
+                            +update.num_updates*4+", " +(update.num_wheres*3 + update.num_updates*4);
 
                     for (int j = 0; j < update.num_wheres; j++) {
                         contents += ", " + update.where_fields.get(j) + ", " + update.where_operators.get(j) + ", ";
@@ -632,6 +632,7 @@ public class IinqExecute {
                 create = create_fields.get(count);
 
                 if (create != null) {
+                    System.out.println("table name: "+create.table_name);
                     contents += "\tcreate_table(\""+create.table_name+"\", "+create.key_type+", "+create.key_size+", "
                             +create.value_size+");\n";
 
@@ -896,6 +897,15 @@ public class IinqExecute {
             }
         }
 
+        String ion_key = "";
+
+        if (key_type == 0) {
+            ion_key = "key_type_numeric_unsigned";
+        }
+        else if (key_type == 2) {
+            ion_key = "key_type_char_array";
+        }
+
         String schema_name = table_name.substring(0, table_name.length() - 4).toLowerCase().concat(".xml");
 
         /* Set up schema XML file */
@@ -909,6 +919,9 @@ public class IinqExecute {
         contents += "\n\t<primary_key_type>";
         contents += "\n\t\tPRIMARY KEY TYPE: "+primary_key_type;
         contents += "\n\t</primary_key_type>";
+        contents += "\n\t<ion_key_type>";
+        contents += "\n\t\tION KEY TYPE: "+ion_key;
+        contents += "\n\t</ion_key_type>";
         contents += "\n\t<primary_key_size>";
         contents += "\n\t\tPRIMARY KEY SIZE: "+primary_key_size;
         contents += "\n\t</primary_key_size>";
@@ -957,8 +970,7 @@ public class IinqExecute {
         /* Create CREATE TABLE method */
         if (!create_written) {
             out.write("void create_table(char *table_name, ion_key_type_t key_type, ion_key_size_t key_size, ion_value_size_t value_size) {\n");
-            out.write("\tion_err_t error;\n\n");
-            out.write("\terror = iinq_create_source(table_name, key_type, key_size, value_size);");
+            out.write("\tion_err_t error = iinq_create_source(table_name, key_type, key_size, value_size);");
 
             print_error(out);
 
@@ -968,15 +980,6 @@ public class IinqExecute {
         }
 
         create_written = true;
-
-        String ion_key = "";
-
-        if (key_type == 0) {
-            ion_key = "key_type_numeric_unsigned";
-        }
-        else if (key_type == 2) {
-            ion_key = "key_type_char_array";
-        }
 
         create_fields.add(new create_fields(table_name, ion_key, primary_key_size, value_calculation));
     }
@@ -1182,7 +1185,7 @@ public class IinqExecute {
 
             out.write("void setParam(iinq_prepared_sql p, int field_num, void *val) {\n");
             out.write("\tunsigned char\t*data\t\t= p.value;\n\n");
-            out.write("\tiinq_field_t type\t\t= getFieldType(p.table, field_num);");
+            out.write("\tiinq_field_t type\t\t= getFieldType(p.table, field_num);\n");
             out.write("\tdata += calculateOffset(p.table, (field_num - 1));\n\n");
             out.write("\tif (type == iinq_int) {\n");
             out.write("\t\t*(int *) data = (int) val;\n\t}\n");
@@ -1208,6 +1211,8 @@ public class IinqExecute {
             out.write("/* INSERT 4 */\n");
 
             out.write("\tfree(p.value);\n");
+            out.write("\tfree(p.table);\n");
+            out.write("\tfree(p.key);\n");
             out.write("}\n\n");
         }
 
@@ -1424,7 +1429,7 @@ public class IinqExecute {
         print_written = true;
 
         if (!update_written) {
-            out.write("void update(int id, char *name, size_t key_size, size_t value_size, int num_wheres, int num_update, int num, ...) {\n\n");
+            out.write("void update(int id, char *name, ion_key_type_t key_type, size_t key_size, size_t value_size, int num_wheres, int num_update, int num, ...) {\n\n");
             out.write("\tva_list valist;\n");
             out.write("\tva_start(valist, num);\n\n");
             out.write("\tunsigned char *table_id = malloc(sizeof(int));\n");
@@ -1450,70 +1455,93 @@ public class IinqExecute {
             out.write("\tion_record.value   = malloc(value_size);\n\n");
 
             out.write("\tion_cursor_status_t status;\n\n");
-            out.write("\tint count = 0;\n");
-            out.write("\tion_key_t keys[100];\n");
-            out.write("\tion_value_t values[100];\n");
+            out.write("\terror = iinq_create_source(\"UPD.inq\", key_type, (ion_key_size_t) key_size, (ion_value_size_t) value_size);");
+            print_error(out);
+            out.write("\tion_dictionary_t           dictionary_temp;\n");
+            out.write("\tion_dictionary_handler_t   handler_temp;\n\n");
+
+            out.write("\tdictionary_temp.handler = &handler_temp;\n\n");
+            out.write("\terror              = iinq_open_source(\"UPD.inq\", &dictionary_temp, &handler_temp);");
+            print_error(out);
             out.write("\tion_boolean_t condition_satisfied;\n\n");
 
             out.write("\twhile ((status = iinq_next_record(cursor, &ion_record)) == cs_cursor_initialized || status == cs_cursor_active) {\n");
             out.write("\t\tcondition_satisfied = where(table_id, &ion_record, num_wheres, &valist);\n\n");
             out.write("\t\tif (condition_satisfied || num_wheres == 0) {\n");
-            out.write("\t\t\tkeys[count]    = malloc(key_size);\n");
-            out.write("\t\t\tvalues[count]  = malloc(value_size);\n");
-            out.write("\t\t\tmemcpy(keys[count], ion_record.key, key_size);\n");
-            out.write("\t\t\tmemcpy(values[count], ion_record.value, value_size);\n");
-            out.write("\t\t\tcount++;\n\t\t}\n\t}\n\n");
+            out.write("\t\t\terror = dictionary_insert(&dictionary_temp, ion_record.key, ion_record.value).error;\n\n");
+            out.write("\t\t\tif (err_ok != error) {\n");
+            out.write("\t\t\t\tprintf(\"Error occurred. Error code: %i"+"\\"+"n"+"\", error);\n\t\t\t}\n");
+            out.write("\t\t}\n\t}\n\n");
 
             out.write("\tcursor->destroy(&cursor);\n\n");
 
             out.write("\tint update_fields[num_update/4];\n");
             out.write("\tint implicit_fields[num_update/4];\n");
             out.write("\tiinq_math_operator_t operators[num_update/4];\n");
-            out.write("\tvoid *field_values[num_update/4];\n\n");
+            out.write("\tvoid *field_values[num_update/4];\n");
+            out.write("\tint i;\n\n");
 
-            out.write("\tfor (int i = 0; i < num_wheres; i++) {\n");
+            out.write("\tfor (i = 0; i < num_wheres; i++) {\n");
             out.write("\t\tva_arg(valist, void *);\n\t}\n\n");
 
-            out.write("\tfor (int i = 0; i < num_update/4; i++) {\n");
+            out.write("\tfor (i = 0; i < num_update/4; i++) {\n");
             out.write("\t\tupdate_fields[i]     = va_arg(valist, int);\n");
             out.write("\t\timplicit_fields[i]   = va_arg(valist, int);\n");
             out.write("\t\toperators[i]         = va_arg(valist, iinq_math_operator_t);\n");
             out.write("\t\tfield_values[i]      = va_arg(valist, void *);\n\t}\n\n");
 
             out.write("\tva_end(valist);\n\n");
-            out.write("\tfor (int i = 0; i < count; i++) {\n");
-            out.write("\t\tfor (int j = 0; j < num_update/4; j++) {\n");
-            out.write("\t\t\tunsigned char *value;\n");
-            out.write("\t\t\tif (implicit_fields[j] != 0) {\n");
-            out.write("\t\t\t\tint new_value;\n");
-            out.write("\t\t\t\tvalue = values[i] + calculateOffset(table_id, implicit_fields[j] - 1);\n\n");
+            out.write("\tion_predicate_t predicate_temp;\n");
+            out.write("\tdictionary_build_predicate(&predicate_temp, predicate_all_records);\n\n");
+            out.write("\tion_dict_cursor_t *cursor_temp = NULL;\n");
+            out.write("\tdictionary_find(&dictionary_temp, &predicate_temp, &cursor_temp);\n\n");
 
-            out.write("\t\t\t\tswitch (operators[j]) {\n");
+            out.write("\twhile ((status = iinq_next_record(cursor_temp, &ion_record)) == cs_cursor_initialized || status == cs_cursor_active) {\n");
+            out.write("\t\tfor (i = 0; i < num_update/4; i++) {\n");
+            out.write("\t\t\tunsigned char *value;\n");
+            out.write("\t\t\tif (implicit_fields[i] != 0) {\n");
+            out.write("\t\t\t\tint new_value;\n");
+            out.write("\t\t\t\tvalue = ion_record.value + calculateOffset(table_id, implicit_fields[i] - 1);\n\n");
+
+            out.write("\t\t\t\tswitch (operators[i]) {\n");
             out.write("\t\t\t\t\tcase iinq_add :\n");
-            out.write("\t\t\t\t\t\tnew_value = (NEUTRALIZE(value, int) + (int) field_values[j]);\n");
+            out.write("\t\t\t\t\t\tnew_value = (NEUTRALIZE(value, int) + (int) field_values[i]);\n");
             out.write("\t\t\t\t\t\tbreak;\n");
             out.write("\t\t\t\t\tcase iinq_subtract :\n");
-            out.write("\t\t\t\t\t\tnew_value = (NEUTRALIZE(value, int) - (int) field_values[j]);\n");
+            out.write("\t\t\t\t\t\tnew_value = (NEUTRALIZE(value, int) - (int) field_values[i]);\n");
             out.write("\t\t\t\t\t\tbreak;\n");
             out.write("\t\t\t\t\tcase iinq_multiply :\n");
-            out.write("\t\t\t\t\t\tnew_value = (NEUTRALIZE(value, int) * (int) field_values[j]);\n");
+            out.write("\t\t\t\t\t\tnew_value = (NEUTRALIZE(value, int) * (int) field_values[i]);\n");
             out.write("\t\t\t\t\t\tbreak;\n");
             out.write("\t\t\t\t\tcase iinq_divide :\n");
-            out.write("\t\t\t\t\t\tnew_value = (NEUTRALIZE(value, int) / (int) field_values[j]);\n");
+            out.write("\t\t\t\t\t\tnew_value = (NEUTRALIZE(value, int) / (int) field_values[i]);\n");
             out.write("\t\t\t\t\t\tbreak;\n\t\t\t\t}\n");
-            out.write("\t\t\t\tvalue = values[i] + calculateOffset(table_id, update_fields[j] - 1);\n");
+            out.write("\t\t\t\tvalue = ion_record.value + calculateOffset(table_id, update_fields[i] - 1);\n");
             out.write("\t\t\t\t*(int *) value = new_value;\n\t\t\t}\n");
 
             out.write("\t\t\telse {\n");
-            out.write("\t\t\t\tvalue = values[i] + calculateOffset(table_id, update_fields[j] - 1);\n\n");
-            out.write("\t\t\t\tif (getFieldType(table_id, update_fields[j]) == iinq_int) {\n");
-            out.write("\t\t\t\t\t*(int *) value = (int) field_values[j];\n\t\t\t\t}\n");
+            out.write("\t\t\t\tvalue = ion_record.value + calculateOffset(table_id, update_fields[i] - 1);\n\n");
+            out.write("\t\t\t\tif (getFieldType(table_id, update_fields[i]) == iinq_int) {\n");
+            out.write("\t\t\t\t\t*(int *) value = (int) field_values[i];\n\t\t\t\t}\n");
             out.write("\t\t\t\telse {\n");
-            out.write("\t\t\t\t\tmemcpy(value, field_values[j], sizeof(field_values[j]));\n\t\t\t\t}\n\t\t\t}\n\n");
-            out.write("\t\t\tiinq_execute(table_name, keys[i], values[i], iinq_update_t);\n");
-            out.write("\t\t}\n\t}\n}\n\n");
+            out.write("\t\t\t\t\tmemcpy(value, field_values[i], sizeof(field_values[i]));\n\t\t\t\t}\n\t\t\t}\n\t\t}\n\n");
+            out.write("\t\terror = dictionary_update(&dictionary, ion_record.key, ion_record.value).error;\n\n");
+            out.write("\t\tif (err_ok != error) {\n");
+            out.write("\t\t\tprintf(\"Error occurred. Error code: %i"+"\\"+"n"+"\", error);\n");
+            out.write("\t\t}\n\t}\n\n");
+            out.write("\tcursor_temp->destroy(&cursor_temp);\n");
+            out.write("\tprint_table_cats(&dictionary);\n\n");
+            out.write("\terror = iinq_drop(\"UPD.inq\");\n\n");
+            out.write("\tif (err_ok != error) {\n");
+            out.write("\t\tprintf(\"Error occurred. Error code: %i"+"\\"+"n"+"\", error);\n\t}\n\n");
 
-            function_headers.add("void update(int id, char *name, size_t key_size, size_t value_size, int num_wheres, int num_update, int num, ...);\n");
+            out.write("\tfree(table_id);\n");
+            out.write("\tfree(table_name);\n");
+            out.write("\tfree(ion_record.key);\n");
+            out.write("\tfree(ion_record.value);\n");
+            out.write("}\n\n");
+
+            function_headers.add("void update(int id, char *name, ion_key_type_t key_type, size_t key_size, size_t value_size, int num_wheres, int num_update, int num, ...);\n");
         }
 
         update_written = true;
@@ -1700,9 +1728,10 @@ public class IinqExecute {
 
         String key_size = get_schema_value(table_name, "PRIMARY KEY SIZE: ");
         String value_size = get_schema_value(table_name, "VALUE SIZE: ");
+        String ion_key = get_schema_value(table_name, "ION KEY TYPE: ");
 
         update_fields.add(new update_fields(table_name, table_id, num_conditions, num_fields, where_field, where_operator,
-                where_value, where_field_type, key_size, value_size, update_field_nums, implicit, implicit_fields, update_operators,
+                where_value, where_field_type, key_size, value_size, ion_key, update_field_nums, implicit, implicit_fields, update_operators,
                 update_values, update_field_types));
     }
 
@@ -1789,17 +1818,19 @@ public class IinqExecute {
 
             out.write("\tcursor->destroy(&cursor);\n\n");
 
-            out.write("\tint fields[num_fields];\n\n");
+            out.write("\tint fields[num_fields];\n");
+            out.write("\tint i;\n\n");
 
-            out.write("\tfor (int i = 0; i < num_wheres; i++) {\n");
+            out.write("\tfor (i = 0; i < num_wheres; i++) {\n");
             out.write("\t\tva_arg(valist, void *);\n\t}\n\n");
 
-            out.write("\tfor (int i = 0; i < num_fields; i++) {\n");
+            out.write("\tfor (i = 0; i < num_fields; i++) {\n");
             out.write("\t\tfields[i]     = va_arg(valist, int);\n\t}\n\n");
 
-            out.write("\tva_end(valist);\n\n");
-            out.write("\tfor (int i = 0; i < count; i++) {\n");
-            out.write("\t\tfor (int j = 0; j < num_fields; j++) {\n");
+            out.write("\tva_end(valist);\n");
+            out.write("\tint j;\n\n");
+            out.write("\tfor (i = 0; i < count; i++) {\n");
+            out.write("\t\tfor (j = 0; j < num_fields; j++) {\n");
             out.write("\t\t\tif (getFieldType(table_id, fields[j]) == iinq_int) {\n");
             out.write("\t\t\t\tprintf(\"%i\", NEUTRALIZE(values[i] = values[i] + calculateOffset(table_id, fields[j] - 1), int));\n");
             out.write("\t\t\t}\n");
@@ -1990,7 +2021,7 @@ public class IinqExecute {
         String value_size = get_schema_value(table_name, "VALUE SIZE: ");
 
         if (!delete_written) {
-            out.write("void delete(int id, char *name, size_t key_size, size_t value_size, int num_fields, ...) {\n\n");
+            out.write("void delete_record(int id, char *name, ion_key_type_t key_type, size_t key_size, size_t value_size, int num_fields, ...) {\n\n");
             out.write("\tva_list valist;\n");
             out.write("\tva_start(valist, num_fields);\n\n");
             out.write("\tunsigned char *table_id = malloc(sizeof(int));\n");
@@ -2016,23 +2047,47 @@ public class IinqExecute {
             out.write("\tion_record.value   = malloc(value_size);\n\n");
 
             out.write("\tion_cursor_status_t status;\n\n");
-            out.write("\tint count = 0;\n");
-            out.write("\tion_key_t keys[100];\n");
+            out.write("\terror = iinq_create_source(\"DEL.inq\", key_type, (ion_key_size_t) key_size, (ion_value_size_t) value_size);");
+            print_error(out);
+            out.write("\tion_dictionary_t           dictionary_temp;\n");
+            out.write("\tion_dictionary_handler_t   handler_temp;\n\n");
+
+            out.write("\tdictionary_temp.handler = &handler_temp;\n\n");
+            out.write("\terror              = iinq_open_source(\"DEL.inq\", &dictionary_temp, &handler_temp);");
+            print_error(out);
             out.write("\tion_boolean_t condition_satisfied;\n\n");
 
             out.write("\twhile ((status = iinq_next_record(cursor, &ion_record)) == cs_cursor_initialized || status == cs_cursor_active) {\n");
             out.write("\t\tcondition_satisfied = where(table_id, &ion_record, num_fields, &valist);\n\n");
             out.write("\t\tif (condition_satisfied) {\n");
-            out.write("\t\t\tkeys[count] = malloc(key_size);\n");
-            out.write("\t\t\tmemcpy(keys[count], ion_record.key, key_size);\n");
-            out.write("\t\t\tcount++;\n\t\t}\n\t}\n\n");
+            out.write("\t\t\terror = dictionary_insert(&dictionary_temp, ion_record.key, ion_record.key).error;\n\n");
+            out.write("\t\t\tif (err_ok != error) {\n");
+            out.write("\t\t\tprintf(\"Error occurred. Error code: %i"+"\\"+"n"+"\", error);\n\t\t\t}\n");
+            out.write("\t\t}\n\t}\n\n");
 
-            out.write("\tva_end(valist);\n\n");
-            out.write("\tfor (int i = 0; i < count; i++) {\n");
-            out.write("\t\tiinq_execute(table_name, keys[i], NULL, iinq_delete_t);\n\t}\n\n");
-            out.write("\tcursor->destroy(&cursor);\n}\n\n");
+            out.write("\tva_end(valist);\n");
+            out.write("\tcursor->destroy(&cursor);\n\n");
+            out.write("\tion_predicate_t predicate_temp;\n");
+            out.write("\tdictionary_build_predicate(&predicate_temp, predicate_all_records);\n\n");
+            out.write("\tion_dict_cursor_t *cursor_temp = NULL;\n");
+            out.write("\tdictionary_find(&dictionary_temp, &predicate_temp, &cursor_temp);\n\n");
+            out.write("\twhile ((status = iinq_next_record(cursor_temp, &ion_record)) == cs_cursor_initialized || status == cs_cursor_active) {\n");
+            out.write("\t\terror = dictionary_delete(&dictionary, ion_record.key).error;\n\n");
+            out.write("\t\tif (err_ok != error) {\n");
+            out.write("\t\t\tprintf(\"Error occurred. Error code: %i"+"\\"+"n"+"\", error);\n\t\t}\n");
+            out.write("\t}\n\n");
 
-            function_headers.add("void delete(int id, char *name, size_t key_size, size_t value_size, int fields, ...);\n");
+            out.write("\tcursor_temp->destroy(&cursor_temp);\n");
+            out.write("\tprint_table_cats(&dictionary);\n\n");
+            out.write("\terror = iinq_drop(\"DEL.inq\");");
+            print_error(out);
+            out.write("\tfree(table_id);\n");
+            out.write("\tfree(table_name);\n");
+            out.write("\tfree(ion_record.key);\n");
+            out.write("\tfree(ion_record.value);\n");
+            out.write("}\n\n");
+
+            function_headers.add("void delete_record(int id, char *name, ion_key_type_t key_type, size_t key_size, size_t value_size, int fields, ...);\n");
         }
 
         delete_written = true;
@@ -2133,7 +2188,9 @@ public class IinqExecute {
             tables_count++;
         }
 
-        delete_fields.add(new delete_fields(table_name, table_id, num_conditions, fields, operators, values, field_types, key_size, value_size));
+        String ion_key = get_schema_value(table_name, "ION KEY TYPE: ");
+
+        delete_fields.add(new delete_fields(table_name, table_id, num_conditions, fields, operators, values, field_types, key_size, value_size, ion_key));
     }
 
     private static void
@@ -2165,7 +2222,7 @@ public class IinqExecute {
 
             out.write("\n}\n\n");
 
-            function_headers.add("void drop_table(char *table_name);");
+            function_headers.add("void drop_table(char *table_name);\n");
         }
 
         drop_written = true;

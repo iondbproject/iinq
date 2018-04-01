@@ -15,8 +15,9 @@ public class delete_fields {
     public ArrayList<String> field_types;
     public String key_size;
     public String value_size;
+    public String ion_key;
 
-    public delete_fields(String name, int id, int num, ArrayList<Integer> cols, ArrayList<String> ops, ArrayList<String> vals, ArrayList<String> types, String size_k, String size_v) {
+    public delete_fields(String name, int id, int num, ArrayList<Integer> cols, ArrayList<String> ops, ArrayList<String> vals, ArrayList<String> types, String size_k, String size_v, String key_i) {
         table_name = name;
         table_id = id;
         num_wheres = num;
@@ -26,5 +27,6 @@ public class delete_fields {
         field_types = types;
         key_size = size_k;
         value_size = size_v;
+        ion_key = key_i;
     }
 }
