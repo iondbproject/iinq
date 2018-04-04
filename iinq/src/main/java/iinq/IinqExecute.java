@@ -575,7 +575,7 @@ public class IinqExecute {
                 select = select_fields.get(count);
 
                 if (select != null) {
-                    contents += "\tiinq_select("+select.table_id+", \""+select.table_name+"\", "+select.key_size+", "
+                    contents += "\t"+select.return_value+" = iinq_select("+select.table_id+", \""+select.table_name+"\", "+select.key_type+", "+select.key_size+", "
                             +select.value_size+", "+select.num_wheres*3+", "+select.num_fields+", "
                             +(select.num_wheres*3 + select.num_fields);
 
@@ -590,8 +590,11 @@ public class IinqExecute {
                         }
                     }
 
+                    System.out.println("num fields: "+select.num_fields);
+                    System.out.println("length: "+select.fields.size());
                     for (int i = 0; i < select.num_fields; i++) {
                         contents += ", " + select.fields.get(i);
+                        System.out.println("field: "+select.fields.get(i));
                     }
 
                     contents += ");\n";
@@ -1752,6 +1755,8 @@ public class IinqExecute {
         String table_name_sub = table_name.substring(0, table_name.length()-4);
         System.out.println(table_name);
 
+        String return_val = sql.substring(0, sql.indexOf("=") - 1);
+
         boolean table_found = false;
         int table_id = 0;
 
@@ -1779,11 +1784,15 @@ public class IinqExecute {
         print_written = true;
 
         if (!select_written) {
-            out.write("void iinq_select(int id, char *name, size_t key_size, size_t value_size, int num_wheres, int num_fields, int num, ...) {\n\n");
-            out.write("\tva_list valist;\n");
-            out.write("\tva_start(valist, num);\n\n");
+            out.write("iinq_result_set iinq_select(int id, char *name, ion_key_type_t key_type, size_t key_size, size_t value_size, int num_wheres, int num_fields, int num, ...) {\n\n");
+            out.write("\tint i;\n");
+            out.write("\tva_list valist, where_list;\n");
+            out.write("\tva_start(valist, num);\n");
+            out.write("\tva_copy(where_list, valist);\n\n");
+
             out.write("\tunsigned char *table_id = malloc(sizeof(int));\n");
             out.write("\t*(int *) table_id = id;\n\n");
+
             out.write("\tchar *table_name = malloc(sizeof(char)*20);\n");
             out.write("\tmemcpy(table_name, name, sizeof(char)*20);\n\n");
 
@@ -1792,56 +1801,123 @@ public class IinqExecute {
             out.write("\tion_dictionary_handler_t   handler;\n\n");
 
             out.write("\tdictionary.handler = &handler;\n\n");
-            out.write("\terror              = iinq_open_source(table_name, &dictionary, &handler);");
-            print_error(out);
+            out.write("\terror              = iinq_open_source(table_name, &dictionary, &handler);\n\n");
+            out.write("\tif (err_ok != error) {\n");
+            out.write("\t\tprintf(\"Error occurred. Error code: %i"+"\\"+"n"+"\", error);\n");
+            out.write("\t}\n\n");
 
             out.write("\tion_predicate_t predicate;\n");
             out.write("\tdictionary_build_predicate(&predicate, predicate_all_records);\n\n");
 
             out.write("\tion_dict_cursor_t *cursor = NULL;\n");
             out.write("\tdictionary_find(&dictionary, &predicate, &cursor);\n\n");
+
             out.write("\tion_record_t ion_record;\n");
             out.write("\tion_record.key     = malloc(key_size);\n");
             out.write("\tion_record.value   = malloc(value_size);\n\n");
 
             out.write("\tion_cursor_status_t status;\n\n");
             out.write("\tint count = 0;\n");
-            out.write("\tion_value_t values[100];\n");
             out.write("\tion_boolean_t condition_satisfied;\n\n");
 
-            out.write("\twhile ((status = iinq_next_record(cursor, &ion_record)) == cs_cursor_initialized || status == cs_cursor_active) {\n");
-            out.write("\t\tcondition_satisfied = where(table_id, &ion_record, num_wheres, &valist);\n\n");
-            out.write("\t\tif (condition_satisfied || num_wheres == 0) {\n");
-            out.write("\t\t\tvalues[count]  = malloc(value_size);\n");
-            out.write("\t\t\tmemcpy(values[count], ion_record.value, value_size);\n");
-            out.write("\t\t\tcount++;\n\t\t}\n\t}\n\n");
-
-            out.write("\tcursor->destroy(&cursor);\n\n");
-
-            out.write("\tint fields[num_fields];\n");
-            out.write("\tint i;\n\n");
-
+            out.write("\tint fields[num_fields];\n\n");
             out.write("\tfor (i = 0; i < num_wheres; i++) {\n");
             out.write("\t\tva_arg(valist, void *);\n\t}\n\n");
 
+            out.write("\tiinq_result_set select = {0};\n");
+            out.write("\tselect.num_fields = malloc(sizeof(int));\n");
+            out.write("\t*(int *) select.num_fields = num_fields;\n");
+            out.write("\tselect.fields = malloc(sizeof(int) * num_fields);\n");
+            out.write("\tunsigned char *field_list = select.fields;\n\n");
+
             out.write("\tfor (i = 0; i < num_fields; i++) {\n");
-            out.write("\t\tfields[i]     = va_arg(valist, int);\n\t}\n\n");
+            out.write("\t\tfields[i] = va_arg(valist, int);\n\n");
+            out.write("\t\t*(int *) field_list = fields[i];\n\n");
+            out.write("\t\tif (i < num_fields-1) {\n");
+            out.write("\t\t\tfield_list += sizeof(int);\n");
+            out.write("\t\t}\n\t}\n\n");
 
-            out.write("\tva_end(valist);\n");
-            out.write("\tint j;\n\n");
-            out.write("\tfor (i = 0; i < count; i++) {\n");
-            out.write("\t\tfor (j = 0; j < num_fields; j++) {\n");
-            out.write("\t\t\tif (getFieldType(table_id, fields[j]) == iinq_int) {\n");
-            out.write("\t\t\t\tprintf(\"%i\", NEUTRALIZE(values[i] = values[i] + calculateOffset(table_id, fields[j] - 1), int));\n");
-            out.write("\t\t\t}\n");
-            out.write("\t\t\telse {\n");
-            out.write("\t\t\t\tprintf(\"%s\", (char *) (values[i] = values[i] + calculateOffset(table_id, fields[j] - 1)));\n");
-            out.write("\t\t\t}\n");
-            out.write("\t\t\tprintf(\""+"\\"+"t\");\n");
-            out.write("\t\t}\n");
-            out.write("\t\tprintf(\""+"\\"+"n\");\n\t}\n}\n\n");
+            out.write("\tva_end(valist);\n\n");
+            out.write("\tion_dictionary_handler_t   handler_temp;\n");
+            out.write("\tion_dictionary_t           dictionary_temp;\n\n");
+            out.write("\tffdict_init(&handler_temp);\n\n");
+            out.write("\terror = dictionary_create(&handler_temp, &dictionary_temp, 6, key_type, (ion_key_size_t) key_size, (ion_value_size_t) value_size, 10);\n\n");
+            out.write("\tif (err_ok != error) {\n");
+            out.write("\t\tprintf(\"Error occurred. Error code: %i"+"\\"+"n"+"\", error);\n");
+            out.write("\t}\n\n");
 
-            function_headers.add("void iinq_select(int id, char *name, size_t key_size, size_t value_size, int num_wheres, int num_fields, int num, ...);\n");
+            out.write("\twhile ((status = iinq_next_record(cursor, &ion_record)) == cs_cursor_initialized || status == cs_cursor_active) {\n");
+            out.write("\t\tcondition_satisfied = where(table_id, &ion_record, num_wheres, &where_list);\n\n");
+            out.write("\t\tif (condition_satisfied || num_wheres == 0) {\n");
+            out.write("\t\t\tunsigned char *fieldlist = malloc(value_size);\n");
+            out.write("\t\t\tunsigned char *data = fieldlist;\n\n");
+
+            out.write("\t\t\tfor (i = 0; i < num_fields; i++) {\n\n");
+            out.write("\t\t\t\tif (getFieldType(table_id, fields[i]) == iinq_int) {\n");
+            out.write("\t\t\t\t\t*(int *) data = NEUTRALIZE(ion_record.value + calculateOffset(table_id, fields[i] - 1), int);\n");
+            out.write("\t\t\t\t\tdata += sizeof(int);\n");
+            out.write("\t\t\t\t}\n");
+            out.write("\t\t\t\telse {\n");
+            out.write("\t\t\t\t\tmemcpy(data, ion_record.value + calculateOffset(table_id, fields[i] - 1), calculateOffset(table_id, fields[i]) - calculateOffset(table_id, fields[i]-1));\n");
+            out.write("\t\t\t\t\tdata += calculateOffset(table_id, fields[i]) - calculateOffset(table_id, fields[i]-1);\n");
+            out.write("\t\t\t\t}\n\t\t\t}\n\n");
+            out.write("\t\t\terror = dictionary_insert(&dictionary_temp, IONIZE(count, int), fieldlist).error;\n\n");
+            out.write("\t\t\tif (err_ok != error) {\n");
+            out.write("\t\t\t\tprintf(\"Error occurred. Error code: %i"+"\\"+"n"+"\", error);\n");
+            out.write("\t\t\t}\n\n");
+            out.write("\t\t\tcount++;\n\t\t\tfree(fieldlist);\n\t\t}\n\t}\n\n");
+
+            out.write("\tcursor->destroy(&cursor);\n\n");
+
+            out.write("\tion_predicate_t predicate_temp;\n");
+            out.write("\tdictionary_build_predicate(&predicate_temp, predicate_all_records);\n\n");
+            out.write("\tion_dict_cursor_t *cursor_temp = NULL;\n\n");
+            out.write("\tselect.record = ion_record;\n");
+            out.write("\tselect.table_id = malloc(sizeof(int));\n");
+            out.write("\t*(int *) select.table_id = id;\n");
+            out.write("\tselect.cursor = malloc(sizeof(ion_dict_cursor_t));\n\n");
+
+            out.write("\tdictionary_find(&dictionary_temp, &predicate_temp, &cursor_temp);\n");
+            out.write("\tselect.cursor = cursor_temp;\n\n");
+            out.write("\tfree(table_id);\n");
+            out.write("\tfree(table_name);\n\n");
+            out.write("\treturn select;\n");
+            out.write("}\n\n");
+
+            out.write("ion_boolean_t next(iinq_result_set *select) {\n");
+            out.write("\tion_cursor_status_t status = select->cursor->next(select->cursor, &select->record);\n\n");
+            out.write("\tif (status == cs_end_of_results) {\n");
+            out.write("\t\tfree(select->cursor->dictionary->instance);\n");
+            out.write("\t\tfree(select->cursor);\n");
+            out.write("\t\tfree(select->record.key);\n");
+            out.write("\t\tfree(select->table_id);\n");
+            out.write("\t}\n\n");
+            out.write("\treturn status == cs_cursor_initialized || status == cs_cursor_active;\n}\n\n");
+
+            out.write("char* getString(iinq_result_set *select, int field_num) {\n");
+            out.write("\tint i, count = 0;\n\n");
+            out.write("\tfor (i = 0; i < *(int *) select->num_fields; i++) {\n");
+            out.write("\t\tint field = *(int *) (select->fields + sizeof(int)*i);\n\n");
+            out.write("\t\tif (getFieldType(select->table_id, field) == iinq_char) {\n");
+            out.write("\t\t\tcount++;\n\t\t}\n\n");
+            out.write("\t\tif (count == field_num) {\n");
+            out.write("\t\t\treturn (char *) (select->record.value + calculateOffset(select->table_id, field-1));\n");
+            out.write("\t\t}\n\t}\n\n\treturn \"\";\n}\n\n");
+
+            out.write("int getInt(iinq_result_set *select, int field_num) {\n");
+            out.write("\tint i, count = 0;\n\n");
+            out.write("\tfor (i = 0; i < *(int *) select->num_fields; i++) {\n");
+            out.write("\t\tint field = *(int *) (select->fields + sizeof(int)*i);\n\n");
+            out.write("\t\tif (getFieldType(select->table_id, field) == iinq_int) {\n");
+            out.write("\t\t\tcount++;\n\t\t}\n\n");
+            out.write("\t\tif (count == field_num) {\n");
+            out.write("\t\t\treturn NEUTRALIZE(select->record.value + calculateOffset(select->table_id, field-1), int);\n");
+            out.write("\t\t}\n\t}\n\n\treturn 0;\n}\n\n");
+
+            function_headers.add("iinq_result_set iinq_select(int id, char *name, ion_key_type_t key_type, size_t key_size, size_t value_size, int num_wheres, int num_fields, int num, ...);\n");
+            function_headers.add("ion_boolean_t next(iinq_result_set *select);\n");
+            function_headers.add("char* getString(iinq_result_set *select, int field_num);\n");
+            function_headers.add("int getInt(iinq_result_set *select, int field_num);\n");
         }
 
         select_written = true;
@@ -1873,12 +1949,12 @@ public class IinqExecute {
         /* Get fields to select */
         String field_list;
         pos = sql.toUpperCase().indexOf("SELECT");
-        field_list = sql.substring(pos + 7, sql.toUpperCase().indexOf("FROM") - 1);
+        field_list = sql.substring(pos + 15, sql.toUpperCase().indexOf("FROM") - 1);
 
         int num_fields = 0;
         i = 0;
 
-        System.out.println(field_list+"\n");
+        System.out.println("fieldlist: "+field_list+"\n");
 
         /* Calculate number of fields to select in statement */
         while (-1 != i) {
@@ -1972,9 +2048,10 @@ public class IinqExecute {
 
         String value_size = get_schema_value(table_name, "VALUE SIZE: ");
         String key_size = get_schema_value(table_name, "PRIMARY KEY SIZE: ");
+        String ion_key = get_schema_value(table_name, "ION KEY TYPE: ");
 
         select_fields.add(new select_fields(table_name, table_id, num_conditions, num_fields, where_field, where_operator,
-                        where_value, where_field_type, key_size, value_size, select_field_nums));
+                        where_value, where_field_type, ion_key, key_size, value_size, select_field_nums, return_val));
     }
 
     private static void
@@ -2047,7 +2124,7 @@ public class IinqExecute {
             out.write("\tion_record.value   = malloc(value_size);\n\n");
 
             out.write("\tion_cursor_status_t status;\n\n");
-            out.write("\terror = iinq_create_source(\"DEL.inq\", key_type, (ion_key_size_t) key_size, (ion_value_size_t) value_size);");
+            out.write("\terror = iinq_create_source(\"DEL.inq\", key_type, (ion_key_size_t) key_size, (ion_value_size_t) sizeof(int));");
             print_error(out);
             out.write("\tion_dictionary_t           dictionary_temp;\n");
             out.write("\tion_dictionary_handler_t   handler_temp;\n\n");
@@ -2060,7 +2137,7 @@ public class IinqExecute {
             out.write("\twhile ((status = iinq_next_record(cursor, &ion_record)) == cs_cursor_initialized || status == cs_cursor_active) {\n");
             out.write("\t\tcondition_satisfied = where(table_id, &ion_record, num_fields, &valist);\n\n");
             out.write("\t\tif (condition_satisfied) {\n");
-            out.write("\t\t\terror = dictionary_insert(&dictionary_temp, ion_record.key, ion_record.key).error;\n\n");
+            out.write("\t\t\terror = dictionary_insert(&dictionary_temp, ion_record.key, IONIZE(0, int)).error;\n\n");
             out.write("\t\t\tif (err_ok != error) {\n");
             out.write("\t\t\tprintf(\"Error occurred. Error code: %i"+"\\"+"n"+"\", error);\n\t\t\t}\n");
             out.write("\t\t}\n\t}\n\n");
