@@ -43,6 +43,11 @@ public class IinqExecute {
     private static int table_id_count = 0;
     private static int tables_count = 0;
 
+    private static String user_file = "/Users/danaklamut/ClionProjects/iondb/src/iinq/iinq_interface/iinq_user.c";
+    private static String function_file = "/Users/danaklamut/ClionProjects/iondb/src/iinq/iinq_interface/iinq_user_functions.c";
+    private static String function_header_file = "/Users/danaklamut/ClionProjects/iondb/src/iinq/iinq_interface/iinq_user_functions.h";
+    private static String directory = "/Users/danaklamut/ClionProjects/iondb/src/iinq/iinq_interface/";
+
     private static boolean print_written    = false;
     private static boolean param_written    = false;
     private static boolean delete_written   = false;
@@ -72,10 +77,10 @@ public class IinqExecute {
         FileOutputStream out = null;
 
         try {
-            in = new FileInputStream("/Users/danaklamut/ClionProjects/iondb/src/iinq/iinq_interface/iinq_user.c");
+            in = new FileInputStream(user_file);
 
             /* Create output file */
-            File output_file = new File("/Users/danaklamut/ClionProjects/iondb/src/iinq/iinq_interface/iinq_user_functions.c");
+            File output_file = new File(function_file);
             output_file.createNewFile();
             out = new FileOutputStream(output_file, false);
 
@@ -151,7 +156,7 @@ public class IinqExecute {
     private static void
     main_setup() throws IOException {
         /* Comment out old IINQ functions */
-        String path = "/Users/danaklamut/ClionProjects/iondb/src/iinq/iinq_interface/iinq_user.c";
+        String path = user_file;
         BufferedReader file = new BufferedReader(new FileReader(path));
 
         String contents = "";
@@ -336,7 +341,7 @@ public class IinqExecute {
     private static void
     write_headers () throws IOException {
         /* Write header file */
-        String header_path = "/Users/danaklamut/ClionProjects/iondb/src/iinq/iinq_interface/iinq_user_functions.h";
+        String header_path = function_header_file;
 
         /* Create schema table header file */
         String contents = "";
@@ -367,7 +372,7 @@ public class IinqExecute {
     insert_setup () throws IOException {
 
         /* Add new functions to be run to executable */
-        String ex_path = "/Users/danaklamut/ClionProjects/iondb/src/iinq/iinq_interface/iinq_user.c";
+        String ex_path = user_file;
         BufferedReader ex_file = new BufferedReader(new FileReader(ex_path));
 
         String contents = "";
@@ -432,7 +437,7 @@ public class IinqExecute {
     delete_setup () throws IOException {
 
         /* Add new functions to be run to executable */
-        String ex_path = "/Users/danaklamut/ClionProjects/iondb/src/iinq/iinq_interface/iinq_user.c";
+        String ex_path = user_file;
         BufferedReader ex_file = new BufferedReader(new FileReader(ex_path));
 
         String contents = "";
@@ -484,7 +489,7 @@ public class IinqExecute {
     update_setup () throws IOException {
 
         /* Add new functions to be run to executable */
-        String ex_path = "/Users/danaklamut/ClionProjects/iondb/src/iinq/iinq_interface/iinq_user.c";
+        String ex_path = user_file;
         BufferedReader ex_file = new BufferedReader(new FileReader(ex_path));
 
         String contents = "";
@@ -504,10 +509,7 @@ public class IinqExecute {
                             +update.key_size+", " +update.value_size+", "+update.num_wheres*3+", "
                             +update.num_updates*4+", " +(update.num_wheres*3 + update.num_updates*4);
 
-                    System.out.println("num wheres: "+update.num_updates);
                     for (int j = 0; j < update.num_wheres; j++) {
-                        System.out.println("where field: "+update.where_fields.get(j)+", j: "+j);
-                        System.out.println("where ops: "+update.where_operators.get(j));
                         contents += ", " + update.where_fields.get(j) + ", " + update.where_operators.get(j) + ", ";
 
                         if (update.where_field_types.get(j).contains("INT")) {
@@ -530,10 +532,6 @@ public class IinqExecute {
                             }
                         }
                         else {
-                            System.out.println("update field: "+update.update_fields.get(i));
-                            System.out.println("implicit count: "+implicit_count+", operators count: "+update.update_operators.size());
-                            System.out.println("update operator: "+update.update_operators.get(implicit_count));
-                            System.out.println("implicit field: "+update.implicit_fields.get(implicit_count));
                             contents += ", " + update.update_fields.get(i) + ", " + update.implicit_fields.get(implicit_count) + ", "
                                     + update.update_operators.get(implicit_count) + ", ";
 
@@ -570,7 +568,7 @@ public class IinqExecute {
     select_setup () throws IOException {
 
         /* Add new functions to be run to executable */
-        String ex_path = "/Users/danaklamut/ClionProjects/iondb/src/iinq/iinq_interface/iinq_user.c";
+        String ex_path = user_file;
         BufferedReader ex_file = new BufferedReader(new FileReader(ex_path));
 
         String contents = "";
@@ -600,11 +598,8 @@ public class IinqExecute {
                         }
                     }
 
-                    System.out.println("num fields: "+select.num_fields);
-                    System.out.println("length: "+select.fields.size());
                     for (int i = 0; i < select.num_fields; i++) {
                         contents += ", " + select.fields.get(i);
-                        System.out.println("field: "+select.fields.get(i));
                     }
 
                     contents += ");\n";
@@ -630,7 +625,7 @@ public class IinqExecute {
     create_setup () throws IOException {
 
         /* Add new functions to be run to executable */
-        String ex_path = "/Users/danaklamut/ClionProjects/iondb/src/iinq/iinq_interface/iinq_user.c";
+        String ex_path = user_file;
         BufferedReader ex_file = new BufferedReader(new FileReader(ex_path));
 
         String contents = "";
@@ -645,7 +640,6 @@ public class IinqExecute {
                 create = create_fields.get(count);
 
                 if (create != null) {
-                    System.out.println("table name: "+create.table_name);
                     contents += "\tcreate_table(\""+create.table_name+"\", "+create.key_type+", "+create.key_size+", "
                             +create.value_size+");\n";
 
@@ -671,7 +665,7 @@ public class IinqExecute {
     drop_setup () throws IOException {
 
         /* Add new functions to be run to executable */
-        String ex_path = "/Users/danaklamut/ClionProjects/iondb/src/iinq/iinq_interface/iinq_user.c";
+        String ex_path = user_file;
         BufferedReader ex_file = new BufferedReader(new FileReader(ex_path));
 
         String contents = "";
@@ -710,8 +704,7 @@ public class IinqExecute {
     get_schema_value (String table_name, String keyword) throws IOException {
         String line;
 
-        String path = "/Users/danaklamut/ClionProjects/iondb/src/iinq/iinq_interface/"+
-                table_name.substring(0, table_name.length() - 4).toLowerCase()+".xml";
+        String path = directory+table_name.substring(0, table_name.length() - 4).toLowerCase()+".xml";
         BufferedReader file = new BufferedReader(new FileReader(path));
 
         while (null != (line = file.readLine())) {
@@ -730,48 +723,6 @@ public class IinqExecute {
         }
 
         return line;
-    }
-
-    private static void
-    increment_num_records (String table_name, boolean increment) throws IOException {
-        String path = "/Users/danaklamut/ClionProjects/iondb/src/iinq/iinq_interface/"+
-                table_name.substring(0, table_name.length() - 4).toLowerCase()+".xml";
-        BufferedReader file = new BufferedReader(new FileReader(path));
-
-        String contents = "";
-        String line;
-        int num;
-
-        while (null != (line = file.readLine())) {
-            if (line.contains("NUMBER OF RECORDS: ")) {
-                if (line.contains(":")) {
-                    line = line.substring(line.indexOf(":") + 2);
-                }
-
-                num = Integer.parseInt(line);
-
-                if (increment) {
-                    contents += "NUMBER OF RECORDS: " + (num + 1) + "\n";
-                }
-
-                else {
-                    contents += "NUMBER OF RECORDS: " + (num - 1) + "\n";
-                }
-            }
-
-            else {
-                contents += line + '\n';
-            }
-        }
-
-        File output_file = new File("/Users/danaklamut/ClionProjects/iondb/src/iinq/iinq_interface/"+
-                table_name.substring(0, table_name.length() - 4).toLowerCase()+".xml");
-        FileOutputStream out = new FileOutputStream(output_file, false);
-
-        out.write(contents.getBytes());
-
-        file.close();
-        out.close();
     }
 
     private static String[]
@@ -809,7 +760,6 @@ public class IinqExecute {
         sql = sql.substring(26);
 
         String table_name = (sql.substring(0, sql.indexOf(" ")))+".inq";
-        System.out.println(table_name);
 
         sql = sql.substring(sql.indexOf(" ") + 2);
 
@@ -897,7 +847,6 @@ public class IinqExecute {
         if (int_count > 0) {
             if (int_count > 1) {
                 value_calculation += "(sizeof(int) * " + int_count + ")";
-                System.out.println("Int mult: "+int_count);
             }
 
             else {
@@ -906,7 +855,6 @@ public class IinqExecute {
 
             if (char_present) {
                 value_calculation += "+(sizeof(char) * "+char_multiplier+")";
-                System.out.println("Char mult: "+char_multiplier);
             }
         }
 
@@ -966,7 +914,7 @@ public class IinqExecute {
         contents += "\n\t</fields>";
         contents += "\n</schema>";
 
-        File schema = new File("/Users/danaklamut/ClionProjects/iondb/src/iinq/iinq_interface/"+schema_name);
+        File schema = new File(directory+schema_name);
         FileOutputStream schema_out = new FileOutputStream(schema, false);
 
         schema_out.write(contents.getBytes());
@@ -1006,7 +954,6 @@ public class IinqExecute {
         sql = sql.substring((sql.toUpperCase()).indexOf("INTO ")+5);
 
         String table_name = (sql.substring(0, sql.indexOf(" "))) + ".inq";
-        System.out.println(table_name);
 
         /* Create print table method if it doesn't already exist */
         if (!print_written) {
@@ -1023,7 +970,6 @@ public class IinqExecute {
 
         /* INSERT statement */
         String value = sql.substring(0, sql.length() - 5);
-        System.out.println(value + "\n");
 
 	    /* Get key value from record to be inserted */
         int count = 1;
@@ -1039,7 +985,6 @@ public class IinqExecute {
 
 	    /* Check if the INSERT statement is a prepared statement */
         boolean prep = sql.contains("(?)");
-        System.out.println("PREP: "+prep);
 
         String[] fields = new String[count];
         value = "";
@@ -1067,9 +1012,6 @@ public class IinqExecute {
             table_id_count++;
             new_table = true;
         }
-
-        System.out.println("NEW TABLE?: "+new_table);
-        System.out.println("TABLE ID: "+table_id);
 
         ArrayList<Integer> int_fields = new ArrayList<>();
         ArrayList<Integer> string_fields = new ArrayList<>();
@@ -1141,11 +1083,6 @@ public class IinqExecute {
             }
 
             prep_fields[j] = fields[j].contains("(?)");
-
-            if (new_table) {
-                System.out.println("FIELD: " + fields[j]);
-                System.out.println("PREP FIELD: " + prep_fields[j]);
-            }
         }
 
         if (new_table) {
@@ -1248,8 +1185,7 @@ public class IinqExecute {
     /* Concatenates information for additional tables onto already written INSERT functions */
     private static void
     params() throws IOException {
-        System.out.println("HELLOOOOO");
-        String path = "/Users/danaklamut/ClionProjects/iondb/src/iinq/iinq_interface/iinq_user_functions.c";
+        String path = function_file;
         BufferedReader file = new BufferedReader(new FileReader(path));
 
         String contents = "";
@@ -1268,18 +1204,14 @@ public class IinqExecute {
                     table_name = inserts.get(i).name;
 
                     written = table_name.equals(written_table);
-                    System.out.println("written: "+written);
 
                     if (!written) {
-                        System.out.println("in here hello, size: "+execute_written.size());
                         for (int k = 0; k < execute_written.size(); k++) {
-                            System.out.println("Table name: "+table_name+", offset written: "+execute_written.get(k));
                             if (table_name.equals(execute_written.get(k))) {
                                 written = true;
                             }
                         }
                     }
-                    System.out.println("written: "+written);
 
                     if (!written) {
                         execute_written.add(table_name);
@@ -1287,7 +1219,6 @@ public class IinqExecute {
                         key_type = inserts.get(i).key_type;
                         table_name = inserts.get(i).name;
 
-                        System.out.println("in here 4");
                         contents += "\tif (*(int *) p.table == " + table_id + ") {\n";
 
                         if (key_type.equals("0") || key_type.equals("1")) {
@@ -1411,7 +1342,6 @@ public class IinqExecute {
 
         String table_name = (sql.substring(0, sql.indexOf(" ")))+".inq";
         String table_name_sub = table_name.substring(0, table_name.length()-4);
-        System.out.println(table_name);
 
         boolean table_found = false;
         int table_id = 0;
@@ -1583,16 +1513,12 @@ public class IinqExecute {
             i = 0;
         }
 
-        System.out.println("where condition: "+where_condition+"\n");
-
         /* Calculate number of WHERE conditions in statement */
 
         while (-1 != i) {
             num_conditions++;
             i = where_condition.indexOf(",", i + 1);
         }
-
-        System.out.println("num wheres: "+num_conditions);
 
         String[] conditions;
 
@@ -1612,8 +1538,6 @@ public class IinqExecute {
         int num_fields = 0;
         i = 0;
 
-        System.out.println(update+"\n");
-
         /* Calculate number of fields to update in statement */
         while (-1 != i) {
             num_fields++;
@@ -1628,10 +1552,6 @@ public class IinqExecute {
 
         int len = 0;
         String[] where_fields = new String[num_conditions];
-
-        for (int k = 0; k < conditions.length; k++) {
-            System.out.println("Cond"+k+": "+conditions[k]);
-        }
 
         for (int j = 0; j < num_conditions; j++) {
 
@@ -1676,7 +1596,6 @@ public class IinqExecute {
                 }
 
                 if (where_fields[j].equals(get_schema_value(table_name, "FIELD" + n + " NAME: "))) {
-                    System.out.println("field name: " + where_fields[j] + ", field number: " + n);
                     where_field.add(n + 1);
                     where_field_type.add(field_type);
                 }
@@ -1704,16 +1623,13 @@ public class IinqExecute {
 
         for (int j = 0; j < num_fields; j++) {
             is_implicit = false;
-            System.out.println("update"+j+": "+fields[j]);
             pos = fields[j].indexOf("=");
             update_field = fields[j].substring(0, pos).trim();
             set_string = fields[j].substring(pos + 1).trim();
             update_value = set_string;
-            System.out.println("set string: "+set_string);
 
             /* Check if update value contains an operator */
             if (set_string.contains("+")) {
-                System.out.println("operator add added");
                 update_operators.add("iinq_add");
                 pos = set_string.indexOf("+");
                 implicit_field = set_string.substring(0, pos).trim();
@@ -1740,7 +1656,6 @@ public class IinqExecute {
             }
 
             update_values.add(update_value);
-            System.out.println("is implicit? "+is_implicit);
             implicit.add(is_implicit);
 
             if (is_implicit) {
@@ -1792,7 +1707,6 @@ public class IinqExecute {
 
         table_name = (table_name.substring(0, pos))+".inq";
         String table_name_sub = table_name.substring(0, table_name.length()-4);
-        System.out.println(table_name);
 
         String return_val = sql.substring(0, sql.indexOf("=") - 1);
 
@@ -2016,8 +1930,6 @@ public class IinqExecute {
             i = 0;
         }
 
-        System.out.println(where_condition+"\n");
-
         /* Calculate number of WHERE conditions in statement */
 
         while (-1 != i) {
@@ -2036,8 +1948,6 @@ public class IinqExecute {
 
         int num_fields = 0;
         i = 0;
-
-        System.out.println("fieldlist: "+field_list+"\n");
 
         /* Calculate number of fields to select in statement */
         while (-1 != i) {
@@ -2146,7 +2056,6 @@ public class IinqExecute {
 
         String table_name = (sql.substring(0, sql.indexOf(" ")))+".inq";
         String table_name_sub = table_name.substring(0, table_name.length()-4);
-        System.out.println(table_name);
 
         boolean table_found = false;
         int table_id = 0;
@@ -2276,8 +2185,6 @@ public class IinqExecute {
             i = 0;
         }
 
-        System.out.println("WHERE: "+where_condition+"\n");
-
         /* Calculate number of WHERE conditions in statement */
         while (-1 != i) {
             num_conditions++;
@@ -2298,7 +2205,6 @@ public class IinqExecute {
         String field;
 
         for (int j = 0; j < num_conditions; j++) {
-            System.out.println(conditions[j]);
 
             /* Set up field, operator, and condition for each WHERE clause */
             if (conditions[j].contains("!=")) {
@@ -2375,7 +2281,6 @@ public class IinqExecute {
         sql = sql.substring(24);
 
         String table_name = (sql.substring(0, sql.indexOf(";"))) + ".inq";
-        System.out.println(table_name);
 
         /* Write function to file */
         if (!drop_written) {
@@ -2384,8 +2289,7 @@ public class IinqExecute {
             out.write("\terror = iinq_drop(table_name);");
             print_error(out);
 
-            File file = new File("/Users/danaklamut/ClionProjects/iondb/src/iinq/iinq_interface/" +
-                    table_name.substring(0, table_name.length() - 4).toLowerCase() + ".xml");
+            File file = new File(directory + table_name.substring(0, table_name.length() - 4).toLowerCase() + ".xml");
 
             if (!file.delete()) {
                 out.write("\tprintf(\"Error occurred deleting table." + "\\" + "n" + "\");");
@@ -2406,7 +2310,7 @@ public class IinqExecute {
     private static void
     function_close() throws IOException {
         /* Closes insert functions because there do not exist any more commands to be read */
-        String path = "/Users/danaklamut/ClionProjects/iondb/src/iinq/iinq_interface/iinq_user_functions.c";
+        String path = function_file;
         BufferedReader file = new BufferedReader(new FileReader(path));
 
         String contents = "";
