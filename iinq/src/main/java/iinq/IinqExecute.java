@@ -497,13 +497,17 @@ public class IinqExecute {
                 contents += "/* "+line + " */\n";
 
                 update = update_fields.get(count);
+                int implicit_count = 0;
 
                 if (update != null) {
                     contents += "\tupdate("+update.table_id+", \""+update.table_name+"\", "+update.ion_key+", "
                             +update.key_size+", " +update.value_size+", "+update.num_wheres*3+", "
                             +update.num_updates*4+", " +(update.num_wheres*3 + update.num_updates*4);
 
+                    System.out.println("num wheres: "+update.num_updates);
                     for (int j = 0; j < update.num_wheres; j++) {
+                        System.out.println("where field: "+update.where_fields.get(j)+", j: "+j);
+                        System.out.println("where ops: "+update.where_operators.get(j));
                         contents += ", " + update.where_fields.get(j) + ", " + update.where_operators.get(j) + ", ";
 
                         if (update.where_field_types.get(j).contains("INT")) {
@@ -526,7 +530,12 @@ public class IinqExecute {
                             }
                         }
                         else {
-                            contents += ", " + update.update_fields.get(i) + ", " + update.implicit_fields.get(i) + ", " + update.update_operators.get(i) + ", ";
+                            System.out.println("update field: "+update.update_fields.get(i));
+                            System.out.println("implicit count: "+implicit_count+", operators count: "+update.update_operators.size());
+                            System.out.println("update operator: "+update.update_operators.get(implicit_count));
+                            System.out.println("implicit field: "+update.implicit_fields.get(implicit_count));
+                            contents += ", " + update.update_fields.get(i) + ", " + update.implicit_fields.get(implicit_count) + ", "
+                                    + update.update_operators.get(implicit_count) + ", ";
 
                             if (update.update_field_types.get(i).contains("INT")) {
                                 contents += update.update_values.get(i);
@@ -534,6 +543,7 @@ public class IinqExecute {
                             else {
                                 contents += "\"" + update.update_values.get(i) + "\"";
                             }
+                            implicit_count++;
                         }
                     }
 
@@ -1445,8 +1455,10 @@ public class IinqExecute {
             out.write("\tion_dictionary_handler_t   handler;\n\n");
 
             out.write("\tdictionary.handler = &handler;\n\n");
-            out.write("\terror              = iinq_open_source(table_name, &dictionary, &handler);");
-            print_error(out);
+            out.write("\terror              = iinq_open_source(table_name, &dictionary, &handler);\n\n");
+            out.write("\tif (err_ok != error) {\n");
+            out.write("\t\tprintf(\"Error occurred. Error code: %i"+"\\"+"n"+"\", error);\n");
+            out.write("\t}\n\n");
 
             out.write("\tion_predicate_t predicate;\n");
             out.write("\tdictionary_build_predicate(&predicate, predicate_all_records);\n\n");
@@ -1458,19 +1470,23 @@ public class IinqExecute {
             out.write("\tion_record.value   = malloc(value_size);\n\n");
 
             out.write("\tion_cursor_status_t status;\n\n");
-            out.write("\terror = iinq_create_source(\"UPD.inq\", key_type, (ion_key_size_t) key_size, (ion_value_size_t) value_size);");
-            print_error(out);
+            out.write("\terror = iinq_create_source(\"UPD.inq\", key_type, (ion_key_size_t) key_size, (ion_value_size_t) value_size);\n\n");
+            out.write("\tif (err_ok != error) {\n");
+            out.write("\t\tprintf(\"Error occurred. Error code: %i"+"\\"+"n"+"\", error);\n");
+            out.write("\t}\n\n");
             out.write("\tion_dictionary_t           dictionary_temp;\n");
             out.write("\tion_dictionary_handler_t   handler_temp;\n\n");
 
             out.write("\tdictionary_temp.handler = &handler_temp;\n\n");
-            out.write("\terror              = iinq_open_source(\"UPD.inq\", &dictionary_temp, &handler_temp);");
-            print_error(out);
+            out.write("\terror              = iinq_open_source(\"UPD.inq\", &dictionary_temp, &handler_temp);\n\n");
+            out.write("\tif (err_ok != error) {\n");
+            out.write("\t\tprintf(\"Error occurred. Error code: %i"+"\\"+"n"+"\", error);\n");
+            out.write("\t}\n\n");
             out.write("\tion_boolean_t condition_satisfied;\n\n");
 
             out.write("\twhile ((status = iinq_next_record(cursor, &ion_record)) == cs_cursor_initialized || status == cs_cursor_active) {\n");
             out.write("\t\tcondition_satisfied = where(table_id, &ion_record, num_wheres, &valist);\n\n");
-            out.write("\t\tif (condition_satisfied || num_wheres == 0) {\n");
+            out.write("\t\tif (!condition_satisfied || num_wheres == 0) {\n");
             out.write("\t\t\terror = dictionary_insert(&dictionary_temp, ion_record.key, ion_record.value).error;\n\n");
             out.write("\t\t\tif (err_ok != error) {\n");
             out.write("\t\t\t\tprintf(\"Error occurred. Error code: %i"+"\\"+"n"+"\", error);\n\t\t\t}\n");
@@ -1527,17 +1543,24 @@ public class IinqExecute {
             out.write("\t\t\t\tif (getFieldType(table_id, update_fields[i]) == iinq_int) {\n");
             out.write("\t\t\t\t\t*(int *) value = (int) field_values[i];\n\t\t\t\t}\n");
             out.write("\t\t\t\telse {\n");
-            out.write("\t\t\t\t\tmemcpy(value, field_values[i], sizeof(field_values[i]));\n\t\t\t\t}\n\t\t\t}\n\t\t}\n\n");
+            out.write("\t\t\t\t\tmemcpy(value, field_values[i], calculateOffset(table_id, update_fields[i]) - calculateOffset(table_id, update_fields[i - 1]));\n\t\t\t\t}\n\t\t\t}\n\t\t}\n\n");
             out.write("\t\terror = dictionary_update(&dictionary, ion_record.key, ion_record.value).error;\n\n");
             out.write("\t\tif (err_ok != error) {\n");
             out.write("\t\t\tprintf(\"Error occurred. Error code: %i"+"\\"+"n"+"\", error);\n");
             out.write("\t\t}\n\t}\n\n");
             out.write("\tcursor_temp->destroy(&cursor_temp);\n");
             out.write("\tprint_table_cats(&dictionary);\n\n");
-            out.write("\terror = iinq_drop(\"UPD.inq\");\n\n");
+            out.write("\terror = dictionary_delete_dictionary(&dictionary_temp);\n\n");
             out.write("\tif (err_ok != error) {\n");
-            out.write("\t\tprintf(\"Error occurred. Error code: %i"+"\\"+"n"+"\", error);\n\t}\n\n");
+            out.write("\t\tprintf(\"Error occurred. Error code: %i"+"\\"+"n"+"\", error);\n");
+            out.write("\t}\n\n");
 
+            out.write("\terror = ion_close_dictionary(&dictionary);\n\n");
+            out.write("\tif (err_ok != error) {\n");
+            out.write("\t\tprintf(\"Error occurred. Error code: %i"+"\\"+"n"+"\", error);\n");
+            out.write("\t}\n\n");
+
+            out.write("\tfremove(\"UPD.inq\");\n");
             out.write("\tfree(table_id);\n");
             out.write("\tfree(table_name);\n");
             out.write("\tfree(ion_record.key);\n");
@@ -1560,7 +1583,7 @@ public class IinqExecute {
             i = 0;
         }
 
-        System.out.println(where_condition+"\n");
+        System.out.println("where condition: "+where_condition+"\n");
 
         /* Calculate number of WHERE conditions in statement */
 
@@ -1568,6 +1591,8 @@ public class IinqExecute {
             num_conditions++;
             i = where_condition.indexOf(",", i + 1);
         }
+
+        System.out.println("num wheres: "+num_conditions);
 
         String[] conditions;
 
@@ -1602,7 +1627,11 @@ public class IinqExecute {
         ArrayList<String> where_field_type  = new ArrayList<>();
 
         int len = 0;
-        String field = "";
+        String[] where_fields = new String[num_conditions];
+
+        for (int k = 0; k < conditions.length; k++) {
+            System.out.println("Cond"+k+": "+conditions[k]);
+        }
 
         for (int j = 0; j < num_conditions; j++) {
 
@@ -1633,24 +1662,24 @@ public class IinqExecute {
                 where_operator.add("iinq_greater_than");
             }
 
-            field = conditions[j].substring(0, pos).trim();
+            where_fields[j] = conditions[j].substring(0, pos).trim();
             where_value.add(conditions[j].substring(pos + len).trim());
-        }
 
-        for (int n = 0; n < Integer.parseInt(get_schema_value(table_name, "NUMBER OF FIELDS: ")); n++) {
+            for (int n = 0; n < Integer.parseInt(get_schema_value(table_name, "NUMBER OF FIELDS: ")); n++) {
 
-            String field_type = get_schema_value(table_name, "FIELD"+n+" TYPE: ");
+                String field_type = get_schema_value(table_name, "FIELD" + n + " TYPE: ");
 
-            if (field_type.contains("CHAR")) {
-                iinq_field_types.add("iinq_char");
-            }
-            else {
-                iinq_field_types.add("iinq_int");
-            }
+                if (field_type.contains("CHAR")) {
+                    iinq_field_types.add("iinq_char");
+                } else {
+                    iinq_field_types.add("iinq_int");
+                }
 
-            if (field.equals(get_schema_value(table_name, "FIELD"+n+" NAME: "))) {
-                where_field.add(n+1);
-                where_field_type.add(field_type);
+                if (where_fields[j].equals(get_schema_value(table_name, "FIELD" + n + " NAME: "))) {
+                    System.out.println("field name: " + where_fields[j] + ", field number: " + n);
+                    where_field.add(n + 1);
+                    where_field_type.add(field_type);
+                }
             }
         }
 
@@ -1669,17 +1698,22 @@ public class IinqExecute {
         String set_string;
         String update_field;
         String implicit_field = "";
-        boolean is_implicit = false;
+        boolean is_implicit;
         String update_value;
+        int implicit_count = 0;
 
         for (int j = 0; j < num_fields; j++) {
+            is_implicit = false;
+            System.out.println("update"+j+": "+fields[j]);
             pos = fields[j].indexOf("=");
             update_field = fields[j].substring(0, pos).trim();
             set_string = fields[j].substring(pos + 1).trim();
             update_value = set_string;
+            System.out.println("set string: "+set_string);
 
             /* Check if update value contains an operator */
             if (set_string.contains("+")) {
+                System.out.println("operator add added");
                 update_operators.add("iinq_add");
                 pos = set_string.indexOf("+");
                 implicit_field = set_string.substring(0, pos).trim();
@@ -1706,7 +1740,12 @@ public class IinqExecute {
             }
 
             update_values.add(update_value);
+            System.out.println("is implicit? "+is_implicit);
             implicit.add(is_implicit);
+
+            if (is_implicit) {
+                implicit_count++;
+            }
 
             for (int n = 0; n < Integer.parseInt(get_schema_value(table_name, "NUMBER OF FIELDS: ")); n++) {
                 String field_type = get_schema_value(table_name, "FIELD"+n+" TYPE: ");
@@ -1735,7 +1774,7 @@ public class IinqExecute {
 
         update_fields.add(new update_fields(table_name, table_id, num_conditions, num_fields, where_field, where_operator,
                 where_value, where_field_type, key_size, value_size, ion_key, update_field_nums, implicit, implicit_fields, update_operators,
-                update_values, update_field_types));
+                update_values, update_field_types, implicit_count));
     }
 
     private static void
@@ -1828,7 +1867,8 @@ public class IinqExecute {
             out.write("\tselect.num_fields = malloc(sizeof(int));\n");
             out.write("\t*(int *) select.num_fields = num_fields;\n");
             out.write("\tselect.fields = malloc(sizeof(int) * num_fields);\n");
-            out.write("\tunsigned char *field_list = select.fields;\n\n");
+            out.write("\tunsigned char *field_list = select.fields;\n");
+            out.write("\tselect.num_recs = malloc(sizeof(int));\n\n");
 
             out.write("\tfor (i = 0; i < num_fields; i++) {\n");
             out.write("\t\tfields[i] = va_arg(valist, int);\n\n");
@@ -1840,15 +1880,19 @@ public class IinqExecute {
             out.write("\tva_end(valist);\n\n");
             out.write("\tion_dictionary_handler_t   handler_temp;\n");
             out.write("\tion_dictionary_t           dictionary_temp;\n\n");
-            out.write("\tffdict_init(&handler_temp);\n\n");
-            out.write("\terror = dictionary_create(&handler_temp, &dictionary_temp, 6, key_type, (ion_key_size_t) key_size, (ion_value_size_t) value_size, 10);\n\n");
+            out.write("\terror = iinq_create_source(\"SEL.inq\", key_type, (ion_key_size_t) key_size, (ion_value_size_t) value_size);\n\n");
+            out.write("\tif (err_ok != error) {\n");
+            out.write("\t\tprintf(\"Error occurred. Error code: %i"+"\\"+"n"+"\", error);\n");
+            out.write("\t}\n\n");
+            out.write("\tdictionary_temp.handler = &handler_temp;\n\n");
+            out.write("\terror = iinq_open_source(\"SEL.inq\", &dictionary_temp, &handler_temp);\n\n");
             out.write("\tif (err_ok != error) {\n");
             out.write("\t\tprintf(\"Error occurred. Error code: %i"+"\\"+"n"+"\", error);\n");
             out.write("\t}\n\n");
 
             out.write("\twhile ((status = iinq_next_record(cursor, &ion_record)) == cs_cursor_initialized || status == cs_cursor_active) {\n");
             out.write("\t\tcondition_satisfied = where(table_id, &ion_record, num_wheres, &where_list);\n\n");
-            out.write("\t\tif (condition_satisfied || num_wheres == 0) {\n");
+            out.write("\t\tif (!condition_satisfied || num_wheres == 0) {\n");
             out.write("\t\t\tunsigned char *fieldlist = malloc(value_size);\n");
             out.write("\t\t\tunsigned char *data = fieldlist;\n\n");
 
@@ -1868,50 +1912,89 @@ public class IinqExecute {
             out.write("\t\t\tcount++;\n\t\t\tfree(fieldlist);\n\t\t}\n\t}\n\n");
 
             out.write("\tcursor->destroy(&cursor);\n\n");
+            out.write("\terror = ion_close_dictionary(&dictionary);\n\n");
+            out.write("\tif (err_ok != error) {\n");
+            out.write("\t\tprintf(\"Error occurred. Error code: %i"+"\\"+"n"+"\", error);\n");
+            out.write("\t}\n\n");
+            out.write("\terror = ion_close_dictionary(&dictionary_temp);\n\n");
+            out.write("\tif (err_ok != error) {\n");
+            out.write("\t\tprintf(\"Error occurred. Error code: %i"+"\\"+"n"+"\", error);\n");
+            out.write("\t}\n\n");
 
-            out.write("\tion_predicate_t predicate_temp;\n");
-            out.write("\tdictionary_build_predicate(&predicate_temp, predicate_all_records);\n\n");
-            out.write("\tion_dict_cursor_t *cursor_temp = NULL;\n\n");
-            out.write("\tselect.record = ion_record;\n");
+            out.write("\t*(int *) select.num_recs = count;\n");
             out.write("\tselect.table_id = malloc(sizeof(int));\n");
             out.write("\t*(int *) select.table_id = id;\n");
-            out.write("\tselect.cursor = malloc(sizeof(ion_dict_cursor_t));\n\n");
+            out.write("\tselect.value = malloc(value_size);\n");
+            out.write("\tselect.count = malloc(sizeof(int));\n");
+            out.write("\t*(int *) select.count = -1;\n\n");
 
-            out.write("\tdictionary_find(&dictionary_temp, &predicate_temp, &cursor_temp);\n");
-            out.write("\tselect.cursor = cursor_temp;\n\n");
             out.write("\tfree(table_id);\n");
             out.write("\tfree(table_name);\n\n");
+            out.write("\tfree(ion_record.key);\n");
+            out.write("\tfree(ion_record.value);\n\n");
             out.write("\treturn select;\n");
             out.write("}\n\n");
 
             out.write("ion_boolean_t next(iinq_result_set *select) {\n");
-            out.write("\tion_cursor_status_t status = select->cursor->next(select->cursor, &select->record);\n\n");
-            out.write("\tif (status == cs_end_of_results) {\n");
-            out.write("\t\tfree(select->cursor->dictionary->instance);\n");
-            out.write("\t\tfree(select->cursor);\n");
-            out.write("\t\tfree(select->record.key);\n");
-            out.write("\t\tfree(select->table_id);\n");
+            out.write("\tif (*(int *) select->count < (*(int *) select->num_recs) - 1) {\n");
+            out.write("\t\t*(int *) select->count = (*(int *) select->count) + 1;\n");
+            out.write("\t\treturn boolean_true;\n\t}\n\n");
+            out.write("\tion_err_t error = iinq_drop(\"SEL.inq\");\n\n");
+            out.write("\tif (err_ok != error) {\n");
+            out.write("\t\tprintf(\"Error occurred. Error code: %i"+"\\"+"n"+"\", error);\n");
             out.write("\t}\n\n");
-            out.write("\treturn status == cs_cursor_initialized || status == cs_cursor_active;\n}\n\n");
+            out.write("\tfree(select->value);\n");
+            out.write("\tfree(select->fields);\n");
+            out.write("\tfree(select->count);\n");
+            out.write("\tfree(select->table_id);\n");
+            out.write("\tfree(select->num_recs);\n");
+            out.write("\tfree(select->num_fields);\n");
+            out.write("\treturn boolean_false;\n}\n\n");
 
             out.write("char* getString(iinq_result_set *select, int field_num) {\n");
             out.write("\tint i, count = 0;\n\n");
+            out.write("\tion_err_t                  error;\n");
+            out.write("\tion_dictionary_t           dictionary;\n");
+            out.write("\tion_dictionary_handler_t   handler;\n\n");
+            out.write("\tdictionary.handler = &handler;\n\n");
+            out.write("\terror              = iinq_open_source(\"SEL.inq\", &dictionary, &handler);\n\n");
+            out.write("\tif (err_ok != error) {\n");
+            out.write("\t\tprintf(\"Error occurred. Error code: %i"+"\\"+"n"+"\", error);\n");
+            out.write("\t}\n\n");
+            out.write("\tdictionary_get(&dictionary, select->count, select->value);\n\n");
+            out.write("\terror = ion_close_dictionary(&dictionary);\n\n");
+            out.write("\tif (err_ok != error) {\n");
+            out.write("\t\tprintf(\"Error occurred. Error code: %i"+"\\"+"n"+"\", error);\n");
+            out.write("\t}\n\n");
             out.write("\tfor (i = 0; i < *(int *) select->num_fields; i++) {\n");
             out.write("\t\tint field = *(int *) (select->fields + sizeof(int)*i);\n\n");
             out.write("\t\tif (getFieldType(select->table_id, field) == iinq_char) {\n");
             out.write("\t\t\tcount++;\n\t\t}\n\n");
             out.write("\t\tif (count == field_num) {\n");
-            out.write("\t\t\treturn (char *) (select->record.value + calculateOffset(select->table_id, field-1));\n");
+            out.write("\t\t\treturn (char *) (select->value + calculateOffset(select->table_id, field-1));\n");
             out.write("\t\t}\n\t}\n\n\treturn \"\";\n}\n\n");
 
             out.write("int getInt(iinq_result_set *select, int field_num) {\n");
             out.write("\tint i, count = 0;\n\n");
+            out.write("\tion_err_t                  error;\n");
+            out.write("\tion_dictionary_t           dictionary;\n");
+            out.write("\tion_dictionary_handler_t   handler;\n\n");
+            out.write("\tdictionary.handler = &handler;\n\n");
+            out.write("\terror              = iinq_open_source(\"SEL.inq\", &dictionary, &handler);\n\n");
+            out.write("\tif (err_ok != error) {\n");
+            out.write("\t\tprintf(\"Error occurred. Error code: %i"+"\\"+"n"+"\", error);\n");
+            out.write("\t}\n\n");
+            out.write("\tdictionary_get(&dictionary, select->count, select->value);\n\n");
+            out.write("\terror = ion_close_dictionary(&dictionary);\n\n");
+            out.write("\tif (err_ok != error) {\n");
+            out.write("\t\tprintf(\"Error occurred. Error code: %i"+"\\"+"n"+"\", error);\n");
+            out.write("\t}\n\n");
             out.write("\tfor (i = 0; i < *(int *) select->num_fields; i++) {\n");
             out.write("\t\tint field = *(int *) (select->fields + sizeof(int)*i);\n\n");
             out.write("\t\tif (getFieldType(select->table_id, field) == iinq_int) {\n");
             out.write("\t\t\tcount++;\n\t\t}\n\n");
             out.write("\t\tif (count == field_num) {\n");
-            out.write("\t\t\treturn NEUTRALIZE(select->record.value + calculateOffset(select->table_id, field-1), int);\n");
+            out.write("\t\t\treturn NEUTRALIZE(select->value + calculateOffset(select->table_id, field-1), int);\n");
             out.write("\t\t}\n\t}\n\n\treturn 0;\n}\n\n");
 
             function_headers.add("iinq_result_set iinq_select(int id, char *name, ion_key_type_t key_type, size_t key_size, size_t value_size, int num_wheres, int num_fields, int num, ...);\n");
@@ -2111,8 +2194,10 @@ public class IinqExecute {
             out.write("\tion_dictionary_handler_t   handler;\n\n");
 
             out.write("\tdictionary.handler = &handler;\n\n");
-            out.write("\terror              = iinq_open_source(table_name, &dictionary, &handler);");
-            print_error(out);
+            out.write("\terror              = iinq_open_source(table_name, &dictionary, &handler);\n\n");
+            out.write("\tif (err_ok != error) {\n");
+            out.write("\t\tprintf(\"Error occurred. Error code: %i"+"\\"+"n"+"\", error);\n");
+            out.write("\t}\n\n");
 
             out.write("\tion_predicate_t predicate;\n");
             out.write("\tdictionary_build_predicate(&predicate, predicate_all_records);\n\n");
@@ -2124,19 +2209,23 @@ public class IinqExecute {
             out.write("\tion_record.value   = malloc(value_size);\n\n");
 
             out.write("\tion_cursor_status_t status;\n\n");
-            out.write("\terror = iinq_create_source(\"DEL.inq\", key_type, (ion_key_size_t) key_size, (ion_value_size_t) sizeof(int));");
-            print_error(out);
+            out.write("\terror = iinq_create_source(\"DEL.inq\", key_type, (ion_key_size_t) key_size, (ion_value_size_t) sizeof(int));\n\n");
+            out.write("\tif (err_ok != error) {\n");
+            out.write("\t\tprintf(\"Error occurred. Error code: %i"+"\\"+"n"+"\", error);\n");
+            out.write("\t}\n\n");
             out.write("\tion_dictionary_t           dictionary_temp;\n");
             out.write("\tion_dictionary_handler_t   handler_temp;\n\n");
 
             out.write("\tdictionary_temp.handler = &handler_temp;\n\n");
-            out.write("\terror              = iinq_open_source(\"DEL.inq\", &dictionary_temp, &handler_temp);");
-            print_error(out);
+            out.write("\terror              = iinq_open_source(\"DEL.inq\", &dictionary_temp, &handler_temp);\n\n");
+            out.write("\tif (err_ok != error) {\n");
+            out.write("\t\tprintf(\"Error occurred. Error code: %i"+"\\"+"n"+"\", error);\n");
+            out.write("\t}\n\n");
             out.write("\tion_boolean_t condition_satisfied;\n\n");
 
             out.write("\twhile ((status = iinq_next_record(cursor, &ion_record)) == cs_cursor_initialized || status == cs_cursor_active) {\n");
             out.write("\t\tcondition_satisfied = where(table_id, &ion_record, num_fields, &valist);\n\n");
-            out.write("\t\tif (condition_satisfied) {\n");
+            out.write("\t\tif (!condition_satisfied || num_fields == 0) {\n");
             out.write("\t\t\terror = dictionary_insert(&dictionary_temp, ion_record.key, IONIZE(0, int)).error;\n\n");
             out.write("\t\t\tif (err_ok != error) {\n");
             out.write("\t\t\tprintf(\"Error occurred. Error code: %i"+"\\"+"n"+"\", error);\n\t\t\t}\n");
@@ -2156,8 +2245,15 @@ public class IinqExecute {
 
             out.write("\tcursor_temp->destroy(&cursor_temp);\n");
             out.write("\tprint_table_cats(&dictionary);\n\n");
-            out.write("\terror = iinq_drop(\"DEL.inq\");");
-            print_error(out);
+            out.write("\terror = ion_close_dictionary(&dictionary);\n\n");
+            out.write("\tif (err_ok != error) {\n");
+            out.write("\t\tprintf(\"Error occurred. Error code: %i"+"\\"+"n"+"\", error);\n");
+            out.write("\t}\n\n");
+            out.write("\terror = dictionary_delete_dictionary(&dictionary_temp);\n\n");
+            out.write("\tif (err_ok != error) {\n");
+            out.write("\t\tprintf(\"Error occurred. Error code: %i"+"\\"+"n"+"\", error);\n");
+            out.write("\t}\n\n");
+            out.write("\tfremove(\"DEL.inq\");\n");
             out.write("\tfree(table_id);\n");
             out.write("\tfree(table_name);\n");
             out.write("\tfree(ion_record.key);\n");
