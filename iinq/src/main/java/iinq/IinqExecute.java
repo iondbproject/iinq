@@ -2,8 +2,7 @@
 /**
  @file		    IinqExecute.java
  @author		Dana Klamut
- @see		For more information, refer to dictionary.h.
- @copyright	Copyright 2017
+ @copyright	    Copyright 2018
  The University of British Columbia,
  IonDB Project Contributors (see AUTHORS.md)
  @par Redistribution and use in source and binary forms, with or without
