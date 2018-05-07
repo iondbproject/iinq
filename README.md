@@ -6,3 +6,11 @@ You might also be interested in our sister projects, [IonDB - a key-value datast
 # "What is this?"
 
 IINQ is an SQL Query Processor which utilizes the capabilities and performance of IonDB.
+
+
+# "How to use with IonDB?"
+
+Specify the input and output files/directory for Iinq as JVM options:
+```
+-DUSER_FILE="../../iondb/src/iinq/iinq_interface/iinq_user.c" -DFUNCTION_FILE="../../iondb/src/iinq/iinq_interface/iinq_user_functions.c" -DFUNCTION_HEADER_FILE="../../iondb/src/iinq/iinq_interface/iinq_user_functions.h" -DDIRECTORY="../../iondb/src/iinq/iinq_interface/"
+```
