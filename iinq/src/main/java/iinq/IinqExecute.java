@@ -55,10 +55,10 @@ public class IinqExecute {
     private static int table_id_count = 0;
     private static int tables_count = 0;
 
-    private static String user_file = "/Users/danaklamut/ClionProjects/iondb/src/iinq/iinq_interface/iinq_user.c";
-    private static String function_file = "/Users/danaklamut/ClionProjects/iondb/src/iinq/iinq_interface/iinq_user_functions.c";
-    private static String function_header_file = "/Users/danaklamut/ClionProjects/iondb/src/iinq/iinq_interface/iinq_user_functions.h";
-    private static String directory = "/Users/danaklamut/ClionProjects/iondb/src/iinq/iinq_interface/";
+    private static String user_file; /**< Path to iinq_user.c source file. */
+    private static String function_file; /**< Path to iinq_user_functions.c source file. */
+    private static String function_header_file; /**< Path to iinq_user_functions.h source file. */
+    private static String directory; /**< Path to directory to output UnityJDBC schema files. */
 
     private static boolean print_written    = false;
     private static boolean param_written    = false;
@@ -85,14 +85,29 @@ public class IinqExecute {
 
 	private static ArrayList<String> xml_schemas = new ArrayList<>();
 
-	private static Connection con = null;
-	private static GlobalSchema metadata = null;
-	private static String url = "jdbc:unity://data/xspec/iinq_sources.xml";
+	private static Connection con = null; /**< Connection for UnityJDBC. */
+	private static GlobalSchema metadata = null; /**< Metadata object for Iinq tables */
+	private static String url = null; /**< Url to use for UnityJDBC connection */
 
     public static void main(String args[]) throws IOException, SQLFeatureNotSupportedException, RelationNotFoundException, InvalidArgumentException {
 
         FileInputStream in = null;
         FileOutputStream out = null;
+
+        /* Get file names and directories passed in as JVM options */
+        user_file = System.getProperty("USER_FILE");
+        function_file = System.getProperty("FUNCTION_FILE");
+        function_header_file = System.getProperty("FUNCTION_HEADER_FILE");
+        directory = System.getProperty("DIRECTORY");
+
+        if (user_file == null || function_file == null || function_header_file == null || directory == null) {
+			System.err.println("Missing JVM options: USER_FILE, FUNCTION_FILE, FUNCTION_HEADER_FILE, and DIRECTORY " +
+					"are all required.\nExiting Iinq.");
+			System.exit(-1);
+		}
+
+		url = "jdbc:unity://" + directory + "iinq_sources.xml";
+
 
         try {
             in = new FileInputStream(user_file);
