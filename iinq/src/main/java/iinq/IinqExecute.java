@@ -1,8 +1,9 @@
 /******************************************************************************/
 /**
- @file		    IinqExecute.java
- @author		Dana Klamut
- @copyright	    Copyright 2018
+ @file IinqExecute.java
+ @author Dana Klamut, Kai Neubauer
+ @see        For more information, refer to dictionary.h.
+ @copyright Copyright 2018
  The University of British Columbia,
  IonDB Project Contributors (see AUTHORS.md)
  @par Redistribution and use in source and binary forms, with or without
@@ -34,8 +35,20 @@
 /******************************************************************************/
 
 package iinq;
+
+import com.sun.javaws.exceptions.InvalidArgumentException;
+import unity.annotation.*;
+import unity.jdbc.UnityConnection;
+
+import javax.management.relation.RelationNotFoundException;
 import java.io.*;
 import java.util.ArrayList;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.SQLFeatureNotSupportedException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Iterator;
 
 public class IinqExecute {
 
@@ -70,7 +83,13 @@ public class IinqExecute {
     private static boolean new_table;
     private static String written_table;
 
-    public static void main(String args[]) throws IOException {
+	private static ArrayList<String> xml_schemas = new ArrayList<>();
+
+	private static Connection con = null;
+	private static GlobalSchema metadata = null;
+	private static String url = "jdbc:unity://data/xspec/iinq_sources.xml";
+
+    public static void main(String args[]) throws IOException, SQLFeatureNotSupportedException, RelationNotFoundException, InvalidArgumentException {
 
         FileInputStream in = null;
         FileOutputStream out = null;
@@ -83,11 +102,11 @@ public class IinqExecute {
             output_file.createNewFile();
             out = new FileOutputStream(output_file, false);
 
-            BufferedReader buff_in = new BufferedReader(new InputStreamReader(in));
-            BufferedWriter buff_out = new BufferedWriter(new OutputStreamWriter(out));
+			BufferedReader buff_in = new BufferedReader(new InputStreamReader(in));
+			BufferedWriter buff_out = new BufferedWriter(new OutputStreamWriter(out));
 
-            String sql;
-            buff_out.write("#include \"iinq_user_functions.h\"\n\n");
+			String sql;
+			buff_out.write("#include \"iinq_user_functions.h\"\n\n");
 
             main_setup();
 
@@ -140,17 +159,18 @@ public class IinqExecute {
             select_setup();
             drop_setup();
             function_close();
-        }
 
-        finally {
-            if (null != in) {
-                in.close();
-            }
-            if (null != out) {
-                out.close();
-            }
-        }
-    }
+
+			create_xml_source();
+		} finally {
+			if (null != in) {
+				in.close();
+			}
+			if (null != out) {
+				out.close();
+			}
+		}
+	}
 
     private static void
     main_setup() throws IOException {
@@ -158,75 +178,74 @@ public class IinqExecute {
         String path = user_file;
         BufferedReader file = new BufferedReader(new FileReader(path));
 
-        String contents = "";
-        String line;
+		String contents = "";
+		String line;
 
-        while(null != (line = file.readLine())) {
-            if ((line.contains("create_table") || line.contains("insert")
-                    || line.contains("update") || line.contains("delete")
-                    || line.contains("drop_table")) && !line.contains("/*")) {
-                contents += "/* "+line + " */\n";
-            }
+		while (null != (line = file.readLine())) {
+			if ((line.contains("create_table") || line.contains("insert")
+					|| line.contains("update") || line.contains("delete")
+					|| line.contains("drop_table")) && !line.contains("/*")) {
+				contents += "/* " + line + " */\n";
+			} else {
+				contents += line + '\n';
+			}
+		}
 
-            else {
-                contents += line + '\n';
-            }
-        }
+		File ex_output_file = new File(path);
+		FileOutputStream out = new FileOutputStream(ex_output_file, false);
 
-        File ex_output_file = new File(path);
-        FileOutputStream out = new FileOutputStream(ex_output_file, false);
+		out.write(contents.getBytes());
 
-        out.write(contents.getBytes());
+		file.close();
+		out.close();
+	}
 
-        file.close();
-        out.close();
-    }
+	private static int
+	ion_switch_key_type(
+			String key_type
+	) {
+		key_type = key_type.toUpperCase();
 
-    private static int
-    ion_switch_key_type(
-        String key_type
-    ) {
-        key_type = key_type.toUpperCase();
+		if (key_type.contains("CHAR")) {
+			return 1;
+		}
 
-        if (key_type.contains("CHAR")) {
-            return 2;
-        }
+		if (key_type.contains("VARCHAR")) {
+			return 12;
+		}
 
-        if (key_type.contains("VARCHAR")) {
-            return 3;
-        }
+		if (key_type.contains("INT")) {
+			return 4;
+		}
 
-        if (key_type.contains("INT")) {
-            return 0;
-        }
+		if (key_type.contains("DECIMAL")) {
+			return 3;
+		}
 
-        return 2;
-    }
+		return 2;
+	}
 
-    private static String
-    ion_switch_key_size(
-        int key_type
-    ) {
-        switch (key_type) {
-            case 0 : {
-                return "sizeof(int)";
-            }
+	private static String
+	ion_switch_key_size(
+			int key_type
+	) {
+		switch (key_type) {
+			case 4:  { // INT
+				return "sizeof(int)";
+			}
 
-            case 1 : {
-                return "sizeof(int)";
-            }
+			case 1: // CHAR
+			case 12: { // VARCHAR
+				return "20";
+			}
 
-            case 2 : {
-                return "20";
-            }
+			case 3: { // DECIMAL
+				return "sizeof(double)";
+			}
+		}
 
-            case 3 : {
-                return "20";
-            }
-        }
-
-        return "20";
-    }
+		return "20";
+	}
 
     private static String
     ion_switch_value_size(
@@ -278,26 +297,26 @@ public class IinqExecute {
                 "#include \"../../dictionary/dictionary.h\"\n" +
                 "#include \"../iinq.h\"\n" + "#include \"iinq_functions.h\"\n\n";
 
-        out.write(contents.getBytes());
-    }
+		out.write(contents.getBytes());
+	}
 
-    private static void
-    print_table (BufferedWriter out, String table_name) throws IOException {
-        out.write("void print_table_"+table_name.substring(0, table_name.length() - 4).toLowerCase()+"(ion_dictionary_t *dictionary) {\n");
-        out.write("\n\tion_predicate_t predicate;\n");
-        out.write("\tdictionary_build_predicate(&predicate, predicate_all_records);\n\n");
-        out.write("\tion_dict_cursor_t *cursor = NULL;\n");
-        out.write("\tdictionary_find(dictionary, &predicate, &cursor);\n\n");
-        out.write("\tion_record_t ion_record;\n");
-        out.write("\tion_record.key		= malloc("+get_schema_value(table_name, "PRIMARY KEY SIZE: ")+");\n");
-        out.write("\tion_record.value	= malloc("+get_schema_value(table_name, "VALUE SIZE: ")+");\n\n");
-        out.write("\tprintf(\"Table: "+table_name.substring(0, table_name.length() - 4)+"\\"+"n"+"\");\n");
+	private static void
+	print_table(BufferedWriter out, String table_name) throws IOException, InvalidArgumentException, RelationNotFoundException, SQLFeatureNotSupportedException {
+		out.write("void print_table_" + table_name.substring(0, table_name.length() - 4).toLowerCase() + "(ion_dictionary_t *dictionary) {\n");
+		out.write("\n\tion_predicate_t predicate;\n");
+		out.write("\tdictionary_build_predicate(&predicate, predicate_all_records);\n\n");
+		out.write("\tion_dict_cursor_t *cursor = NULL;\n");
+		out.write("\tdictionary_find(dictionary, &predicate, &cursor);\n\n");
+		out.write("\tion_record_t ion_record;\n");
+		out.write("\tion_record.key		= malloc(" + get_schema_value(table_name, "PRIMARY KEY SIZE") + ");\n");
+		out.write("\tion_record.value	= malloc(" + get_schema_value(table_name, "VALUE SIZE") + ");\n\n");
+		out.write("\tprintf(\"Table: " + table_name + "\\" + "n" + "\");\n");
 
-        for (int j = 0; j < Integer.parseInt(get_schema_value(table_name, "NUMBER OF FIELDS: ")); j++) {
-            out.write("\tprintf(\""+get_schema_value(table_name, "FIELD"+j+" NAME: ")+"\t\");\n");
-        }
+		for (int j = 0; j < Integer.parseInt(get_schema_value(table_name, "NUMBER OF FIELDS")); j++) {
+			out.write("\tprintf(\"" + get_schema_value(table_name, "FIELD" + j + " NAME") + "\t\");\n");
+		}
 
-        out.write("\tprintf(\""+"\\"+"n"+"***************************************"+"\\"+"n"+"\");\n\n");
+		out.write("\tprintf(\"" + "\\" + "n" + "***************************************" + "\\" + "n" + "\");\n\n");
 
         out.write("\tion_cursor_status_t cursor_status;\n");
         out.write("\tunsigned char *value;\n\n");
@@ -332,10 +351,10 @@ public class IinqExecute {
         out.write("\n\t}\n");
         out.write("\n\tprintf(\""+"\\"+"n"+"\");\n\n");
 
-        out.write("\tcursor->destroy(&cursor);\n");
-        out.write("\tfree(ion_record.key);\n");
-        out.write("\tfree(ion_record.value);\n}\n\n");
-    }
+		out.write("\tcursor->destroy(&cursor);\n");
+		out.write("\tfree(ion_record.key);\n");
+		out.write("\tfree(ion_record.value);\n}\n\n");
+	}
 
     private static void
     write_headers () throws IOException {
@@ -345,14 +364,14 @@ public class IinqExecute {
         /* Create schema table header file */
         String contents = "";
 
-        File output_file = new File(header_path);
+		File output_file = new File(header_path);
 
         /* Create header file if it does not previously exist*/
-        if (!output_file.exists()) {
-            output_file.createNewFile();
-        }
+		if (!output_file.exists()) {
+			output_file.createNewFile();
+		}
 
-        FileOutputStream header = new FileOutputStream(output_file, false);
+		FileOutputStream header = new FileOutputStream(output_file, false);
 
         print_top_header(header);
 
@@ -690,18 +709,40 @@ public class IinqExecute {
             }
         }
 
-        File ex_output_file = new File(ex_path);
-        FileOutputStream ex_out = new FileOutputStream(ex_output_file, false);
+		File ex_output_file = new File(ex_path);
+		FileOutputStream ex_out = new FileOutputStream(ex_output_file, false);
 
-        ex_out.write(contents.getBytes());
+		ex_out.write(contents.getBytes());
 
-        ex_file.close();
-        ex_out.close();
-    }
+		ex_file.close();
+		ex_out.close();
+	}
 
-    private static String
-    get_schema_value (String table_name, String keyword) throws IOException {
-        String line;
+	private static void getConnection(String url) {
+		try {
+			Class.forName("unity.jdbc.UnityDriver");
+			con = DriverManager.getConnection(url);
+			metadata = ((UnityConnection) con).getGlobalSchema();
+			ArrayList<SourceDatabase> databases = metadata.getAnnotatedDatabases();
+			if (null == databases) {
+				System.out.println("\nNo databases have been detected.");
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		} finally {
+			try {
+				if (null != con) {
+					con.close();
+				}
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+		}
+	}
+
+	private static String
+	get_schema_value(String table_name, String keyword) throws IOException, RelationNotFoundException, InvalidArgumentException, SQLFeatureNotSupportedException {
+		String line;
 
         String path = directory+table_name.substring(0, table_name.length() - 4).toLowerCase()+".xml";
         BufferedReader file = new BufferedReader(new FileReader(path));
@@ -712,116 +753,267 @@ public class IinqExecute {
                 break;
             }
         }
+		getConnection(IinqExecute.url);
+		ArrayList<SourceDatabase> databases = metadata.getAnnotatedDatabases();
+		SourceTable table = null;
+		for (SourceDatabase database : databases) {
+			if ((table = database.getTable(table_name.toLowerCase())) != null) {
+				break;
+			}
+		}
+		if (null == table) {
+			throw new RelationNotFoundException();
+		}
 
-        file.close();
+		switch (keyword) {
+			case "PRIMARY KEY TYPE": {
+				return Integer.toString(table.getField(table.getPrimaryKey().getFieldList()).getDataType());
+			}
+			case "PRIMARY KEY FIELD": {
+				return table.getField(table.getPrimaryKey().getFieldList()).getColumnName();
+			}
+			case "PRIMARY KEY SIZE": {
+				switch (table.getField(table.getPrimaryKey().getFieldList()).getDataType()) {
+					case 1: // CHAR
+					case 12: // VARCHAR
+						return String.format("sizeof(char) * %d",table.getField(table.getPrimaryKey().getFieldList()).getColumnSize());
+					case 4: // int
+						return "sizeof(int)";
+				}
+			}
+			case "NUMBER OF RECORDS": {
+				return Integer.toString(table.getNumTuples());
+			}
+			case "VALUE SIZE": {
+				ArrayList<SourceField> fields = table.getSourceFieldsByPosition();
+				int num_fields = table.getNumFields();
+				StringBuilder returnValue = new StringBuilder();
+				// Skip the first field which is part of the key
+				for (int i = 1; i < num_fields; i++) {
+					if (i > 0) {
+						returnValue.append(" + ");
+					}
+					returnValue.append(get_field_size(fields.get(i)));
+				}
+				return returnValue.toString();
+			}
+			case "NUMBER OF FIELDS": {
+				return Integer.toString(table.getNumFields());
+			}
+			default: {
+				if (keyword.matches("(FIELD)\\d*\\s(NAME)")) {
+					int field_index = Integer.parseInt(keyword.substring(5, keyword.indexOf(" ")));
+					return table.getSourceFieldsByPosition().get(field_index).getColumnName();
+				} else if (keyword.matches("(FIELD)\\d*\\s(TYPE)")) {
+					int field_index = Integer.parseInt(keyword.substring(5, keyword.indexOf(" ")));
+					return Integer.toString(table.getSourceFieldsByPosition().get(field_index).getDataType());
+				} else {
+					throw new InvalidArgumentException(new String[]{String.format("%s is not a valid keyword.", keyword)});
+				}
+			}
+		}
 
-        if (null != line) {
-            if (line.contains(":")) {
-                line = line.substring(line.indexOf(":") + 2);
-            }
-        }
+	}
 
-        return line;
-    }
+	private static String get_field_size(SourceField field) throws SQLFeatureNotSupportedException {
+		switch (field.getDataType()) {
+			case 1: // CHAR
+			case 12: // VARCHAR
+				return String.format("sizeof(char) * %d", field.getColumnSize());
+			case 3: // DECIMAL
+				return "sizeof(double)";
+			case 4: // INT
+				return "sizeof(int)";
+			default:
+				throw new SQLFeatureNotSupportedException(String.format("Data type not supported: %s", field.getDataTypeName()));
+		}
+	}
 
     private static String[]
     get_fields(String statement, int num_fields) {
 
-        String[] fields = new String[num_fields];
+		String[] fields = new String[num_fields];
 
-        int pos = 0;
-        String field;
+		int pos = 0;
+		String field;
 
-        for (int j = 0; j < num_fields; j++) {
-            pos = statement.indexOf(",");
+		for (int j = 0; j < num_fields; j++) {
+			pos = statement.indexOf(",");
 
-            if (-1 != pos) {
-                field = statement.substring(0, pos);
+			if (-1 != pos) {
+				field = statement.substring(0, pos);
 
-                statement = statement.substring(pos + 2);
+				statement = statement.substring(pos + 2);
 
-                fields[j] = field;
-            }
+				fields[j] = field;
+			} else {
+				fields[j] = statement;
+			}
+		}
 
-            else {
-                fields[j] = statement;
-            }
-        }
+		return fields;
+	}
 
-        return fields;
-    }
+	private static void
+	create_xml_source() throws IOException {
+		File source_xml = new File("data/xspec/iinq_sources.xml");
+		FileOutputStream schema_out = new FileOutputStream(source_xml, false);
+		StringBuilder databases = new StringBuilder("<SOURCES>\n");
 
-    private static void
-    create_table(String sql, BufferedWriter out) throws IOException {
-        System.out.println("create statement");
+		Iterator<String> it = xml_schemas.iterator();
+		while (it.hasNext()) {
+			databases.append(String.format("\t<DATABASE>\n" +
+					"\t\t<URL>jdbc:hsqldb:hsql://localhost/tpch</URL>\n" +
+					"\t\t<USER>sa</USER>\n" +
+					"\t\t<PASSWORD></PASSWORD>\n" +
+					"\t\t<DRIVER>org.hsqldb.jdbcDriver</DRIVER>\n" +
+					"\t\t<SCHEMA>%s</SCHEMA>\n" +
+					"\t</DATABASE>\n", it.next()));
+		}
+
+		databases.append("</SOURCES>");
+		System.out.println("Source XML:");
+		System.out.println(databases.toString());
+
+		schema_out.write(databases.toString().getBytes());
+	}
+
+	private static String
+	create_schema_variable(String database_name, String table_name) throws RelationNotFoundException, IOException, InvalidArgumentException, SQLFeatureNotSupportedException {
+		StringBuilder schema = new StringBuilder("(iinq_schema_t[]) {TABLE_SCHEMA(");
+		int num_fields = Integer.parseInt(get_schema_value(table_name, "NUMBER OF FIELDS"));
+
+		schema.append(num_fields);
+		schema.append(",\nTABLE_FIELD_TYPES(");
+		for (int i = 0; i < num_fields; i++) {
+			if (i > 0) {
+				schema.append(", ");
+			}
+			switch (Integer.parseInt(get_schema_value(table_name, "FIELD" + i + " TYPE"))) {
+				case 1:
+				case 12:
+					schema.append("IINQ_STRING");
+					break;
+				case 3:
+					schema.append("IINQ_DOUBLE");
+					break;
+				case 4:
+					schema.append("IINQ_INT");
+					break;
+			}
+		}
+		schema.append("),\n TABLE_FIELD_SIZES(");
+		for (int i = 0; i < num_fields; i++) {
+			if (i > 0) {
+				schema.append(", ");
+			}
+			schema.append(get_field_size(metadata.getTable(database_name, table_name).getSourceFieldsByPosition().get(i)));
+		}
+		schema.append("),\nTABLE_FIELD_NAMES(");
+		for (int i = 0; i < num_fields; i++) {
+			if (i > 0) {
+				schema.append(", ");
+			}
+			schema.append(String.format("\"%s\"", get_schema_value(table_name, "FIELD" + i + " NAME")));
+		}
+		schema.append("))}");
+		return schema.toString();
+	}
+
+	private static void
+	create_table(String sql, BufferedWriter out) throws IOException, SQLFeatureNotSupportedException, InvalidArgumentException, RelationNotFoundException {
+		System.out.println("create statement");
 
         sql = sql.trim();
         sql = sql.substring(26);
 
-        String table_name = (sql.substring(0, sql.indexOf(" ")))+".inq";
+		String table_name = (sql.substring(0, sql.indexOf(" ")));
+		System.out.println(table_name + ".inq");
 
-        sql = sql.substring(sql.indexOf(" ") + 2);
+		sql = sql.substring(sql.indexOf(" ") + 2);
 
-        int num_fields = 0;
-        int i = 0;
+		int num_fields = 0;
+		int i = 0;
 
         /* Calculate number of fields in table */
-        while (-1 != i) {
-            num_fields++;
-            i = sql.indexOf(",", i + 1);
-        }
+		while (-1 != i) {
+			num_fields++;
+			i = sql.indexOf(",", i + 1);
+		}
 
-        int pos;
-        String field;
-        int key_type = 2;
-        String field_name;
-        String field_type;
+		int key_type, pos;
+		String field;
+		String field_name;
+		String field_type;
 
-        String[] field_names = new String[num_fields];
-        String[] field_types = new String[num_fields];
+		String[] field_names = new String[num_fields];
+		int[] field_types = new int[num_fields];
+		String[] field_type_names = new String[num_fields];
+		int[] field_sizes = new int[num_fields];
 
 	    /* Set up attribute names and types */
-        for (int j = 0; j < num_fields - 1; j++) {
-            pos = sql.indexOf(",");
+		for (int j = 0; j < num_fields - 1; j++) {
+			pos = sql.indexOf(",");
 
-            field = sql.substring(0, pos);
+			field = sql.substring(0, pos);
 
-            sql = sql.substring(pos + 2);
+			sql = sql.substring(pos + 2);
 
-            pos = field.indexOf(" ");
+			pos = field.indexOf(" ");
 
-            field_name = field.substring(0, pos);
-            field_type = field.substring(pos + 1, field.length());
+			field_name = field.substring(0, pos);
+			field_type = field.substring(pos + 1, field.length());
 
             key_type = ion_switch_key_type(field_type);
 
-            field_names[j] = field_name;
-            field_types[j] = field_type;
-        }
+			field_names[j] = field_name;
+			field_types[j] = key_type;
+			if (field_type.contains("[")) {
+				field_type_names[j] = field_type.substring(0, field_type.indexOf("["));
+			} else {
+				field_type_names[j] = field_type;
+			}
+			switch (field_type_names[j]) {
+				case "CHAR":
+				case "VARCHAR":
+					field_sizes[j] = Integer.parseInt(field_type.substring(field_type.indexOf("[") + 1, field_type.indexOf("]")));
+					break;
+				case "INTEGER":
+				case "INT":
+					field_sizes[j] = 4;
+					break;
+				case "DECIMAL":
+					field_sizes[j] = 8;
+					break;
+				default:
+					throw new SQLFeatureNotSupportedException("Unsupported data type: " + field_type_names[j]);
+			}
+
+		}
 
         /* Table set-up */
 
-        pos = sql.indexOf("(");
-        int pos2 = sql.indexOf(")");
+		pos = sql.indexOf("(");
+		int pos2 = sql.indexOf(")");
 
-        String primary_key;
+		String primary_key;
 
-        primary_key = sql.substring(pos + 1, pos2);
+		primary_key = sql.substring(pos + 1, pos2);
 
 	    /* Set up table for primary key */
 
-        String	primary_key_size;
-        int primary_key_field_num = -1;
-        int	    primary_key_type = 0;
+		String primary_key_size;
+		int primary_key_field_num = -1;
+		int primary_key_type = 0;
 
-        for (int j = 0; j < num_fields - 1; j++) {
+		for (int j = 0; j < num_fields - 1; j++) {
 		/* Primary key attribute information found */
-		    if (primary_key.equals(field_names[j])) {
-		        primary_key_type = ion_switch_key_type(field_types[j]);
-		        primary_key_field_num = j;
-		        break;
-            }
-        }
+			if (primary_key.equals(field_names[j])) {
+				primary_key_type = field_types[j];
+				primary_key_field_num = j;
+				break;
+			}
+		}
 
         primary_key_size = ion_switch_key_size(primary_key_type);
 
@@ -832,7 +1024,7 @@ public class IinqExecute {
         int char_multiplier = 0;
 
         for (int j = 0; j < num_fields - 1; j++) {
-            value_size = ion_switch_value_size(field_types[j]);
+            value_size = ion_switch_value_size(field_type_names[j]);
             if (value_size.contains("char")) {
                 char_multiplier += Integer.parseInt(value_size.substring(value_size.indexOf("*") + 1).trim());
                 char_present = true;
@@ -859,73 +1051,121 @@ public class IinqExecute {
 
         String ion_key = "";
 
-        if (key_type == 0) {
+        // TODO: add signed integer
+        if (primary_key_type == 4) {
             ion_key = "key_type_numeric_unsigned";
         }
-        else if (key_type == 2) {
+        else if (primary_key_type == 1 || primary_key_type == 12) {
             ion_key = "key_type_char_array";
         }
 
-        String schema_name = table_name.substring(0, table_name.length() - 4).toLowerCase().concat(".xml");
+		String schema_name = table_name.toLowerCase().concat(".xml");
 
         /* Set up schema XML file */
-        String contents = "";
+		String contents = "";
 
-        contents += "<?xml version=\"1.0\" ?>";
-        contents += "\n<schema>";
-        contents += "\n\t<table_name>";
-        contents += "\n\t\tTABLE NAME: "+table_name;
-        contents += "\n\t</table_name>";
-        contents += "\n\t<primary_key_type>";
-        contents += "\n\t\tPRIMARY KEY TYPE: "+primary_key_type;
-        contents += "\n\t</primary_key_type>";
-        contents += "\n\t<ion_key_type>";
-        contents += "\n\t\tION KEY TYPE: "+ion_key;
-        contents += "\n\t</ion_key_type>";
-        contents += "\n\t<primary_key_size>";
-        contents += "\n\t\tPRIMARY KEY SIZE: "+primary_key_size;
-        contents += "\n\t</primary_key_size>";
-        contents += "\n\t<value_size>";
-        contents += "\n\t\tVALUE SIZE: "+value_calculation;
-        contents += "\n\t</value_size>";
-        contents += "\n\t<num_fields>";
-        contents += "\n\t\tNUMBER OF FIELDS: "+(num_fields - 1);
-        contents += "\n\t</num_fields>";
-        contents += "\n\t<num_records>";
-        contents += "\n\t\t\t\tNUMBER OF RECORDS: 0";
-        contents += "\n\t</num_records>";
-        contents += "\n\t<primary_key_field>";
-        contents += "\n\t\tPRIMARY KEY FIELD: "+primary_key_field_num;
-        contents += "\n\t</primary_key_field>";
-        contents += "\n\t<fields>";
+		// TODO: move this into function to allow more than one table to be created
+		// TODO: use DOM parser
+		contents += "<?xml version=\"1.0\" ?>";
+		contents += "\n<XSPEC xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:noNamespaceSchemaLocation=\"xspec.xsd\">";
+		contents += "\n\t<semanticDatabaseName></semanticDatabaseName>";
+		contents += "\n\t<databaseName>createTable</databaseName>";
+		contents += "\n\t<databaseSystemName></databaseSystemName>";
+		contents += "\n\t<databaseId>1</databaseId>";
+		contents += "\n\t<databaseProductName>HSQL Database Engine</databaseProductName>";
+		contents += "\n\t<databaseProductVersion>2.2.0</databaseProductVersion>";
+		contents += "\n\t<urlJDBC>jdbc:hsqldb:hsql://localhost/tpch</urlJDBC>";
+		contents += "\n\t<userid>sa</userid>";
+		contents += "\n\t<driverName>HSQL Database Engine Driver</driverName>";
+		contents += "\n\t<delimitId>\"</delimitId>";
+		contents += "\n";
+		contents += "\n\t\t<TABLE>";
+		contents += "\n\t\t\t<semanticTableName>createTable." + table_name + "</semanticTableName>";
+		contents += "\n\t\t\t<tableName>" + table_name + "</tableName>";
+		contents += "\n\t\t\t<schemaName></schemaName>";
+		contents += "\n\t\t\t<catalogName></catalogName>";
+		contents += "\n\t\t\t<comment></comment>";
+		contents += "\n\t\t\t<numTuples>0</numTuples>";
+		contents += "\n";
 
-        for (int j = 0; j < num_fields - 1; j++) {
-            contents += "\n\t\t<field>";
-            contents += "\n\t\t\t<field_name>";
-            contents += "\n\t\t\t\tFIELD"+j+" NAME: "+field_names[j];
-            contents += "\n\t\t\t</field_name>";
-            contents += "\n\t\t\t<field_type>";
-            contents += "\n\t\t\t\tFIELD"+j+" TYPE: "+field_types[j];
-            contents += "\n\t\t\t</field_type>";
-            contents += "\n\t\t</field>";
-        }
+		for (int j = 0; j < num_fields - 1; j++) {
+			contents += "\n\t\t<FIELD>";
+			contents += "\n\t\t\t<semanticFieldName>" + table_name + "." + field_names[j] + "</semanticFieldName>";
+			contents += "\n\t\t\t<fieldName>" + field_names[j] + "</fieldName>";
+			contents += "\n\t\t\t<dataType>" + field_types[j] + "</dataType>";
+			contents += "\n\t\t\t<dataTypeName>" + field_type_names[j] + "</dataTypeName>";
+			contents += "\n\t\t\t<fieldSize>" + field_sizes[j] + "</fieldSize>";
+			contents += "\n\t\t\t<decimalDigits>0</decimalDigits>";
+			contents += "\n\t\t\t<numberRadixPrecision>0</numberRadixPrecision>";
+			contents += "\n\t\t\t<remarks></remarks>";
+			contents += "\n\t\t\t<defaultValue></defaultValue>";
+			contents += "\n\t\t\t<characterOctetLength>88</characterOctetLength>";
+			contents += "\n\t\t\t<ordinalPosition>" + j + 1 + "</ordinalPosition>";
+			contents += "\n\t\t\t<isNullable>NO</isNullable>";
+			contents += "\n\t\t\t<numDistinctValues>0</numDistinctValues>";
+			contents += "\n\t\t</FIELD>";
+			contents += "\n";
+		}
 
-        contents += "\n\t</fields>";
-        contents += "\n</schema>";
+		contents += "\n\t\t<PRIMARYKEY>";
+		contents += "\n\t\t\t<keyScope>0</keyScope>";
+		contents += "\n\t\t\t<keyScopeName></keyScopeName>";
+		// TODO: unique key names for additional tables
+		contents += "\n\t\t\t<keyName>SYS_IDX_1</keyName>";
+		contents += "\n\t\t\t<keyType>1</keyType>";
+		contents += "\n\t\t\t<FIELDS>";
+		contents += "\n\t\t\t<fieldName>" + primary_key + "</fieldName>";
+		contents += "\n\t\t\t</FIELDS>";
+		contents += "\n\t\t\t</PRIMARYKEY>";
+
+		contents += "\n</TABLE>";
+		contents += "\n</XSPEC>";
 
         File schema = new File(directory+schema_name);
         FileOutputStream schema_out = new FileOutputStream(schema, false);
 
-        schema_out.write(contents.getBytes());
+		schema_out.write(contents.getBytes());
 
-        schema_out.close();
+		schema_out.close();
+
+		xml_schemas.add(schema_name);
 
         /* Create print table method if it doesn't already exist */
-        if (!print_written) {
-            print_table(out, table_name);
-        }
+		if (!print_written) {
+			try {
+				/* Create the iinq_sources.xml file for UnityJDBC to get the table information (Will be overwritten when more tables are added */
+				create_xml_source();
+				print_table(out, table_name);
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+		}
 
-        print_written = true;
+		print_written = true;
+
+		/* Create CREATE TABLE method - (Schema in .inq file) */
+		/* out.write("void create_table" + create_count + "() {\n");
+		out.write("\tprintf(\"%s" + "\\" + "n" + "\\" + "n" + "\", \"" + statement.substring(statement.indexOf("(") + 2, statement.length() - 4) + "\");\n");
+		out.newLine();
+		out.write("\tion_err_t error;");
+		out.newLine();
+		String schema_variable = create_schema_variable("createTable" + create_count, table_name);
+		out.write("\n\terror = iinq_create_table(\"" + table_name + "\", " + primary_key_type + ", " + primary_key_size + ", " + value_size + ", " + schema_variable + ");");
+		print_error(out, false, 0);
+		out.write("\t");
+		out.newLine();
+		out.write("\tiinq_table_t table;");
+		out.newLine();
+		out.write("\terror = iinq_open_table(\"" + table_name + "\", &table);");
+		print_error(out, false, 0);
+		// TODO: fix all print_table_ function calls/definitions
+		//out.write("\tprint_table_" + table_name.substring(0, table_name.length() - 4).toLowerCase() + "(&dictionary);\n");
+		out.write("\terror = iinq_close_table(&table);");
+		print_error(out, false, 0);
+
+		out.write("}\n\n");
+
+		System.out.println("schema " + schema_name);*/
 
         /* Create CREATE TABLE method */
         if (!create_written) {
@@ -944,9 +1184,10 @@ public class IinqExecute {
         create_fields.add(new create_fields(table_name, ion_key, primary_key_size, value_calculation));
     }
 
-    private static void
-    insert(String sql, BufferedWriter out) throws IOException {
-        System.out.println("insert statement");
+    // TODO: convert to UnityJDBC
+	private static void
+	insert(String sql, BufferedWriter out) throws IOException, InvalidArgumentException, RelationNotFoundException, SQLFeatureNotSupportedException {
+		System.out.println("insert statement");
 
         sql = sql.trim();
 
@@ -955,23 +1196,30 @@ public class IinqExecute {
         String table_name = (sql.substring(0, sql.indexOf(" "))) + ".inq";
 
         /* Create print table method if it doesn't already exist */
-        if (!print_written) {
-            print_table(out, table_name);
-        }
+		if (!print_written) {
+			print_table(out, table_name);
+		}
 
-        print_written = true;
+		print_written = true;
 
         /* Write function to file */
 
+        /* Kai's code
+        out.write("void insert" + insert_count + "() {\n\n");
+		out.write("\tprintf(\"%s" + "\\" + "n" + "\\" + "n" + "\", \"" + statement.substring(statement.indexOf("(") + 2, statement.length() - 4) + "\");\n");
+		out.write("\tion_err_t error;\n" + "\tion_dictionary_t dictionary;\n" + "\tion_dictionary_handler_t handler;\n");
+		out.write("\tdictionary.handler = &handler;\n" + "\n\terror = iinq_open_source(\"" + table_name + "\", &dictionary, &handler);");
+		print_error(out, false, 0); */
+
         int pos = sql.indexOf("(");
 
-        sql = sql.substring(pos + 1);
+		sql = sql.substring(pos + 1);
 
         /* INSERT statement */
         String value = sql.substring(0, sql.length() - 5);
 
 	    /* Get key value from record to be inserted */
-        int count = 1;
+		int count = 1;
 
         /* Count number of fields */
         for (int i = 0; i < sql.length(); i++) {
@@ -1027,8 +1275,8 @@ public class IinqExecute {
             prepare_function += "iinq_prepared_sql insert_"+table_name_sub+"(";
         }
 
-        for (int j = 0; j < count; j++) {
-            pos = sql.indexOf(",");
+		for (int j = 0; j < count; j++) {
+			pos = sql.indexOf(",");
 
             if (-1 == pos) {
                 String temp = sql.substring(0, sql.lastIndexOf(")"));
@@ -1040,7 +1288,7 @@ public class IinqExecute {
                 return;
             }
 
-            fields[j] = sql.substring(0, pos);
+			fields[j] = sql.substring(0, pos);
 
             field_value = get_schema_value(table_name, "FIELD" + j + " TYPE: ");
             field_sizes.add(ion_switch_value_size(field_value));
@@ -1332,13 +1580,14 @@ public class IinqExecute {
         }
     }
 
-    private static void
-    update(String sql, BufferedWriter out) throws IOException {
-        System.out.println("update statement");
+	private static void
+	update(String sql, BufferedWriter out) throws IOException, InvalidArgumentException, RelationNotFoundException, SQLFeatureNotSupportedException {
+		System.out.println("update statement");
 
         sql = sql.trim();
         sql = sql.substring(20);
 
+        // TODO: simplify this
         String table_name = (sql.substring(0, sql.indexOf(" ")))+".inq";
         String table_name_sub = table_name.substring(0, table_name.length()-4);
 
@@ -1361,14 +1610,14 @@ public class IinqExecute {
             new_table = true;
         }
 
-        sql = sql.substring(table_name.length() + 1);
+		sql = sql.substring(table_name.length() + 1);
 
         /* Create print table method if it doesn't already exist */
-        if (!print_written) {
-            print_table(out, table_name);
-        }
+		if (!print_written) {
+			print_table(out, table_name);
+		}
 
-        print_written = true;
+		print_written = true;
 
         if (!update_written) {
             out.write("void update(int id, char *name, ion_key_type_t key_type, size_t key_size, size_t value_size, int num_wheres, int num_update, int num, ...) {\n\n");
@@ -1507,41 +1756,39 @@ public class IinqExecute {
         int i = -1;
 
         /* Get WHERE condition if it exists */
-        if (-1 != pos) {
-            where_condition = sql.substring(pos + 6, sql.length() - 4);
-            i = 0;
-        }
+		if (-1 != pos) {
+			where_condition = sql.substring(pos + 6, sql.length() - 4);
+			i = 0;
+		}
 
         /* Calculate number of WHERE conditions in statement */
 
-        while (-1 != i) {
-            num_conditions++;
-            i = where_condition.indexOf(",", i + 1);
-        }
+		while (-1 != i) {
+			num_conditions++;
+			i = where_condition.indexOf(",", i + 1);
+		}
 
-        String[] conditions;
+		String[] conditions;
 
-        conditions = get_fields(where_condition, num_conditions);
+		conditions = get_fields(where_condition, num_conditions);
 
         /* Get fields to update */
-        String update;
+		String update;
 
-        if (-1 != pos) {
-            update = sql.substring(0, pos);
-        }
+		if (-1 != pos) {
+			update = sql.substring(0, pos);
+		} else {
+			update = sql.substring(0, sql.length() - 4);
+		}
 
-        else {
-            update = sql.substring(0, sql.length() - 4);
-        }
-
-        int num_fields = 0;
-        i = 0;
+		int num_fields = 0;
+		i = 0;
 
         /* Calculate number of fields to update in statement */
-        while (-1 != i) {
-            num_fields++;
-            i = update.indexOf(",", i + 1);
-        }
+		while (-1 != i) {
+			num_fields++;
+			i = update.indexOf(",", i + 1);
+		}
 
         ArrayList<Integer> where_field      = new ArrayList<>(); /* Field value that is being used to update a field. */
         ArrayList<String> where_value       = new ArrayList<>(); /* Value that is being added to another field value to update a field. */
@@ -1611,7 +1858,7 @@ public class IinqExecute {
 
         String[] fields;
 
-        fields = get_fields(update, num_fields);
+		fields = get_fields(update, num_fields);
 
         String set_string;
         String update_field;
@@ -1692,7 +1939,7 @@ public class IinqExecute {
     }
 
     private static void
-    select(String sql, BufferedWriter out) throws IOException {
+    select(String sql, BufferedWriter out) throws IOException, SQLFeatureNotSupportedException, RelationNotFoundException, InvalidArgumentException {
         System.out.println("select statement");
 
         sql = sql.trim();
@@ -1963,7 +2210,7 @@ public class IinqExecute {
         int len = 0;
         String field = "";
 
-        for (int j = 0; j < num_conditions; j++) {
+		for (int j = 0; j < num_conditions; j++) {
 
             /* Set up field, operator, and condition for each WHERE clause */
             if (conditions[j].contains("!=")) {
@@ -2046,13 +2293,14 @@ public class IinqExecute {
                         where_value, where_field_type, ion_key, key_size, value_size, select_field_nums, return_val));
     }
 
-    private static void
-    delete(String sql, BufferedWriter out) throws IOException {
-        System.out.println("delete statement");
+	private static void
+	delete(String sql, BufferedWriter out) throws IOException, InvalidArgumentException, RelationNotFoundException, SQLFeatureNotSupportedException {
+		System.out.println("delete statement");
 
         sql = sql.trim();
         sql = sql.substring(25);
 
+        // TODO: simplify this
         String table_name = (sql.substring(0, sql.indexOf(" ")))+".inq";
         String table_name_sub = table_name.substring(0, table_name.length()-4);
 
@@ -2075,14 +2323,14 @@ public class IinqExecute {
             new_table = true;
         }
 
-        sql = sql.substring(table_name.length() - 3);
+		sql = sql.substring(table_name.length() - 3);
 
         /* Create print table method if it doesn't already exist */
-        if (!print_written) {
-            print_table(out, table_name);
-        }
+		if (!print_written) {
+			print_table(out, table_name);
+		}
 
-        print_written = true;
+		print_written = true;
 
         /* Write function to file */
         String key_size = get_schema_value(table_name, "PRIMARY KEY SIZE: ");
@@ -2190,9 +2438,9 @@ public class IinqExecute {
             i = where_condition.indexOf(",", i + 1);
         }
 
-        String[] conditions;
+		String[] conditions;
 
-        conditions = get_fields(where_condition, num_conditions);
+		conditions = get_fields(where_condition, num_conditions);
 
         ArrayList<Integer>  fields           = new ArrayList<>();
         ArrayList<String>   operators         = new ArrayList<>();
@@ -2271,12 +2519,13 @@ public class IinqExecute {
         delete_fields.add(new delete_fields(table_name, table_id, num_conditions, fields, operators, values, field_types, key_size, value_size, ion_key));
     }
 
-    private static void
-    drop_table(String sql, BufferedWriter out) throws IOException {
-        System.out.println("drop statement");
+	private static void
+	drop_table(String sql, BufferedWriter out) throws IOException {
+		System.out.println("drop statement");
 
-        sql = sql.trim();
+		sql = sql.trim();
 
+        // TODO: why 24?
         sql = sql.substring(24);
 
         String table_name = (sql.substring(0, sql.indexOf(";"))) + ".inq";
