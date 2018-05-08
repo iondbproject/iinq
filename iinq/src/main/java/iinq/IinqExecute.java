@@ -36,12 +36,29 @@
 
 package iinq;
 
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerFactory;
+
+import org.w3c.dom.Attr;
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+
 import com.sun.javaws.exceptions.InvalidArgumentException;
 import unity.annotation.*;
 import unity.jdbc.UnityConnection;
+import unity.parser.GlobalParser;
+import unity.query.GlobalQuery;
+import unity.query.Optimizer;
+import unity.util.StringFunc;
 
 import javax.management.relation.RelationNotFoundException;
+import javax.xml.transform.dom.DOMSource;
+import javax.xml.transform.stream.StreamResult;
 import java.io.*;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -89,12 +106,12 @@ public class IinqExecute {
 	private static GlobalSchema metadata = null; /**< Metadata object for Iinq tables */
 	private static String url = null; /**< Url to use for UnityJDBC connection */
 
-    public static void main(String args[]) throws IOException, SQLFeatureNotSupportedException, RelationNotFoundException, InvalidArgumentException {
+    public static void main(String args[]) throws IOException, SQLException, RelationNotFoundException, InvalidArgumentException {
 
         FileInputStream in = null;
         FileOutputStream out = null;
 
-        /* Get file names and directories passed in as JVM options */
+        /* Get file names and directories passed in as JVM options. */
         user_file = System.getProperty("USER_FILE");
         function_file = System.getProperty("FUNCTION_FILE");
         function_header_file = System.getProperty("FUNCTION_HEADER_FILE");
@@ -110,6 +127,8 @@ public class IinqExecute {
 
 
         try {
+			create_empty_database(directory);
+
             in = new FileInputStream(user_file);
 
             /* Create output file */
@@ -176,7 +195,9 @@ public class IinqExecute {
             function_close();
 
 
-			create_xml_source();
+			//create_xml_source();
+		} catch (Exception e) {
+			e.printStackTrace();
 		} finally {
 			if (null != in) {
 				in.close();
@@ -185,6 +206,74 @@ public class IinqExecute {
 				out.close();
 			}
 		}
+	}
+
+	public static void create_empty_database(String path) throws Exception {
+    	create_xml_source(path, "iinq_sources.xml");
+		create_database(path, "iinq_database.xml");
+
+	}
+
+	public static void create_database(String path, String filename) throws Exception {
+		File unityDB = new File(path + "/" + filename);
+
+		DocumentBuilderFactory docFactory = DocumentBuilderFactory.newInstance();
+		DocumentBuilder builder = docFactory.newDocumentBuilder();
+		TransformerFactory transFactory = TransformerFactory.newInstance();
+		Transformer trans = transFactory.newTransformer();
+		DOMSource dom;
+		StreamResult result;
+		Element node;
+
+		Document xml = builder.newDocument();
+
+		Element root = xml.createElement("XSPEC");
+		root.setAttribute("xmlns:xsi", "http://www.w3.org/2001/XMLSchema-instance");
+		root.setAttribute("xsi:noNamespaceSchemaLocation", "xspec.xsd");
+
+		node = xml.createElement("semanticDatabaseName");
+		root.appendChild(node);
+
+		node = xml.createElement("databaseName");
+		node.appendChild(xml.createTextNode("IinqDB"));
+		root.appendChild(node);
+
+		node = xml.createElement("databaseSystemName");
+		root.appendChild(node);
+
+		node = xml.createElement("databaseId");
+		node.appendChild(xml.createTextNode("95020200"));
+		root.appendChild(node);
+
+		node = xml.createElement("databaseProductName");
+		node.appendChild(xml.createTextNode("HSQL Database Engine"));
+		root.appendChild(node);
+
+		node = xml.createElement("databaseProductVersion");
+		node.appendChild(xml.createTextNode("2.2.0"));
+		root.appendChild(node);
+
+		node = xml.createElement("urlJDBC");
+		node.appendChild(xml.createTextNode("jdbc:hsqldb:hsql://localhost/tpch"));
+		root.appendChild(node);
+
+		node = xml.createElement("userid");
+		node.appendChild(xml.createTextNode("sa"));
+		root.appendChild(node);
+
+		node = xml.createElement("driverName");
+		node.appendChild(xml.createTextNode("HSQL Database Engine Driver"));
+		root.appendChild(node);
+
+		node = xml.createElement("delimitId");
+		node.appendChild(xml.createTextNode("\""));
+		root.appendChild(node);
+
+		// write to sources XML file
+		xml.appendChild(root);
+		dom = new DOMSource(xml);
+		result = new StreamResult(unityDB);
+		trans.transform(dom, result);
 	}
 
     private static void
@@ -870,27 +959,44 @@ public class IinqExecute {
 	}
 
 	private static void
-	create_xml_source() throws IOException {
-		File source_xml = new File("data/xspec/iinq_sources.xml");
-		FileOutputStream schema_out = new FileOutputStream(source_xml, false);
-		StringBuilder databases = new StringBuilder("<SOURCES>\n");
+	create_xml_source(String path, String filename) throws Exception {
+		File unitySources = new File(path + "/" + filename);
 
-		Iterator<String> it = xml_schemas.iterator();
-		while (it.hasNext()) {
-			databases.append(String.format("\t<DATABASE>\n" +
-					"\t\t<URL>jdbc:hsqldb:hsql://localhost/tpch</URL>\n" +
-					"\t\t<USER>sa</USER>\n" +
-					"\t\t<PASSWORD></PASSWORD>\n" +
-					"\t\t<DRIVER>org.hsqldb.jdbcDriver</DRIVER>\n" +
-					"\t\t<SCHEMA>%s</SCHEMA>\n" +
-					"\t</DATABASE>\n", it.next()));
-		}
+		DocumentBuilderFactory docFactory = DocumentBuilderFactory.newInstance();
+		DocumentBuilder builder = docFactory.newDocumentBuilder();
+		TransformerFactory transFactory = TransformerFactory.newInstance();
+		Transformer trans = transFactory.newTransformer();
+		DOMSource dom;
+		StreamResult result;
+		Element node;
 
-		databases.append("</SOURCES>");
-		System.out.println("Source XML:");
-		System.out.println(databases.toString());
+		Document xml = builder.newDocument();
 
-		schema_out.write(databases.toString().getBytes());
+		Element root = xml.createElement("SOURCES");
+		Element database = xml.createElement("DATABASE");
+
+		node = xml.createElement("URL");
+		node.appendChild(xml.createTextNode("jdbc:hsqldb:hsql//localhost/tpch"));
+		database.appendChild(node);
+
+		node = xml.createElement("PASSWORD");
+		database.appendChild(node);
+
+		node = xml.createElement("DRIVER");
+		node.appendChild(xml.createTextNode("org.hsqldb.jdbcDriver"));
+		database.appendChild(node);
+
+		node = xml.createElement("SCHEMA");
+		node.appendChild(xml.createTextNode("iinq_database.xml"));
+		database.appendChild(node);
+
+		root.appendChild(database);
+
+		// write to sources XML file
+		xml.appendChild(root);
+		dom = new DOMSource(xml);
+		result = new StreamResult(unitySources);
+		trans.transform(dom, result);
 	}
 
 	private static String
@@ -936,229 +1042,252 @@ public class IinqExecute {
 	}
 
 	private static void
-	create_table(String sql, BufferedWriter out) throws IOException, SQLFeatureNotSupportedException, InvalidArgumentException, RelationNotFoundException {
-		System.out.println("create statement");
+	create_table(String sql, BufferedWriter out) throws IOException, SQLException, InvalidArgumentException, RelationNotFoundException {
+    	try {
+			getConnection(url);
+			sql = StringFunc.verifyTerminator(sql);    // Make sure SQL is terminated by semi-colon properly
 
-        sql = sql.trim();
-        sql = sql.substring(26);
-
-		String table_name = (sql.substring(0, sql.indexOf(" ")));
-		System.out.println(table_name + ".inq");
-
-		sql = sql.substring(sql.indexOf(" ") + 2);
-
-		int num_fields = 0;
-		int i = 0;
-
-        /* Calculate number of fields in table */
-		while (-1 != i) {
-			num_fields++;
-			i = sql.indexOf(",", i + 1);
-		}
-
-		int key_type, pos;
-		String field;
-		String field_name;
-		String field_type;
-
-		String[] field_names = new String[num_fields];
-		int[] field_types = new int[num_fields];
-		String[] field_type_names = new String[num_fields];
-		int[] field_sizes = new int[num_fields];
-
-	    /* Set up attribute names and types */
-		for (int j = 0; j < num_fields - 1; j++) {
-			pos = sql.indexOf(",");
-
-			field = sql.substring(0, pos);
-
-			sql = sql.substring(pos + 2);
-
-			pos = field.indexOf(" ");
-
-			field_name = field.substring(0, pos);
-			field_type = field.substring(pos + 1, field.length());
-
-            key_type = ion_switch_key_type(field_type);
-
-			field_names[j] = field_name;
-			field_types[j] = key_type;
-			if (field_type.contains("[")) {
-				field_type_names[j] = field_type.substring(0, field_type.indexOf("["));
+			// Parse semantic query string into a parse tree
+			GlobalParser kingParser;
+			GlobalQuery gq;
+			if (null != metadata) {
+				kingParser = new GlobalParser(false, true);
+				gq = kingParser.parse(sql, metadata);
 			} else {
-				field_type_names[j] = field_type;
+				kingParser = new GlobalParser(false, false);
+				gq = kingParser.parse(sql, new GlobalSchema());
 			}
-			switch (field_type_names[j]) {
-				case "CHAR":
-				case "VARCHAR":
-					field_sizes[j] = Integer.parseInt(field_type.substring(field_type.indexOf("[") + 1, field_type.indexOf("]")));
-					break;
-				case "INTEGER":
-				case "INT":
-					field_sizes[j] = 4;
-					break;
-				case "DECIMAL":
-					field_sizes[j] = 8;
-					break;
-				default:
-					throw new SQLFeatureNotSupportedException("Unsupported data type: " + field_type_names[j]);
+			gq.setQueryString(sql);
+
+			// Optimize logical query tree before execution
+			Optimizer opt = new Optimizer(gq, false, null);
+			gq = opt.optimize();
+
+			IinqBuilder builder = new IinqBuilder(gq.getLogicalQueryTree().getRoot());
+			IinqQuery query = builder.toQuery();
+
+			// Validate that code is generated as expected
+			HashMap<String, Object> code = query.generateCode();
+			System.out.println(code);
+			System.out.println("create statement");
+
+			sql = sql.trim();
+			sql = sql.substring(26);
+
+			String table_name = (sql.substring(0, sql.indexOf(" ")));
+			System.out.println(table_name + ".inq");
+
+			sql = sql.substring(sql.indexOf(" ") + 2);
+
+			int num_fields = 0;
+			int i = 0;
+
+			/* Calculate number of fields in table */
+			while (-1 != i) {
+				num_fields++;
+				i = sql.indexOf(",", i + 1);
 			}
 
-		}
+			int key_type, pos;
+			String field;
+			String field_name;
+			String field_type;
 
-        /* Table set-up */
+			String[] field_names = new String[num_fields];
+			int[] field_types = new int[num_fields];
+			String[] field_type_names = new String[num_fields];
+			int[] field_sizes = new int[num_fields];
 
-		pos = sql.indexOf("(");
-		int pos2 = sql.indexOf(")");
+			/* Set up attribute names and types */
+			for (int j = 0; j < num_fields - 1; j++) {
+				pos = sql.indexOf(",");
 
-		String primary_key;
+				field = sql.substring(0, pos);
 
-		primary_key = sql.substring(pos + 1, pos2);
+				sql = sql.substring(pos + 2);
 
-	    /* Set up table for primary key */
+				pos = field.indexOf(" ");
 
-		String primary_key_size;
-		int primary_key_field_num = -1;
-		int primary_key_type = 0;
+				field_name = field.substring(0, pos);
+				field_type = field.substring(pos + 1, field.length());
 
-		for (int j = 0; j < num_fields - 1; j++) {
-		/* Primary key attribute information found */
-			if (primary_key.equals(field_names[j])) {
-				primary_key_type = field_types[j];
-				primary_key_field_num = j;
-				break;
+				key_type = ion_switch_key_type(field_type);
+
+				field_names[j] = field_name;
+				field_types[j] = key_type;
+				if (field_type.contains("[")) {
+					field_type_names[j] = field_type.substring(0, field_type.indexOf("["));
+				} else {
+					field_type_names[j] = field_type;
+				}
+				switch (field_type_names[j]) {
+					case "CHAR":
+					case "VARCHAR":
+						field_sizes[j] = Integer.parseInt(field_type.substring(field_type.indexOf("[") + 1, field_type.indexOf("]")));
+						break;
+					case "INTEGER":
+					case "INT":
+						field_sizes[j] = 4;
+						break;
+					case "DECIMAL":
+						field_sizes[j] = 8;
+						break;
+					default:
+						throw new SQLFeatureNotSupportedException("Unsupported data type: " + field_type_names[j]);
+				}
+
 			}
-		}
 
-        primary_key_size = ion_switch_key_size(primary_key_type);
+			/* Table set-up */
 
-        String value_calculation = "";
-        String value_size = "";
-        int int_count = 0;
-        boolean char_present = false;
-        int char_multiplier = 0;
+			pos = sql.indexOf("(");
+			int pos2 = sql.indexOf(")");
 
-        for (int j = 0; j < num_fields - 1; j++) {
-            value_size = ion_switch_value_size(field_type_names[j]);
-            if (value_size.contains("char")) {
-                char_multiplier += Integer.parseInt(value_size.substring(value_size.indexOf("*") + 1).trim());
-                char_present = true;
-            }
+			String primary_key;
 
-            if (value_size.contains("int")) {
-                int_count++;
-            }
-        }
+			primary_key = sql.substring(pos + 1, pos2);
 
-        if (int_count > 0) {
-            if (int_count > 1) {
-                value_calculation += "(sizeof(int) * " + int_count + ")";
-            }
+			/* Set up table for primary key */
 
-            else {
-                value_calculation += "sizeof(int)";
-            }
+			String primary_key_size;
+			int primary_key_field_num = -1;
+			int primary_key_type = 0;
 
-            if (char_present) {
-                value_calculation += "+(sizeof(char) * "+char_multiplier+")";
-            }
-        }
+			for (int j = 0; j < num_fields - 1; j++) {
+				/* Primary key attribute information found */
+				if (primary_key.equals(field_names[j])) {
+					primary_key_type = field_types[j];
+					primary_key_field_num = j;
+					break;
+				}
+			}
 
-        String ion_key = "";
+			primary_key_size = ion_switch_key_size(primary_key_type);
 
-        // TODO: add signed integer
-        if (primary_key_type == 4) {
-            ion_key = "key_type_numeric_unsigned";
-        }
-        else if (primary_key_type == 1 || primary_key_type == 12) {
-            ion_key = "key_type_char_array";
-        }
+			String value_calculation = "";
+			String value_size = "";
+			int int_count = 0;
+			boolean char_present = false;
+			int char_multiplier = 0;
 
-		String schema_name = table_name.toLowerCase().concat(".xml");
+			for (int j = 0; j < num_fields - 1; j++) {
+				value_size = ion_switch_value_size(field_type_names[j]);
+				if (value_size.contains("char")) {
+					char_multiplier += Integer.parseInt(value_size.substring(value_size.indexOf("*") + 1).trim());
+					char_present = true;
+				}
 
-        /* Set up schema XML file */
-		String contents = "";
+				if (value_size.contains("int")) {
+					int_count++;
+				}
+			}
 
-		// TODO: move this into function to allow more than one table to be created
-		// TODO: use DOM parser
-		contents += "<?xml version=\"1.0\" ?>";
-		contents += "\n<XSPEC xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:noNamespaceSchemaLocation=\"xspec.xsd\">";
-		contents += "\n\t<semanticDatabaseName></semanticDatabaseName>";
-		contents += "\n\t<databaseName>createTable</databaseName>";
-		contents += "\n\t<databaseSystemName></databaseSystemName>";
-		contents += "\n\t<databaseId>1</databaseId>";
-		contents += "\n\t<databaseProductName>HSQL Database Engine</databaseProductName>";
-		contents += "\n\t<databaseProductVersion>2.2.0</databaseProductVersion>";
-		contents += "\n\t<urlJDBC>jdbc:hsqldb:hsql://localhost/tpch</urlJDBC>";
-		contents += "\n\t<userid>sa</userid>";
-		contents += "\n\t<driverName>HSQL Database Engine Driver</driverName>";
-		contents += "\n\t<delimitId>\"</delimitId>";
-		contents += "\n";
-		contents += "\n\t\t<TABLE>";
-		contents += "\n\t\t\t<semanticTableName>createTable." + table_name + "</semanticTableName>";
-		contents += "\n\t\t\t<tableName>" + table_name + "</tableName>";
-		contents += "\n\t\t\t<schemaName></schemaName>";
-		contents += "\n\t\t\t<catalogName></catalogName>";
-		contents += "\n\t\t\t<comment></comment>";
-		contents += "\n\t\t\t<numTuples>0</numTuples>";
-		contents += "\n";
+			if (int_count > 0) {
+				if (int_count > 1) {
+					value_calculation += "(sizeof(int) * " + int_count + ")";
+				} else {
+					value_calculation += "sizeof(int)";
+				}
 
-		for (int j = 0; j < num_fields - 1; j++) {
-			contents += "\n\t\t<FIELD>";
-			contents += "\n\t\t\t<semanticFieldName>" + table_name + "." + field_names[j] + "</semanticFieldName>";
-			contents += "\n\t\t\t<fieldName>" + field_names[j] + "</fieldName>";
-			contents += "\n\t\t\t<dataType>" + field_types[j] + "</dataType>";
-			contents += "\n\t\t\t<dataTypeName>" + field_type_names[j] + "</dataTypeName>";
-			contents += "\n\t\t\t<fieldSize>" + field_sizes[j] + "</fieldSize>";
-			contents += "\n\t\t\t<decimalDigits>0</decimalDigits>";
-			contents += "\n\t\t\t<numberRadixPrecision>0</numberRadixPrecision>";
-			contents += "\n\t\t\t<remarks></remarks>";
-			contents += "\n\t\t\t<defaultValue></defaultValue>";
-			contents += "\n\t\t\t<characterOctetLength>88</characterOctetLength>";
-			contents += "\n\t\t\t<ordinalPosition>" + j + 1 + "</ordinalPosition>";
-			contents += "\n\t\t\t<isNullable>NO</isNullable>";
-			contents += "\n\t\t\t<numDistinctValues>0</numDistinctValues>";
-			contents += "\n\t\t</FIELD>";
+				if (char_present) {
+					value_calculation += "+(sizeof(char) * " + char_multiplier + ")";
+				}
+			}
+
+			String ion_key = "";
+
+			// TODO: add signed integer
+			if (primary_key_type == 4) {
+				ion_key = "key_type_numeric_unsigned";
+			} else if (primary_key_type == 1 || primary_key_type == 12) {
+				ion_key = "key_type_char_array";
+			}
+
+			String schema_name = table_name.toLowerCase().concat(".xml");
+
+			/* Set up schema XML file */
+			String contents = "";
+
+			// TODO: move this into function to allow more than one table to be created
+			// TODO: use DOM parser
+			contents += "<?xml version=\"1.0\" ?>";
+			contents += "\n<XSPEC xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:noNamespaceSchemaLocation=\"xspec.xsd\">";
+			contents += "\n\t<semanticDatabaseName></semanticDatabaseName>";
+			contents += "\n\t<databaseName>createTable</databaseName>";
+			contents += "\n\t<databaseSystemName></databaseSystemName>";
+			contents += "\n\t<databaseId>1</databaseId>";
+			contents += "\n\t<databaseProductName>HSQL Database Engine</databaseProductName>";
+			contents += "\n\t<databaseProductVersion>2.2.0</databaseProductVersion>";
+			contents += "\n\t<urlJDBC>jdbc:hsqldb:hsql://localhost/tpch</urlJDBC>";
+			contents += "\n\t<userid>sa</userid>";
+			contents += "\n\t<driverName>HSQL Database Engine Driver</driverName>";
+			contents += "\n\t<delimitId>\"</delimitId>";
 			contents += "\n";
-		}
+			contents += "\n\t\t<TABLE>";
+			contents += "\n\t\t\t<semanticTableName>createTable." + table_name + "</semanticTableName>";
+			contents += "\n\t\t\t<tableName>" + table_name + "</tableName>";
+			contents += "\n\t\t\t<schemaName></schemaName>";
+			contents += "\n\t\t\t<catalogName></catalogName>";
+			contents += "\n\t\t\t<comment></comment>";
+			contents += "\n\t\t\t<numTuples>0</numTuples>";
+			contents += "\n";
 
-		contents += "\n\t\t<PRIMARYKEY>";
-		contents += "\n\t\t\t<keyScope>0</keyScope>";
-		contents += "\n\t\t\t<keyScopeName></keyScopeName>";
-		// TODO: unique key names for additional tables
-		contents += "\n\t\t\t<keyName>SYS_IDX_1</keyName>";
-		contents += "\n\t\t\t<keyType>1</keyType>";
-		contents += "\n\t\t\t<FIELDS>";
-		contents += "\n\t\t\t<fieldName>" + primary_key + "</fieldName>";
-		contents += "\n\t\t\t</FIELDS>";
-		contents += "\n\t\t\t</PRIMARYKEY>";
-
-		contents += "\n</TABLE>";
-		contents += "\n</XSPEC>";
-
-        File schema = new File(directory+schema_name);
-        FileOutputStream schema_out = new FileOutputStream(schema, false);
-
-		schema_out.write(contents.getBytes());
-
-		schema_out.close();
-
-		xml_schemas.add(schema_name);
-
-        /* Create print table method if it doesn't already exist */
-		if (!print_written) {
-			try {
-				/* Create the iinq_sources.xml file for UnityJDBC to get the table information (Will be overwritten when more tables are added */
-				create_xml_source();
-				print_table(out, table_name);
-			} catch (Exception e) {
-				e.printStackTrace();
+			for (int j = 0; j < num_fields - 1; j++) {
+				contents += "\n\t\t<FIELD>";
+				contents += "\n\t\t\t<semanticFieldName>" + table_name + "." + field_names[j] + "</semanticFieldName>";
+				contents += "\n\t\t\t<fieldName>" + field_names[j] + "</fieldName>";
+				contents += "\n\t\t\t<dataType>" + field_types[j] + "</dataType>";
+				contents += "\n\t\t\t<dataTypeName>" + field_type_names[j] + "</dataTypeName>";
+				contents += "\n\t\t\t<fieldSize>" + field_sizes[j] + "</fieldSize>";
+				contents += "\n\t\t\t<decimalDigits>0</decimalDigits>";
+				contents += "\n\t\t\t<numberRadixPrecision>0</numberRadixPrecision>";
+				contents += "\n\t\t\t<remarks></remarks>";
+				contents += "\n\t\t\t<defaultValue></defaultValue>";
+				contents += "\n\t\t\t<characterOctetLength>88</characterOctetLength>";
+				contents += "\n\t\t\t<ordinalPosition>" + j + 1 + "</ordinalPosition>";
+				contents += "\n\t\t\t<isNullable>NO</isNullable>";
+				contents += "\n\t\t\t<numDistinctValues>0</numDistinctValues>";
+				contents += "\n\t\t</FIELD>";
+				contents += "\n";
 			}
-		}
 
-		print_written = true;
+			contents += "\n\t\t<PRIMARYKEY>";
+			contents += "\n\t\t\t<keyScope>0</keyScope>";
+			contents += "\n\t\t\t<keyScopeName></keyScopeName>";
+			// TODO: unique key names for additional tables
+			contents += "\n\t\t\t<keyName>SYS_IDX_1</keyName>";
+			contents += "\n\t\t\t<keyType>1</keyType>";
+			contents += "\n\t\t\t<FIELDS>";
+			contents += "\n\t\t\t<fieldName>" + primary_key + "</fieldName>";
+			contents += "\n\t\t\t</FIELDS>";
+			contents += "\n\t\t\t</PRIMARYKEY>";
 
-		/* Create CREATE TABLE method - (Schema in .inq file) */
+			contents += "\n</TABLE>";
+			contents += "\n</XSPEC>";
+
+			File schema = new File(directory + schema_name);
+			FileOutputStream schema_out = new FileOutputStream(schema, false);
+
+			schema_out.write(contents.getBytes());
+
+			schema_out.close();
+
+			xml_schemas.add(schema_name);
+
+			/* Create print table method if it doesn't already exist */
+			if (!print_written) {
+				try {
+					/* Create the iinq_sources.xml file for UnityJDBC to get the table information (Will be overwritten when more tables are added */
+					//create_xml_source();
+					print_table(out, table_name);
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
+			}
+
+			print_written = true;
+
+			/* Create CREATE TABLE method - (Schema in .inq file) */
 		/* out.write("void create_table" + create_count + "() {\n");
 		out.write("\tprintf(\"%s" + "\\" + "n" + "\\" + "n" + "\", \"" + statement.substring(statement.indexOf("(") + 2, statement.length() - 4) + "\");\n");
 		out.newLine();
@@ -1182,21 +1311,31 @@ public class IinqExecute {
 
 		System.out.println("schema " + schema_name);*/
 
-        /* Create CREATE TABLE method */
-        if (!create_written) {
-            out.write("void create_table(char *table_name, ion_key_type_t key_type, ion_key_size_t key_size, ion_value_size_t value_size) {\n");
-            out.write("\tion_err_t error = iinq_create_source(table_name, key_type, key_size, value_size);");
+			/* Create CREATE TABLE method */
+			if (!create_written) {
+				out.write("void create_table(char *table_name, ion_key_type_t key_type, ion_key_size_t key_size, ion_value_size_t value_size) {\n");
+				out.write("\tion_err_t error = iinq_create_source(table_name, key_type, key_size, value_size);");
 
-            print_error(out);
+				print_error(out);
 
-            out.write("}\n\n");
+				out.write("}\n\n");
 
-            function_headers.add("void create_table(char *table_name, ion_key_type_t key_type, ion_key_size_t key_size, ion_value_size_t value_size);\n");
-        }
+				function_headers.add("void create_table(char *table_name, ion_key_type_t key_type, ion_key_size_t key_size, ion_value_size_t value_size);\n");
+			}
 
-        create_written = true;
+			create_written = true;
 
-        create_fields.add(new create_fields(table_name, ion_key, primary_key_size, value_calculation));
+			create_fields.add(new create_fields(table_name, ion_key, primary_key_size, value_calculation));
+
+		} catch (SQLException e) {
+    		e.printStackTrace();
+		} finally {
+        	try {
+        		con.close();
+			} catch (SQLException e) {
+        		e.printStackTrace();
+			}
+		}
     }
 
     // TODO: convert to UnityJDBC
