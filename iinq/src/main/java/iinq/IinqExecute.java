@@ -38,34 +38,23 @@ package iinq;
 
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.DocumentBuilder;
-import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.transform.Transformer;
 import javax.xml.transform.TransformerFactory;
 
-import org.w3c.dom.Attr;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 
 import com.sun.javaws.exceptions.InvalidArgumentException;
 import unity.annotation.*;
 import unity.jdbc.UnityConnection;
-import unity.parser.GlobalParser;
-import unity.query.GlobalQuery;
-import unity.query.Optimizer;
 import unity.util.StringFunc;
 
 import javax.management.relation.RelationNotFoundException;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
 import java.io.*;
-import java.sql.SQLException;
+import java.sql.*;
 import java.util.ArrayList;
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.SQLFeatureNotSupportedException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Iterator;
 
 public class IinqExecute {
 
@@ -102,9 +91,11 @@ public class IinqExecute {
 
 	private static ArrayList<String> xml_schemas = new ArrayList<>();
 
-	private static Connection con = null; /**< Connection for UnityJDBC. */
+	private static Connection conUnity = null; /**< Connection for UnityJDBC. */
+	private static Connection conJava = null; /**< Connection for HSQLDB */
 	private static GlobalSchema metadata = null; /**< Metadata object for Iinq tables */
-	private static String url = null; /**< Url to use for UnityJDBC connection */
+	private static String urlUnity = null; /**< Url to use for UnityJDBC connection */
+	private static String urlJava = null; /**< Url to use for HSQLDB */
 
     public static void main(String args[]) throws IOException, SQLException, RelationNotFoundException, InvalidArgumentException {
 
@@ -123,7 +114,8 @@ public class IinqExecute {
 			System.exit(-1);
 		}
 
-		url = "jdbc:unity://" + directory + "iinq_sources.xml";
+		urlUnity = "jdbc:unity://" + directory + "iinq_sources.xml";
+        urlJava = "jdbc:hsqldb:mem:.";
 
 
         try {
@@ -822,11 +814,11 @@ public class IinqExecute {
 		ex_out.close();
 	}
 
-	private static void getConnection(String url) {
+	private static void getUnityConnection(String url) {
 		try {
 			Class.forName("unity.jdbc.UnityDriver");
-			con = DriverManager.getConnection(url);
-			metadata = ((UnityConnection) con).getGlobalSchema();
+			conUnity = DriverManager.getConnection(url);
+			metadata = ((UnityConnection) conUnity).getGlobalSchema();
 			ArrayList<SourceDatabase> databases = metadata.getAnnotatedDatabases();
 			if (null == databases) {
 				System.out.println("\nNo databases have been detected.");
@@ -835,11 +827,27 @@ public class IinqExecute {
 			e.printStackTrace();
 		} finally {
 			try {
-				if (null != con) {
-					con.close();
+				if (null != conUnity) {
+					conUnity.close();
 				}
 			} catch (Exception e) {
 				e.printStackTrace();
+			}
+		}
+	}
+
+	private static void getJavaConnection(String url) {
+		try {
+			Class.forName("org.hsqldb.jdbc.JDBCDriver");
+			conJava = DriverManager.getConnection(url);
+		} catch (Exception e) {
+			e.printStackTrace();
+			try {
+				if (null != conJava) {
+					conJava.close();
+				}
+			} catch (Exception e2) {
+				e2.printStackTrace();
 			}
 		}
 	}
@@ -857,7 +865,7 @@ public class IinqExecute {
                 break;
             }
         }
-		getConnection(IinqExecute.url);
+		getUnityConnection(urlUnity);
 		ArrayList<SourceDatabase> databases = metadata.getAnnotatedDatabases();
 		SourceTable table = null;
 		for (SourceDatabase database : databases) {
@@ -1044,49 +1052,25 @@ public class IinqExecute {
 	private static void
 	create_table(String sql, BufferedWriter out) throws IOException, SQLException, InvalidArgumentException, RelationNotFoundException {
     	try {
-			getConnection(url);
+			getUnityConnection(urlUnity);
+			getJavaConnection(urlJava);
+			sql = sql.substring(sql.toUpperCase().indexOf("CREATE"),sql.indexOf(";"));
 			sql = StringFunc.verifyTerminator(sql);    // Make sure SQL is terminated by semi-colon properly
 
-			// Parse semantic query string into a parse tree
-			GlobalParser kingParser;
-			GlobalQuery gq;
-			if (null != metadata) {
-				kingParser = new GlobalParser(false, true);
-				gq = kingParser.parse(sql, metadata);
-			} else {
-				kingParser = new GlobalParser(false, false);
-				gq = kingParser.parse(sql, new GlobalSchema());
-			}
-			gq.setQueryString(sql);
+			// Create the table using HSQLDB to avoid string parsing
+			PreparedStatement stmt = conJava.prepareStatement(sql);
+			stmt.execute();
 
-			// Optimize logical query tree before execution
-			Optimizer opt = new Optimizer(gq, false, null);
-			gq = opt.optimize();
-
-			IinqBuilder builder = new IinqBuilder(gq.getLogicalQueryTree().getRoot());
-			IinqQuery query = builder.toQuery();
-
-			// Validate that code is generated as expected
-			HashMap<String, Object> code = query.generateCode();
-			System.out.println(code);
-			System.out.println("create statement");
-
-			sql = sql.trim();
-			sql = sql.substring(26);
-
-			String table_name = (sql.substring(0, sql.indexOf(" ")));
+			sql = sql.substring(sql.toUpperCase().indexOf("TABLE")+5).trim();
+			String table_name = sql.substring(0, sql.indexOf(" ")).trim();
 			System.out.println(table_name + ".inq");
 
-			sql = sql.substring(sql.indexOf(" ") + 2);
+			stmt = conJava.prepareStatement("SELECT * FROM " + table_name+ ";");
+			ResultSet rst = stmt.executeQuery();
+			ResultSetMetaData newTableMetaData = rst.getMetaData();
 
-			int num_fields = 0;
-			int i = 0;
-
-			/* Calculate number of fields in table */
-			while (-1 != i) {
-				num_fields++;
-				i = sql.indexOf(",", i + 1);
-			}
+			// Get the number of fields in the new table
+			int num_fields = newTableMetaData.getColumnCount();
 
 			int key_type, pos;
 			String field;
@@ -1098,44 +1082,11 @@ public class IinqExecute {
 			String[] field_type_names = new String[num_fields];
 			int[] field_sizes = new int[num_fields];
 
-			/* Set up attribute names and types */
-			for (int j = 0; j < num_fields - 1; j++) {
-				pos = sql.indexOf(",");
-
-				field = sql.substring(0, pos);
-
-				sql = sql.substring(pos + 2);
-
-				pos = field.indexOf(" ");
-
-				field_name = field.substring(0, pos);
-				field_type = field.substring(pos + 1, field.length());
-
-				key_type = ion_switch_key_type(field_type);
-
-				field_names[j] = field_name;
-				field_types[j] = key_type;
-				if (field_type.contains("[")) {
-					field_type_names[j] = field_type.substring(0, field_type.indexOf("["));
-				} else {
-					field_type_names[j] = field_type;
-				}
-				switch (field_type_names[j]) {
-					case "CHAR":
-					case "VARCHAR":
-						field_sizes[j] = Integer.parseInt(field_type.substring(field_type.indexOf("[") + 1, field_type.indexOf("]")));
-						break;
-					case "INTEGER":
-					case "INT":
-						field_sizes[j] = 4;
-						break;
-					case "DECIMAL":
-						field_sizes[j] = 8;
-						break;
-					default:
-						throw new SQLFeatureNotSupportedException("Unsupported data type: " + field_type_names[j]);
-				}
-
+			for (int i = 0; i < num_fields; i++) {
+				field_names[i] = newTableMetaData.getColumnName(i+1);
+				field_type_names[i] = newTableMetaData.getColumnTypeName(i+1);
+				field_sizes[i] = newTableMetaData.getPrecision(i+1);
+				field_types[i] = ion_switch_key_type(field_type_names[i]);
 			}
 
 			/* Table set-up */
@@ -1331,7 +1282,7 @@ public class IinqExecute {
     		e.printStackTrace();
 		} finally {
         	try {
-        		con.close();
+        		conUnity.close();
 			} catch (SQLException e) {
         		e.printStackTrace();
 			}
