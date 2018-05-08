@@ -302,12 +302,12 @@ public class IinqExecute {
 	) {
 		key_type = key_type.toUpperCase();
 
-		if (key_type.contains("CHAR")) {
-			return 1;
-		}
-
 		if (key_type.contains("VARCHAR")) {
 			return 12;
+		}
+
+		if (key_type.contains("CHAR")) {
+			return 1;
 		}
 
 		if (key_type.contains("INT")) {
@@ -330,6 +330,7 @@ public class IinqExecute {
 				return "sizeof(int)";
 			}
 
+			// TODO: change to appropriate string length
 			case 1: // CHAR
 			case 12: { // VARCHAR
 				return "20";
@@ -343,6 +344,7 @@ public class IinqExecute {
 		return "20";
 	}
 
+	// TODO: update to use HSQLDB
     private static String
     ion_switch_value_size(
         String value_type
@@ -1065,85 +1067,65 @@ public class IinqExecute {
 			String table_name = sql.substring(0, sql.indexOf(" ")).trim();
 			System.out.println(table_name + ".inq");
 
-			stmt = conJava.prepareStatement("SELECT * FROM " + table_name+ ";");
-			ResultSet rst = stmt.executeQuery();
-			ResultSetMetaData newTableMetaData = rst.getMetaData();
+			DatabaseMetaData newMetaData = conJava.getMetaData();
 
-			// Get the number of fields in the new table
-			int num_fields = newTableMetaData.getColumnCount();
+			// TODO: Add support for composite keys
+			// Get primary key
+			ResultSet rst = newMetaData.getPrimaryKeys(null, null, table_name.toUpperCase());
+			rst.next();
+			String primary_key = rst.getString("COLUMN_NAME");
+			rst.close();
 
-			int key_type, pos;
-			String field;
-			String field_name;
-			String field_type;
-
-			String[] field_names = new String[num_fields];
-			int[] field_types = new int[num_fields];
-			String[] field_type_names = new String[num_fields];
-			int[] field_sizes = new int[num_fields];
-
-			for (int i = 0; i < num_fields; i++) {
-				field_names[i] = newTableMetaData.getColumnName(i+1);
-				field_type_names[i] = newTableMetaData.getColumnTypeName(i+1);
-				field_sizes[i] = newTableMetaData.getPrecision(i+1);
-				field_types[i] = ion_switch_key_type(field_type_names[i]);
-			}
-
-			/* Table set-up */
-
-			pos = sql.indexOf("(");
-			int pos2 = sql.indexOf(")");
-
-			String primary_key;
-
-			primary_key = sql.substring(pos + 1, pos2);
-
-			/* Set up table for primary key */
-
-			String primary_key_size;
-			int primary_key_field_num = -1;
-			int primary_key_type = 0;
-
-			for (int j = 0; j < num_fields - 1; j++) {
-				/* Primary key attribute information found */
-				if (primary_key.equals(field_names[j])) {
-					primary_key_type = field_types[j];
-					primary_key_field_num = j;
-					break;
+			// Get the remaining data
+			rst = newMetaData.getColumns(null, null, table_name.toUpperCase(), null);
+			ArrayList<String> field_names = new ArrayList<>();
+			ArrayList<Integer> field_types = new ArrayList<>();
+			ArrayList<String> field_type_names = new ArrayList<>();
+			ArrayList<Integer> field_sizes = new ArrayList<>();
+			int num_fields = 0;
+			int primary_key_index = -1;
+			int primary_key_type = -1;
+			while (rst.next()) {
+				num_fields++;
+				String field_name = rst.getString("COLUMN_NAME");
+				int data_type = rst.getInt("DATA_TYPE");
+				if (field_name.equals(primary_key)) {
+					primary_key_index = num_fields;
+					primary_key_type = data_type;
 				}
+				field_names.add(field_name);
+				field_types.add(data_type);
+				field_type_names.add(rst.getString("TYPE_NAME"));
+				field_sizes.add(rst.getInt("COLUMN_SIZE"));
 			}
 
-			primary_key_size = ion_switch_key_size(primary_key_type);
+			rst.close();
 
-			String value_calculation = "";
+			String primary_key_size = ion_switch_key_size(primary_key_type);
+
+			StringBuilder value_calculation = new StringBuilder();
 			String value_size = "";
 			int int_count = 0;
 			boolean char_present = false;
 			int char_multiplier = 0;
 
-			for (int j = 0; j < num_fields - 1; j++) {
-				value_size = ion_switch_value_size(field_type_names[j]);
-				if (value_size.contains("char")) {
-					char_multiplier += Integer.parseInt(value_size.substring(value_size.indexOf("*") + 1).trim());
+			for (int i = 0; i < num_fields - 1; i++) {
+				if (field_type_names.get(i).contains("CHAR")) {
+					char_multiplier += field_sizes.get(i);
 					char_present = true;
-				}
-
-				if (value_size.contains("int")) {
+				} else if (field_type_names.get(i).contains("INT")) {
 					int_count++;
 				}
 			}
 
+			// TODO: add support for more data types
 			if (int_count > 0) {
-				if (int_count > 1) {
-					value_calculation += "(sizeof(int) * " + int_count + ")";
-				} else {
-					value_calculation += "sizeof(int)";
-				}
-
-				if (char_present) {
-					value_calculation += "+(sizeof(char) * " + char_multiplier + ")";
-				}
+				value_calculation.append("(sizeof(int) * " + int_count + ")+");
 			}
+			if (char_present) {
+				value_calculation.append("+(sizeof(char) * " + char_multiplier + ")+");
+			}
+			value_calculation.setLength(value_calculation.length()-1); // remove last "+"
 
 			String ion_key = "";
 
@@ -1185,11 +1167,11 @@ public class IinqExecute {
 
 			for (int j = 0; j < num_fields - 1; j++) {
 				contents += "\n\t\t<FIELD>";
-				contents += "\n\t\t\t<semanticFieldName>" + table_name + "." + field_names[j] + "</semanticFieldName>";
+/*				contents += "\n\t\t\t<semanticFieldName>" + table_name + "." + field_names[j] + "</semanticFieldName>";
 				contents += "\n\t\t\t<fieldName>" + field_names[j] + "</fieldName>";
 				contents += "\n\t\t\t<dataType>" + field_types[j] + "</dataType>";
 				contents += "\n\t\t\t<dataTypeName>" + field_type_names[j] + "</dataTypeName>";
-				contents += "\n\t\t\t<fieldSize>" + field_sizes[j] + "</fieldSize>";
+				contents += "\n\t\t\t<fieldSize>" + field_sizes[j] + "</fieldSize>";*/
 				contents += "\n\t\t\t<decimalDigits>0</decimalDigits>";
 				contents += "\n\t\t\t<numberRadixPrecision>0</numberRadixPrecision>";
 				contents += "\n\t\t\t<remarks></remarks>";
