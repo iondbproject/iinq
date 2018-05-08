@@ -206,6 +206,10 @@ public class IinqExecute {
 
 	}
 
+	public static void add_table_to_database(String path, String filename, IinqTable table) {
+
+	}
+
 	public static void create_database(String path, String filename) throws Exception {
 		File unityDB = new File(path + "/" + filename);
 
@@ -1059,49 +1063,42 @@ public class IinqExecute {
 			sql = sql.substring(sql.toUpperCase().indexOf("CREATE"),sql.indexOf(";"));
 			sql = StringFunc.verifyTerminator(sql);    // Make sure SQL is terminated by semi-colon properly
 
+			IinqTable table = new IinqTable();
+
 			// Create the table using HSQLDB to avoid string parsing
 			PreparedStatement stmt = conJava.prepareStatement(sql);
 			stmt.execute();
 
 			sql = sql.substring(sql.toUpperCase().indexOf("TABLE")+5).trim();
-			String table_name = sql.substring(0, sql.indexOf(" ")).trim();
-			System.out.println(table_name + ".inq");
+			table.setTableName(sql.substring(0, sql.indexOf(" ")).trim());
+			System.out.println(table.getTableName() + ".inq");
 
 			DatabaseMetaData newMetaData = conJava.getMetaData();
 
 			// TODO: Add support for composite keys
 			// Get primary key
-			ResultSet rst = newMetaData.getPrimaryKeys(null, null, table_name.toUpperCase());
+			ResultSet rst = newMetaData.getPrimaryKeys(null, null, table.getTableName().toUpperCase());
 			rst.next();
-			String primary_key = rst.getString("COLUMN_NAME");
+			table.setPrimaryKey(rst.getString("COLUMN_NAME"));
 			rst.close();
 
 			// Get the remaining data
-			rst = newMetaData.getColumns(null, null, table_name.toUpperCase(), null);
-			ArrayList<String> field_names = new ArrayList<>();
-			ArrayList<Integer> field_types = new ArrayList<>();
-			ArrayList<String> field_type_names = new ArrayList<>();
-			ArrayList<Integer> field_sizes = new ArrayList<>();
+			rst = newMetaData.getColumns(null, null, table.getTableName().toUpperCase(), null);
 			int num_fields = 0;
-			int primary_key_index = -1;
-			int primary_key_type = -1;
 			while (rst.next()) {
 				num_fields++;
 				String field_name = rst.getString("COLUMN_NAME");
 				int data_type = rst.getInt("DATA_TYPE");
-				if (field_name.equals(primary_key)) {
-					primary_key_index = num_fields;
-					primary_key_type = data_type;
+				if (field_name.equals(table.getPrimaryKey())) {
+					table.setPrimaryKeyIndex(num_fields);
+					table.setPrimaryKeyType(data_type);
 				}
-				field_names.add(field_name);
-				field_types.add(data_type);
-				field_type_names.add(rst.getString("TYPE_NAME"));
-				field_sizes.add(rst.getInt("COLUMN_SIZE"));
+				table.addField(field_name, data_type, rst.getString("TYPE_NAME"), rst.getInt("COLUMN_SIZE"));
 			}
 
 			rst.close();
 
-			String primary_key_size = ion_switch_key_size(primary_key_type);
+			String primary_key_size = ion_switch_key_size(table.getPrimaryKeyType());
 
 			StringBuilder value_calculation = new StringBuilder();
 			String value_size = "";
@@ -1110,10 +1107,10 @@ public class IinqExecute {
 			int char_multiplier = 0;
 
 			for (int i = 0; i < num_fields - 1; i++) {
-				if (field_type_names.get(i).contains("CHAR")) {
-					char_multiplier += field_sizes.get(i);
+				if (table.getFieldName(i).contains("CHAR")) {
+					char_multiplier += table.getFieldSize(i);
 					char_present = true;
-				} else if (field_type_names.get(i).contains("INT")) {
+				} else if (table.getFieldName(i).contains("INT")) {
 					int_count++;
 				}
 			}
@@ -1130,13 +1127,13 @@ public class IinqExecute {
 			String ion_key = "";
 
 			// TODO: add signed integer
-			if (primary_key_type == 4) {
+			if (table.getPrimaryKeyType() == 4) {
 				ion_key = "key_type_numeric_unsigned";
-			} else if (primary_key_type == 1 || primary_key_type == 12) {
+			} else if (table.getPrimaryKeyType() == 1 || table.getPrimaryKeyType() == 12) {
 				ion_key = "key_type_char_array";
 			}
 
-			String schema_name = table_name.toLowerCase().concat(".xml");
+			String schema_name = table.getTableName().toLowerCase().concat(".xml");
 
 			/* Set up schema XML file */
 			String contents = "";
@@ -1157,8 +1154,8 @@ public class IinqExecute {
 			contents += "\n\t<delimitId>\"</delimitId>";
 			contents += "\n";
 			contents += "\n\t\t<TABLE>";
-			contents += "\n\t\t\t<semanticTableName>createTable." + table_name + "</semanticTableName>";
-			contents += "\n\t\t\t<tableName>" + table_name + "</tableName>";
+			contents += "\n\t\t\t<semanticTableName>createTable." + table.getTableName() + "</semanticTableName>";
+			contents += "\n\t\t\t<tableName>" + table.getTableName() + "</tableName>";
 			contents += "\n\t\t\t<schemaName></schemaName>";
 			contents += "\n\t\t\t<catalogName></catalogName>";
 			contents += "\n\t\t\t<comment></comment>";
@@ -1191,7 +1188,7 @@ public class IinqExecute {
 			contents += "\n\t\t\t<keyName>SYS_IDX_1</keyName>";
 			contents += "\n\t\t\t<keyType>1</keyType>";
 			contents += "\n\t\t\t<FIELDS>";
-			contents += "\n\t\t\t<fieldName>" + primary_key + "</fieldName>";
+			contents += "\n\t\t\t<fieldName>" + table.getPrimaryKey() + "</fieldName>";
 			contents += "\n\t\t\t</FIELDS>";
 			contents += "\n\t\t\t</PRIMARYKEY>";
 
@@ -1212,7 +1209,7 @@ public class IinqExecute {
 				try {
 					/* Create the iinq_sources.xml file for UnityJDBC to get the table information (Will be overwritten when more tables are added */
 					//create_xml_source();
-					print_table(out, table_name);
+					print_table(out, table.getTableName());
 				} catch (Exception e) {
 					e.printStackTrace();
 				}
@@ -1258,7 +1255,7 @@ public class IinqExecute {
 
 			create_written = true;
 
-			create_fields.add(new create_fields(table_name, ion_key, primary_key_size, value_calculation));
+			create_fields.add(new create_fields(table.getTableName(), ion_key, primary_key_size, value_calculation.toString()));
 
 		} catch (SQLException e) {
     		e.printStackTrace();
