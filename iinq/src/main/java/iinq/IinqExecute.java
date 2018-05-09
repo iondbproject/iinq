@@ -65,10 +65,12 @@ public class IinqExecute {
     private static int table_id_count = 0;
     private static int tables_count = 0;
 
-    private static String user_file; /**< Path to iinq_user.c source file. */
-    private static String function_file; /**< Path to iinq_user_functions.c source file. */
-    private static String function_header_file; /**< Path to iinq_user_functions.h source file. */
-    private static String directory; /**< Path to directory to output UnityJDBC schema files. */
+    /* JVM options */
+    private static String user_file; /**< Path to iinq_user.c source file. Mandatory for iinq to run. */
+    private static String function_file; /**< Path to iinq_user_functions.c source file. Mandatory for iinq to run. */
+    private static String function_header_file; /**< Path to iinq_user_functions.h source file. Mandatory for iinq to run. */
+    private static String directory; /**< Path to directory to output UnityJDBC schema files. Mandatory for iinq to run. */
+    private static boolean use_existing = false; /**< Optional JVM option to use pre-existing database files (i.e. Use tables generated from an earlier IinqExecute). */
 
     private static boolean print_written    = false;
     private static boolean param_written    = false;
@@ -106,6 +108,11 @@ public class IinqExecute {
         FileInputStream in = null;
         FileOutputStream out = null;
 
+        /* Determine whether the user wants to use an existing database */
+        if (System.getProperty("USE_EXISTING") != null) {
+        	use_existing = Boolean.parseBoolean(System.getProperty("USE_EXISTING"));
+		}
+
         /* Get file names and directories passed in as JVM options. */
         user_file = System.getProperty("USER_FILE");
         function_file = System.getProperty("FUNCTION_FILE");
@@ -121,9 +128,12 @@ public class IinqExecute {
 		urlUnity = "jdbc:unity://" + directory + "iinq_sources.xml";
         urlJava = "jdbc:hsqldb:mem:.";
 
-
         try {
-			create_empty_database(directory);
+
+        	/* Create a new database if we have to */
+			if (!use_existing) {
+				create_empty_database(directory);
+			}
 
             in = new FileInputStream(user_file);
 
