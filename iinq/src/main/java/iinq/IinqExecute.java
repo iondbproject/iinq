@@ -38,7 +38,10 @@ package iinq;
 
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerConfigurationException;
+import javax.xml.transform.TransformerException;
 import javax.xml.transform.TransformerFactory;
 
 import org.w3c.dom.Document;
@@ -55,6 +58,7 @@ import javax.xml.transform.stream.StreamResult;
 import java.io.*;
 import java.sql.*;
 import java.util.ArrayList;
+import java.util.Iterator;
 
 public class IinqExecute {
 
@@ -206,8 +210,141 @@ public class IinqExecute {
 
 	}
 
-	public static void add_table_to_database(String path, String filename, IinqTable table) {
+	public static void add_table_to_database(String path, String filename, IinqTable table) throws Exception {
+		String fullPath = path + "/" + filename;
 
+		DocumentBuilderFactory docFactory = DocumentBuilderFactory.newInstance();
+		DocumentBuilder builder = docFactory.newDocumentBuilder();
+		TransformerFactory transFactory = TransformerFactory.newInstance();
+		Transformer trans = transFactory.newTransformer();
+		Document xml = builder.parse(fullPath);
+		StreamResult result;
+		Element node;
+
+		Element root = xml.getDocumentElement();
+		Element tableNode = xml.createElement("TABLE");
+
+		node = xml.createElement("semanticTableName");
+		node.appendChild(xml.createTextNode(xml.getElementsByTagName("databaseName").item(0).getTextContent() +
+				"." + table.getTableName()));
+		tableNode.appendChild(node);
+
+		node = xml.createElement("tableName");
+		node.appendChild(xml.createTextNode(table.getTableName()));
+		tableNode.appendChild(node);
+
+		node = xml.createElement("schemaName");
+		tableNode.appendChild(node);
+
+		node = xml.createElement("catalogName");
+		tableNode.appendChild(node);
+
+		node = xml.createElement("comment");
+		tableNode.appendChild(node);
+
+		node = xml.createElement("numTuples");
+		node.appendChild(xml.createTextNode("1500"));
+		tableNode.appendChild(node);
+
+		// Add fields
+		int position = 1;
+		Iterator<IinqField> it = table.iterator();
+		while (it.hasNext()) {
+			IinqField field = it.next();
+			Element fieldNode = xml.createElement("FIELD");
+
+			node = xml.createElement("semanticFieldName");
+			node.appendChild(xml.createTextNode(table.getTableName() + "." + field.getFieldName()));
+			fieldNode.appendChild(node);
+
+			node = xml.createElement("fieldName");
+			node.appendChild(xml.createTextNode(field.getFieldName()));
+			fieldNode.appendChild(node);
+
+			node = xml.createElement("dataType");
+			node.appendChild(xml.createTextNode(Integer.toString(field.getFieldType())));
+			fieldNode.appendChild(node);
+
+			node = xml.createElement("dataTypeName");
+			node.appendChild(xml.createTextNode(field.getFieldTypeName()));
+			fieldNode.appendChild(node);
+
+			node = xml.createElement("fieldSize");
+			node.appendChild(xml.createTextNode(Integer.toString(field.getFieldSize())));
+			fieldNode.appendChild(node);
+
+			node = xml.createElement("decimalDigits");
+			node.appendChild(xml.createTextNode("0"));
+			fieldNode.appendChild(node);
+
+			node = xml.createElement("numberRadixPrecision");
+			node.appendChild(xml.createTextNode("0"));
+			fieldNode.appendChild(node);
+
+			node = xml.createElement("remarks");
+			fieldNode.appendChild(node);
+
+			node = xml.createElement("defaultValue");
+			fieldNode.appendChild(node);
+
+			node = xml.createElement("characterOctetLength");
+			node.appendChild(xml.createTextNode("0"));
+			fieldNode.appendChild(node);
+
+			node = xml.createElement("ordinalPosition");
+			node.appendChild(xml.createTextNode(Integer.toString(position)));
+			fieldNode.appendChild(node);
+
+			node = xml.createElement("isNullable");
+			if (position == table.getPrimaryKeyIndex()) {
+				node.appendChild(xml.createTextNode("NO"));
+			} else {
+				node.appendChild(xml.createTextNode("YES"));
+			}
+			fieldNode.appendChild(node);
+
+			node = xml.createElement("numDistinctValues");
+			node.appendChild(xml.createTextNode("0"));
+			fieldNode.appendChild(node);
+
+			// Add field to table
+			tableNode.appendChild(fieldNode);
+
+			position++;
+		}
+
+		// Add primary key
+		Element keyNode = xml.createElement("PRIMARYKEY");
+
+		node = xml.createElement("keyScope");
+		node.appendChild(xml.createTextNode("0"));
+		keyNode.appendChild(node);
+
+		node = xml.createElement("keyScopeName");
+		keyNode.appendChild(node);
+
+		node = xml.createElement("keyName");
+		node.appendChild(xml.createTextNode("SYS_IDX_1"));
+		keyNode.appendChild(node);
+
+		node = xml.createElement("keyType");
+		node.appendChild(xml.createTextNode(Integer.toString(table.getPrimaryKeyType())));
+		keyNode.appendChild(node);
+
+		// TODO: add support for composite keys
+		node = xml.createElement("FIELDS");
+		Element fieldNode = xml.createElement("fieldName");
+		fieldNode.appendChild(xml.createTextNode(table.getPrimaryKey()));
+		node.appendChild(fieldNode);
+		keyNode.appendChild(node);
+
+		tableNode.appendChild(keyNode);
+
+		// write to sources XML file
+		root.appendChild(tableNode);
+		DOMSource dom = new DOMSource(xml);
+		result = new StreamResult(new File(fullPath));
+		trans.transform(dom, result);
 	}
 
 	public static void create_database(String path, String filename) throws Exception {
@@ -1107,10 +1244,10 @@ public class IinqExecute {
 			int char_multiplier = 0;
 
 			for (int i = 0; i < num_fields - 1; i++) {
-				if (table.getFieldName(i).contains("CHAR")) {
+				if (table.getFieldTypeName(i).contains("CHAR")) {
 					char_multiplier += table.getFieldSize(i);
 					char_present = true;
-				} else if (table.getFieldName(i).contains("INT")) {
+				} else if (table.getFieldTypeName(i).contains("INT")) {
 					int_count++;
 				}
 			}
@@ -1135,70 +1272,14 @@ public class IinqExecute {
 
 			String schema_name = table.getTableName().toLowerCase().concat(".xml");
 
-			/* Set up schema XML file */
-			String contents = "";
+			add_table_to_database(directory, "iinq_database.xml", table);
 
-			// TODO: move this into function to allow more than one table to be created
-			// TODO: use DOM parser
-			contents += "<?xml version=\"1.0\" ?>";
-			contents += "\n<XSPEC xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:noNamespaceSchemaLocation=\"xspec.xsd\">";
-			contents += "\n\t<semanticDatabaseName></semanticDatabaseName>";
-			contents += "\n\t<databaseName>createTable</databaseName>";
-			contents += "\n\t<databaseSystemName></databaseSystemName>";
-			contents += "\n\t<databaseId>1</databaseId>";
-			contents += "\n\t<databaseProductName>HSQL Database Engine</databaseProductName>";
-			contents += "\n\t<databaseProductVersion>2.2.0</databaseProductVersion>";
-			contents += "\n\t<urlJDBC>jdbc:hsqldb:hsql://localhost/tpch</urlJDBC>";
-			contents += "\n\t<userid>sa</userid>";
-			contents += "\n\t<driverName>HSQL Database Engine Driver</driverName>";
-			contents += "\n\t<delimitId>\"</delimitId>";
-			contents += "\n";
-			contents += "\n\t\t<TABLE>";
-			contents += "\n\t\t\t<semanticTableName>createTable." + table.getTableName() + "</semanticTableName>";
-			contents += "\n\t\t\t<tableName>" + table.getTableName() + "</tableName>";
-			contents += "\n\t\t\t<schemaName></schemaName>";
-			contents += "\n\t\t\t<catalogName></catalogName>";
-			contents += "\n\t\t\t<comment></comment>";
-			contents += "\n\t\t\t<numTuples>0</numTuples>";
-			contents += "\n";
 
-			for (int j = 0; j < num_fields - 1; j++) {
-				contents += "\n\t\t<FIELD>";
-/*				contents += "\n\t\t\t<semanticFieldName>" + table_name + "." + field_names[j] + "</semanticFieldName>";
-				contents += "\n\t\t\t<fieldName>" + field_names[j] + "</fieldName>";
-				contents += "\n\t\t\t<dataType>" + field_types[j] + "</dataType>";
-				contents += "\n\t\t\t<dataTypeName>" + field_type_names[j] + "</dataTypeName>";
-				contents += "\n\t\t\t<fieldSize>" + field_sizes[j] + "</fieldSize>";*/
-				contents += "\n\t\t\t<decimalDigits>0</decimalDigits>";
-				contents += "\n\t\t\t<numberRadixPrecision>0</numberRadixPrecision>";
-				contents += "\n\t\t\t<remarks></remarks>";
-				contents += "\n\t\t\t<defaultValue></defaultValue>";
-				contents += "\n\t\t\t<characterOctetLength>88</characterOctetLength>";
-				contents += "\n\t\t\t<ordinalPosition>" + j + 1 + "</ordinalPosition>";
-				contents += "\n\t\t\t<isNullable>NO</isNullable>";
-				contents += "\n\t\t\t<numDistinctValues>0</numDistinctValues>";
-				contents += "\n\t\t</FIELD>";
-				contents += "\n";
-			}
-
-			contents += "\n\t\t<PRIMARYKEY>";
-			contents += "\n\t\t\t<keyScope>0</keyScope>";
-			contents += "\n\t\t\t<keyScopeName></keyScopeName>";
-			// TODO: unique key names for additional tables
-			contents += "\n\t\t\t<keyName>SYS_IDX_1</keyName>";
-			contents += "\n\t\t\t<keyType>1</keyType>";
-			contents += "\n\t\t\t<FIELDS>";
-			contents += "\n\t\t\t<fieldName>" + table.getPrimaryKey() + "</fieldName>";
-			contents += "\n\t\t\t</FIELDS>";
-			contents += "\n\t\t\t</PRIMARYKEY>";
-
-			contents += "\n</TABLE>";
-			contents += "\n</XSPEC>";
 
 			File schema = new File(directory + schema_name);
 			FileOutputStream schema_out = new FileOutputStream(schema, false);
 
-			schema_out.write(contents.getBytes());
+			//schema_out.write(contents.getBytes());
 
 			schema_out.close();
 
@@ -1257,7 +1338,7 @@ public class IinqExecute {
 
 			create_fields.add(new create_fields(table.getTableName(), ion_key, primary_key_size, value_calculation.toString()));
 
-		} catch (SQLException e) {
+		} catch (Exception e) {
     		e.printStackTrace();
 		} finally {
         	try {
