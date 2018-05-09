@@ -129,11 +129,13 @@ public class IinqExecute {
         urlJava = "jdbc:hsqldb:mem:.";
 
         try {
-
         	/* Create a new database if we have to */
 			if (!use_existing) {
 				create_empty_database(directory);
 			}
+
+			getUnityConnection(urlUnity);
+			getJavaConnection(urlJava);
 
             in = new FileInputStream(user_file);
 
@@ -210,6 +212,12 @@ public class IinqExecute {
 			}
 			if (null != out) {
 				out.close();
+			}
+			if (null != conUnity) {
+				conUnity.close();
+			}
+			if (null != conJava) {
+				conJava.close();
 			}
 		}
 	}
@@ -967,42 +975,19 @@ public class IinqExecute {
 		ex_out.close();
 	}
 
-	private static void getUnityConnection(String url) {
-		try {
-			Class.forName("unity.jdbc.UnityDriver");
-			conUnity = DriverManager.getConnection(url);
-			metadata = ((UnityConnection) conUnity).getGlobalSchema();
-			ArrayList<SourceDatabase> databases = metadata.getAnnotatedDatabases();
-			if (null == databases) {
-				System.out.println("\nNo databases have been detected.");
-			}
-		} catch (Exception e) {
-			e.printStackTrace();
-		} finally {
-			try {
-				if (null != conUnity) {
-					conUnity.close();
-				}
-			} catch (Exception e) {
-				e.printStackTrace();
-			}
+	private static void getUnityConnection(String url) throws  SQLException, ClassNotFoundException{
+		Class.forName("unity.jdbc.UnityDriver");
+		conUnity = DriverManager.getConnection(url);
+		metadata = ((UnityConnection) conUnity).getGlobalSchema();
+		ArrayList<SourceDatabase> databases = metadata.getAnnotatedDatabases();
+		if (null == databases) {
+			System.out.println("\nNo databases have been detected.");
 		}
 	}
 
-	private static void getJavaConnection(String url) {
-		try {
-			Class.forName("org.hsqldb.jdbc.JDBCDriver");
-			conJava = DriverManager.getConnection(url);
-		} catch (Exception e) {
-			e.printStackTrace();
-			try {
-				if (null != conJava) {
-					conJava.close();
-				}
-			} catch (Exception e2) {
-				e2.printStackTrace();
-			}
-		}
+	private static void getJavaConnection(String url) throws SQLException, ClassNotFoundException{
+		Class.forName("org.hsqldb.jdbc.JDBCDriver");
+		conJava = DriverManager.getConnection(url);
 	}
 
 	private static String
@@ -1018,7 +1003,6 @@ public class IinqExecute {
                 break;
             }
         }
-		getUnityConnection(urlUnity);
 		ArrayList<SourceDatabase> databases = metadata.getAnnotatedDatabases();
 		SourceTable table = null;
 		for (SourceDatabase database : databases) {
@@ -1205,8 +1189,6 @@ public class IinqExecute {
 	private static void
 	create_table(String sql, BufferedWriter out) throws IOException, SQLException, InvalidArgumentException, RelationNotFoundException {
     	try {
-			getUnityConnection(urlUnity);
-			getJavaConnection(urlJava);
 			sql = sql.substring(sql.toUpperCase().indexOf("CREATE"),sql.indexOf(";"));
 			sql = StringFunc.verifyTerminator(sql);    // Make sure SQL is terminated by semi-colon properly
 
