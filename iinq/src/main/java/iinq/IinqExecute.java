@@ -50,6 +50,9 @@ import org.w3c.dom.Element;
 import com.sun.javaws.exceptions.InvalidArgumentException;
 import unity.annotation.*;
 import unity.jdbc.UnityConnection;
+import unity.jdbc.UnityPreparedStatement;
+import unity.parser.GlobalParser;
+import unity.query.*;
 import unity.util.StringFunc;
 
 import javax.management.relation.RelationNotFoundException;
@@ -990,6 +993,7 @@ public class IinqExecute {
 		conJava = DriverManager.getConnection(url);
 	}
 
+	// TODO: use schema from UnityJDBC
 	private static String
 	get_schema_value(String table_name, String keyword) throws IOException, RelationNotFoundException, InvalidArgumentException, SQLFeatureNotSupportedException {
 		String line;
@@ -1334,8 +1338,11 @@ public class IinqExecute {
     		e.printStackTrace();
 		} finally {
         	try {
-        		conUnity.close();
-			} catch (SQLException e) {
+        		// Reload database with new tables
+        		if (conUnity != null)
+        			conUnity.close();
+        		getUnityConnection(urlUnity);
+			} catch (Exception e) {
         		e.printStackTrace();
 			}
 		}
@@ -1343,14 +1350,29 @@ public class IinqExecute {
 
     // TODO: convert to UnityJDBC
 	private static void
-	insert(String sql, BufferedWriter out) throws IOException, InvalidArgumentException, RelationNotFoundException, SQLFeatureNotSupportedException {
+	insert(String sql, BufferedWriter out) throws IOException, InvalidArgumentException, RelationNotFoundException, SQLException {
 		System.out.println("insert statement");
 
-        sql = sql.trim();
+        sql = sql.substring(sql.toUpperCase().indexOf("INSERT"),sql.indexOf(";")).trim();
+		sql = StringFunc.verifyTerminator(sql);	// Make sure SQL is terminated by semi-colon properly
 
-        sql = sql.substring((sql.toUpperCase()).indexOf("INTO ")+5);
+		// Parse semantic query string into a parse tree
+		GlobalParser kingParser;
+		GlobalUpdate gu;
+		if (null != metadata) {
+			kingParser = new GlobalParser(false, true);
+			gu = kingParser.parseUpdate(sql, metadata);
+		}
+		else {
+			kingParser = new GlobalParser(false, false);
+			gu = kingParser.parseUpdate(sql, new GlobalSchema());
+		}
 
-        String table_name = (sql.substring(0, sql.indexOf(" "))) + ".inq";
+		LQInsertNode insert = (LQInsertNode) gu.getPlan().getLogicalQueryTree().getRoot();
+
+		//sql = sql.substring((sql.toUpperCase()).indexOf("INTO ")+5);
+
+        String table_name = insert.getSourceTable().getLocalName();
 
         /* Create print table method if it doesn't already exist */
 		if (!print_written) {
@@ -1370,25 +1392,19 @@ public class IinqExecute {
 
         int pos = sql.indexOf("(");
 
-		sql = sql.substring(pos + 1);
+		//sql = sql.substring(pos + 1);
 
         /* INSERT statement */
         String value = sql.substring(0, sql.length() - 5);
 
-	    /* Get key value from record to be inserted */
-		int count = 1;
-
         /* Count number of fields */
-        for (int i = 0; i < sql.length(); i++) {
-            if (sql.charAt(i) == ',') {
-                count++;
-            }
-        }
+        int count = insert.getInsertFields().size();
 
         boolean[] prep_fields = new boolean[count];
 
 	    /* Check if the INSERT statement is a prepared statement */
-        boolean prep = sql.contains("(?)");
+		UnityPreparedStatement stmt = (UnityPreparedStatement) conUnity.prepareStatement(sql);
+		boolean prep = stmt.getParameters().size() > 0;
 
         String[] fields = new String[count];
         value = "";
