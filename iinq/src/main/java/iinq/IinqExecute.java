@@ -349,7 +349,7 @@ public class IinqExecute {
 		keyNode.appendChild(node);
 
 		node = xml.createElement("keyType");
-		node.appendChild(xml.createTextNode(Integer.toString(table.getPrimaryKeyType())));
+		node.appendChild(xml.createTextNode("1"));
 		keyNode.appendChild(node);
 
 		// TODO: add support for composite keys
@@ -586,13 +586,13 @@ public class IinqExecute {
         out.write("\t\tvalue = ion_record.value;\n\n");
 
         String data_type;
-        for (int j = 0; j < Integer.parseInt(get_schema_value(table_name, "NUMBER OF FIELDS: ")); j++) {
-            data_type = ion_switch_value_size(get_schema_value(table_name, "FIELD"+j+" TYPE: "));
+        for (int j = 0; j < Integer.parseInt(get_schema_value(table_name, "NUMBER OF FIELDS")); j++) {
+            data_type = ion_switch_value_size(get_schema_value(table_name, "FIELD"+j+" TYPE"));
 
             if (data_type.contains("char")) {
                 out.write("\n\t\tprintf(\"%s\t\", (char *) value);\n");
 
-                if (j < (Integer.parseInt(get_schema_value(table_name, "NUMBER OF FIELDS: ")) - 1)) {
+                if (j < (Integer.parseInt(get_schema_value(table_name, "NUMBER OF FIELDS")) - 1)) {
                     out.write("\t\tvalue += " + data_type + ";\n");
                 }
             }
@@ -601,7 +601,7 @@ public class IinqExecute {
             else {
                 out.write("\n\t\tprintf(\"%i\t\", NEUTRALIZE(value, int));\n");
 
-                if (j < (Integer.parseInt(get_schema_value(table_name, "NUMBER OF FIELDS: ")) - 1)) {
+                if (j < (Integer.parseInt(get_schema_value(table_name, "NUMBER OF FIELDS")) - 1)) {
                     out.write("\t\tvalue += " + data_type + ";\n");
                 }
             }
@@ -997,36 +997,17 @@ public class IinqExecute {
 	private static String
 	get_schema_value(String table_name, String keyword) throws IOException, RelationNotFoundException, InvalidArgumentException, SQLFeatureNotSupportedException {
 		String line;
-
-        String path = directory+table_name.substring(0, table_name.length() - 4).toLowerCase()+".xml";
-        BufferedReader file = new BufferedReader(new FileReader(path));
-
-        while (null != (line = file.readLine())) {
-            if (line.contains(keyword)) {
-                line = line.substring(keyword.length());
-                break;
-            }
-        }
-		ArrayList<SourceDatabase> databases = metadata.getAnnotatedDatabases();
-		SourceTable table = null;
-		for (SourceDatabase database : databases) {
-			if ((table = database.getTable(table_name.toLowerCase())) != null) {
-				break;
-			}
-		}
-		if (null == table) {
-			throw new RelationNotFoundException();
-		}
+		SourceTable table = metadata.getTable("IinqDB", table_name);
 
 		switch (keyword) {
 			case "PRIMARY KEY TYPE": {
-				return Integer.toString(table.getField(table.getPrimaryKey().getFieldList()).getDataType());
+				return Integer.toString(table.getPrimaryKey().getFields().get(0).getDataType());
 			}
 			case "PRIMARY KEY FIELD": {
-				return table.getField(table.getPrimaryKey().getFieldList()).getColumnName();
+				return Integer.toString(table.getField(table.getPrimaryKey().getFieldList()).getOrdinalPosition());
 			}
 			case "PRIMARY KEY SIZE": {
-				switch (table.getField(table.getPrimaryKey().getFieldList()).getDataType()) {
+				switch (table.getPrimaryKey().getFields().get(0).getDataType()) {
 					case 1: // CHAR
 					case 12: // VARCHAR
 						return String.format("sizeof(char) * %d",table.getField(table.getPrimaryKey().getFieldList()).getColumnSize());
@@ -1192,6 +1173,7 @@ public class IinqExecute {
 
 	private static void
 	create_table(String sql, BufferedWriter out) throws IOException, SQLException, InvalidArgumentException, RelationNotFoundException {
+    	String table_name = null;
     	try {
 			sql = sql.substring(sql.toUpperCase().indexOf("CREATE"),sql.indexOf(";"));
 			sql = StringFunc.verifyTerminator(sql);    // Make sure SQL is terminated by semi-colon properly
@@ -1203,7 +1185,8 @@ public class IinqExecute {
 			stmt.execute();
 
 			sql = sql.substring(sql.toUpperCase().indexOf("TABLE")+5).trim();
-			table.setTableName(sql.substring(0, sql.indexOf(" ")).trim());
+			table_name = sql.substring(0, sql.indexOf(" ")).trim();
+			table.setTableName(table_name);
 			System.out.println(table.getTableName() + ".inq");
 
 			DatabaseMetaData newMetaData = conJava.getMetaData();
@@ -1281,19 +1264,6 @@ public class IinqExecute {
 
 			xml_schemas.add(schema_name);
 
-			/* Create print table method if it doesn't already exist */
-			if (!print_written) {
-				try {
-					/* Create the iinq_sources.xml file for UnityJDBC to get the table information (Will be overwritten when more tables are added */
-					//create_xml_source();
-					print_table(out, table.getTableName());
-				} catch (Exception e) {
-					e.printStackTrace();
-				}
-			}
-
-			print_written = true;
-
 			/* Create CREATE TABLE method - (Schema in .inq file) */
 		/* out.write("void create_table" + create_count + "() {\n");
 		out.write("\tprintf(\"%s" + "\\" + "n" + "\\" + "n" + "\", \"" + statement.substring(statement.indexOf("(") + 2, statement.length() - 4) + "\");\n");
@@ -1342,6 +1312,18 @@ public class IinqExecute {
         		if (conUnity != null)
         			conUnity.close();
         		getUnityConnection(urlUnity);
+
+				/* Create print table method if it doesn't already exist */
+				if (!print_written) {
+					try {
+						print_table(out, table_name);
+					} catch (Exception e) {
+						e.printStackTrace();
+					}
+				}
+
+				print_written = true;
+
 			} catch (Exception e) {
         		e.printStackTrace();
 			}
@@ -1359,7 +1341,7 @@ public class IinqExecute {
 		// Parse semantic query string into a parse tree
 		GlobalParser kingParser;
 		GlobalUpdate gu;
-		if (null != metadata) {
+		if (null == metadata) {
 			kingParser = new GlobalParser(false, true);
 			gu = kingParser.parseUpdate(sql, metadata);
 		}
@@ -1410,16 +1392,15 @@ public class IinqExecute {
         value = "";
         String field_value;
 
-        String key_type = get_schema_value(table_name, "PRIMARY KEY TYPE: ");
-        String key_field_num = get_schema_value(table_name, "PRIMARY KEY FIELD: ");
-        String table_name_sub = table_name.substring(0, table_name.length()-4);
+        String key_type = get_schema_value(table_name, "PRIMARY KEY TYPE");
+        String key_field_num = get_schema_value(table_name, "PRIMARY KEY FIELD");
 
         boolean table_found = false;
         int table_id = 0;
 
         /* Check if that table name already has an ID */
         for (int i = 0; i < table_names.size(); i++) {
-            if (table_names.get(i).equals(table_name_sub)) {
+            if (table_names.get(i).equals(table_name)) {
                 table_id = i;
                 new_table = false;
                 table_found = true;
@@ -1427,7 +1408,7 @@ public class IinqExecute {
         }
 
         if (!table_found) {
-            table_names.add(table_name_sub);
+            table_names.add(table_name);
             table_id = table_id_count;
             table_id_count++;
             new_table = true;
@@ -1444,8 +1425,8 @@ public class IinqExecute {
         String prepare_function = "";
 
         if (new_table) {
-            out.write("iinq_prepared_sql insert_" + table_name_sub + "(");
-            prepare_function += "iinq_prepared_sql insert_"+table_name_sub+"(";
+            out.write("iinq_prepared_sql insert_" + table_name + "(");
+            prepare_function += "iinq_prepared_sql insert_"+table_name+"(";
         }
 
 		for (int j = 0; j < count; j++) {
@@ -1513,7 +1494,7 @@ public class IinqExecute {
 
             out.write("\tp.table = malloc(sizeof(int));\n");
             out.write("\t*(int *) p.table = " + table_id + ";\n");
-            out.write("\tp.value = malloc(" + get_schema_value(table_name, "VALUE SIZE: ") + ");\n");
+            out.write("\tp.value = malloc(" + get_schema_value(table_name, "VALUE SIZE") + ");\n");
             out.write("\tunsigned char\t*data = p.value;\n");
             out.write("\tp.key = malloc(" + ion_switch_key_size(Integer.parseInt(key_type)) + ");\n");
 
@@ -1524,7 +1505,7 @@ public class IinqExecute {
             }
 
             for (int i = 0; i < fields.length; i++) {
-                field_value = get_schema_value(table_name, "FIELD" + i + " TYPE: ");
+                field_value = get_schema_value(table_name, "FIELD" + i + " TYPE");
                 String value_size = ion_switch_value_size(field_value);
 
                 if (field_value.contains("CHAR")) {
@@ -1551,7 +1532,7 @@ public class IinqExecute {
 
         /* INSERT statement is a prepared statement */
         if (prep && !param_written) {
-            written_table = table_name_sub;
+            written_table = table_name;
 
             out.write("void setParam(iinq_prepared_sql p, int field_num, void *val) {\n");
             out.write("\tunsigned char\t*data\t\t= p.value;\n\n");
@@ -1587,7 +1568,7 @@ public class IinqExecute {
         }
 
         else {
-            inserts.add(new insert(table_name_sub, fields, int_fields, string_fields, count, sql, pos, value, prep_fields, key_type, key_field_num, table_id));
+            inserts.add(new insert(table_name, fields, int_fields, string_fields, count, sql, pos, value, prep_fields, key_type, key_field_num, table_id));
         }
 
         if (!prepare_function.equals("")) {
@@ -1599,7 +1580,7 @@ public class IinqExecute {
         }
 
         param_written = true;
-        insert_fields.add(new insert_fields(table_name_sub, field_values, field_types));
+        insert_fields.add(new insert_fields(table_name, field_values, field_types));
     }
 
     /* Concatenates information for additional tables onto already written INSERT functions */
