@@ -441,7 +441,7 @@ public class IinqExecute {
 
 		while (null != (line = file.readLine())) {
 			if ((line.contains("create_table") || line.contains("insert")
-					|| line.contains("update") || line.contains("delete")
+					|| line.contains("update") || line.contains("delete") || line.contains("iinq_select")
 					|| line.contains("drop_table")) && !line.contains("/*")) {
 				contents += "/* " + line + " */\n";
 			} else {
@@ -1738,13 +1738,13 @@ public class IinqExecute {
             new_table = true;
         }
 
-        SourceTable table = metadata.getTable("IinqDB", table_name);
+        SourceTable table = metadata.getTable("IinqDB", table_name_sub);
 
 		sql = sql.substring(table_name.length() + 1);
 
         /* Create print table method if it doesn't already exist */
 		if (!print_written) {
-			print_table(out, table_name);
+			print_table(out, table_name_sub);
 		}
 
 		print_written = true;
@@ -1961,9 +1961,9 @@ public class IinqExecute {
             where_fields[j] = conditions[j].substring(0, pos).trim();
             where_value.add(conditions[j].substring(pos + len).trim());
 
-            for (int n = 0; n < Integer.parseInt(get_schema_value(table_name, "NUMBER OF FIELD")); n++) {
+            for (int n = 0; n < Integer.parseInt(get_schema_value(table_name_sub, "NUMBER OF FIELDS")); n++) {
 
-                String field_type = get_schema_value(table_name, "FIELD" + n + " TYPE: ");
+                String field_type = get_schema_value(table_name_sub, "FIELD" + n + " TYPE");
 
                 if (field_type.contains("CHAR")) {
                     iinq_field_types.add("iinq_char");
@@ -1971,7 +1971,7 @@ public class IinqExecute {
                     iinq_field_types.add("iinq_int");
                 }
 
-                if (where_fields[j].equals(get_schema_value(table_name, "FIELD" + n + " NAM"))) {
+                if (where_fields[j].equals(get_schema_value(table_name_sub, "FIELD" + n + " NAME"))) {
                     where_field.add(n + 1);
                     where_field_type.add(field_type);
                 }
@@ -2038,32 +2038,32 @@ public class IinqExecute {
                 implicit_count++;
             }
 
-            for (int n = 0; n < Integer.parseInt(get_schema_value(table_name, "NUMBER OF FIELDS: ")); n++) {
-                String field_type = get_schema_value(table_name, "FIELD"+n+" TYPE: ");
+            for (int n = 0; n < Integer.parseInt(get_schema_value(table_name_sub, "NUMBER OF FIELDS")); n++) {
+                String field_type = get_schema_value(table_name_sub, "FIELD"+n+" TYPE");
                 field_sizes.add(ion_get_value_size(table,table.getSourceFieldsByPosition().get(n).getColumnName()));
 
-                if (update_field.equals(get_schema_value(table_name, "FIELD" + n + " NAME: "))) {
+                if (update_field.equals(get_schema_value(table_name_sub, "FIELD" + n + " NAME"))) {
                     update_field_nums.add(n+1);
                     update_field_types.add(field_type);
                 }
-                if (implicit_field.equals(get_schema_value(table_name, "FIELD"+n+" NAME: "))) {
+                if (implicit_field.equals(get_schema_value(table_name_sub, "FIELD"+n+" NAME"))) {
                     implicit_fields.add(n+1);
                 }
             }
         }
 
         if (new_table) {
-            tableInfo table_info = new tableInfo(table_id, Integer.parseInt(get_schema_value(table_name, "NUMBER OF FIELDS: ")), iinq_field_types, field_sizes);
+            tableInfo table_info = new tableInfo(table_id, Integer.parseInt(get_schema_value(table_name_sub, "NUMBER OF FIELDS")), iinq_field_types, field_sizes);
 
             calculateInfo.add(table_info);
             tables_count++;
         }
 
-        String key_size = get_schema_value(table_name, "PRIMARY KEY SIZE: ");
-        String value_size = get_schema_value(table_name, "VALUE SIZE: ");
-        String ion_key = get_schema_value(table_name, "ION KEY TYPE: ");
+        String key_size = get_schema_value(table_name_sub, "PRIMARY KEY SIZE");
+        String value_size = get_schema_value(table_name_sub, "VALUE SIZE");
+        String ion_key = get_schema_value(table_name_sub, "ION KEY TYPE");
 
-        update_fields.add(new update_fields(table_name, table_id, num_conditions, num_fields, where_field, where_operator,
+        update_fields.add(new update_fields(table_name_sub, table_id, num_conditions, num_fields, where_field, where_operator,
                 where_value, where_field_type, key_size, value_size, ion_key, update_field_nums, implicit, implicit_fields, update_operators,
                 update_values, update_field_types, implicit_count));
     }
@@ -2473,7 +2473,7 @@ public class IinqExecute {
             new_table = true;
         }
 
-        SourceTable table = metadata.getTable("IinqDB", table_name);
+        SourceTable table = metadata.getTable("IinqDB", table_name_sub);
 
 		sql = sql.substring(table_name.length() - 3);
 
@@ -2485,8 +2485,8 @@ public class IinqExecute {
 		print_written = true;
 
         /* Write function to file */
-        String key_size = get_schema_value(table_name, "PRIMARY KEY SIZE: ");
-        String value_size = get_schema_value(table_name, "VALUE SIZE: ");
+        String key_size = get_schema_value(table_name_sub, "PRIMARY KEY SIZE");
+        String value_size = get_schema_value(table_name_sub, "VALUE SIZE");
 
         if (!delete_written) {
             out.write("void delete_record(int id, char *name, ion_key_type_t key_type, size_t key_size, size_t value_size, int num_fields, ...) {\n\n");
@@ -2640,10 +2640,11 @@ public class IinqExecute {
             field = conditions[j].substring(0, pos).trim();
             values.add(conditions[j].substring(pos + len).trim());
 
-            for (int n = 0; n < Integer.parseInt(get_schema_value(table_name, "NUMBER OF FIELDS: ")); n++) {
+            for (int n = 0; n < Integer.parseInt(get_schema_value(table_name_sub, "NUMBER OF FIELDS")); n++) {
 
-                String field_type = get_schema_value(table_name, "FIELD"+n+" TYPE: ");
-                field_sizes.add(ion_get_value_size(table, field_type));
+                String field_type = get_schema_value(table_name_sub, "FIELD"+n+" TYPE");
+                String field_name = get_schema_value(table_name_sub, "FIELD"+n+" NAME");
+                field_sizes.add(ion_get_value_size(table, field_name));
 
                 if (field_type.contains("CHAR")) {
                     iinq_field_types.add("iinq_char");
@@ -2652,7 +2653,7 @@ public class IinqExecute {
                     iinq_field_types.add("iinq_int");
                 }
 
-                if (field.equals(get_schema_value(table_name, "FIELD"+n+" NAME: "))) {
+                if (field.equals(get_schema_value(table_name_sub, "FIELD"+n+" NAME"))) {
                     fields.add(n+1);
                     field_types.add(field_type);
                 }
@@ -2660,15 +2661,15 @@ public class IinqExecute {
         }
 
         if (new_table) {
-            tableInfo table_info = new tableInfo(table_id, Integer.parseInt(get_schema_value(table_name, "NUMBER OF FIELDS: ")), iinq_field_types, field_sizes);
+            tableInfo table_info = new tableInfo(table_id, Integer.parseInt(get_schema_value(table_name_sub, "NUMBER OF FIELDS")), iinq_field_types, field_sizes);
 
             calculateInfo.add(table_info);
             tables_count++;
         }
 
-        String ion_key = get_schema_value(table_name, "ION KEY TYPE: ");
+        String ion_key = get_schema_value(table_name_sub, "ION KEY TYPE");
 
-        delete_fields.add(new delete_fields(table_name, table_id, num_conditions, fields, operators, values, field_types, key_size, value_size, ion_key));
+        delete_fields.add(new delete_fields(table_name_sub, table_id, num_conditions, fields, operators, values, field_types, key_size, value_size, ion_key));
     }
 
 	private static void
