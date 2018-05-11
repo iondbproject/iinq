@@ -1,7 +1,9 @@
 import static org.junit.Assert.fail;
 
+import java.io.IOException;
 import java.sql.*;
 
+import com.unityjdbc.sourcebuilder.SourceBuilder;
 import unity.jdbc.UnityStatement;
 import unity.operators.ResultSetScan;
 import unity.query.GlobalQuery;
@@ -23,11 +25,12 @@ public class ExampleQuery
 	 * @param args
 	 * 			no args required
 	 */
-	public static void main(String [] args)
-	{
+	public static void main(String [] args) throws IOException {
 		Connection con = null;
 		UnityStatement stmt = null;
-		
+
+		SourceBuilder builder = new SourceBuilder(null);
+
 		try 
 		{
 			// Create new instance of UnityDriver and make connection

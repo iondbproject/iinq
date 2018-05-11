@@ -465,22 +465,22 @@ public class IinqExecute {
 		key_type = key_type.toUpperCase();
 
 		if (key_type.contains("VARCHAR")) {
-			return 12;
+			return Types.VARCHAR;
 		}
 
 		if (key_type.contains("CHAR")) {
-			return 1;
+			return Types.CHAR;
 		}
 
 		if (key_type.contains("INT")) {
-			return 4;
+			return Types.INTEGER;
 		}
 
 		if (key_type.contains("DECIMAL")) {
-			return 3;
+			return Types.DECIMAL;
 		}
 
-		return 2;
+		return Types.NUMERIC; // TODO: When would we use this?
 	}
 
 	private static String
@@ -488,44 +488,42 @@ public class IinqExecute {
 			int key_type
 	) {
 		switch (key_type) {
-			case 4:  { // INT
+			case Types.INTEGER:  {
 				return "sizeof(int)";
 			}
 
 			// TODO: change to appropriate string length
-			case 1: // CHAR
-			case 12: { // VARCHAR
+			case Types.CHAR:
+			case Types.VARCHAR: {
 				return "20";
 			}
 
-			case 3: { // DECIMAL
+			case Types.DECIMAL: {
 				return "sizeof(double)";
 			}
 		}
 
-		return "20";
+		return "20"; // TODO: Where did this value come from?
 	}
 
-	// TODO: update to use HSQLDB
     private static String
-    ion_switch_value_size(
-        String value_type
+    ion_get_value_size(
+        SourceTable table, String field_name
     ) {
-        if (value_type.contains("CHAR") && !value_type.contains("VARCHAR")) {
-            value_type = value_type.substring(value_type.indexOf("[") + 1, value_type.indexOf("]"));
-            return "sizeof(char) * "+value_type;
+		SourceField field = table.getSourceFields().get(field_name);
+        if (field.getDataType() == Types.CHAR) {
+            return "sizeof(char) * "+field.getColumnSize();
         }
-        else if (value_type.contains("VARCHAR")) {
-            value_type = value_type.substring(value_type.indexOf("[") + 1, value_type.indexOf("]"));
-            return "sizeof(char) * "+value_type;
+        else if (field.getDataType() == Types.VARCHAR) {
+            return "sizeof(char) * "+field.getColumnSize();
         }
-        else if (value_type.contains("BOOLEAN")) {
+        else if (field.getDataType() == Types.BOOLEAN) {
             return "sizeof(ion_boolean_t)";
         }
-        else if (value_type.contains("INT")) {
+        else if (field.getDataType() == Types.INTEGER) {
             return "sizeof(int)";
         }
-        else if (value_type.contains("FLOAT")) {
+        else if (field.getDataType() == Types.FLOAT || field.getDataType() == Types.DECIMAL) {
             return "sizeof(float)";
         }
 
@@ -587,7 +585,7 @@ public class IinqExecute {
 
         String data_type;
         for (int j = 0; j < Integer.parseInt(get_schema_value(table_name, "NUMBER OF FIELDS")); j++) {
-            data_type = ion_switch_value_size(get_schema_value(table_name, "FIELD"+j+" TYPE"));
+            data_type = ion_get_value_size(metadata.getTable("IinqDB",table_name), metadata.getTable("IinqDB", table_name).getSourceFieldsByPosition().get(j).getColumnName());
 
             if (data_type.contains("char")) {
                 out.write("\n\t\tprintf(\"%s\t\", (char *) value);\n");
@@ -1243,17 +1241,15 @@ public class IinqExecute {
 			String ion_key = "";
 
 			// TODO: add signed integer
-			if (table.getPrimaryKeyType() == 4) {
+			if (table.getPrimaryKeyType() == Types.INTEGER) {
 				ion_key = "key_type_numeric_unsigned";
-			} else if (table.getPrimaryKeyType() == 1 || table.getPrimaryKeyType() == 12) {
+			} else if (table.getPrimaryKeyType() == Types.CHAR || table.getPrimaryKeyType() == Types.VARCHAR) {
 				ion_key = "key_type_char_array";
 			}
 
 			String schema_name = table.getTableName().toLowerCase().concat(".xml");
 
 			add_table_to_database(directory, "iinq_database.xml", table);
-
-
 
 			File schema = new File(directory + schema_name);
 			FileOutputStream schema_out = new FileOutputStream(schema, false);
@@ -1330,7 +1326,6 @@ public class IinqExecute {
 		}
     }
 
-    // TODO: convert to UnityJDBC
 	private static void
 	insert(String sql, BufferedWriter out) throws IOException, InvalidArgumentException, RelationNotFoundException, SQLException {
 		System.out.println("insert statement");
@@ -1338,23 +1333,21 @@ public class IinqExecute {
         sql = sql.substring(sql.toUpperCase().indexOf("INSERT"),sql.indexOf(";")).trim();
 		sql = StringFunc.verifyTerminator(sql);	// Make sure SQL is terminated by semi-colon properly
 
-		// Parse semantic query string into a parse tree
+		// Use UnityJDBC to parse the insert statement (metadata is required to verify fields)
 		GlobalParser kingParser;
 		GlobalUpdate gu;
-		if (null == metadata) {
+		if (null != metadata) {
 			kingParser = new GlobalParser(false, true);
 			gu = kingParser.parseUpdate(sql, metadata);
 		}
 		else {
-			kingParser = new GlobalParser(false, false);
-			gu = kingParser.parseUpdate(sql, new GlobalSchema());
+			throw new SQLException("Metadata is required for inserts.");
 		}
 
 		LQInsertNode insert = (LQInsertNode) gu.getPlan().getLogicalQueryTree().getRoot();
 
-		//sql = sql.substring((sql.toUpperCase()).indexOf("INTO ")+5);
-
-        String table_name = insert.getSourceTable().getLocalName();
+		SourceTable table = insert.getSourceTable().getTable();
+        String table_name = table.getTableName();;
 
         /* Create print table method if it doesn't already exist */
 		if (!print_written) {
@@ -1362,22 +1355,6 @@ public class IinqExecute {
 		}
 
 		print_written = true;
-
-        /* Write function to file */
-
-        /* Kai's code
-        out.write("void insert" + insert_count + "() {\n\n");
-		out.write("\tprintf(\"%s" + "\\" + "n" + "\\" + "n" + "\", \"" + statement.substring(statement.indexOf("(") + 2, statement.length() - 4) + "\");\n");
-		out.write("\tion_err_t error;\n" + "\tion_dictionary_t dictionary;\n" + "\tion_dictionary_handler_t handler;\n");
-		out.write("\tdictionary.handler = &handler;\n" + "\n\terror = iinq_open_source(\"" + table_name + "\", &dictionary, &handler);");
-		print_error(out, false, 0); */
-
-        int pos = sql.indexOf("(");
-
-		//sql = sql.substring(pos + 1);
-
-        /* INSERT statement */
-        String value = sql.substring(0, sql.length() - 5);
 
         /* Count number of fields */
         int count = insert.getInsertFields().size();
@@ -1389,7 +1366,7 @@ public class IinqExecute {
 		boolean prep = stmt.getParameters().size() > 0;
 
         String[] fields = new String[count];
-        value = "";
+        String value = "";
         String field_value;
 
         String key_type = get_schema_value(table_name, "PRIMARY KEY TYPE");
@@ -1430,27 +1407,13 @@ public class IinqExecute {
         }
 
 		for (int j = 0; j < count; j++) {
-			pos = sql.indexOf(",");
+			fields[j] = insert.getInsertFields().get(j).getLocalName();
 
-            if (-1 == pos) {
-                String temp = sql.substring(0, sql.lastIndexOf(")"));
-                pos = temp.lastIndexOf(")");
-            }
-
-            if (-1 == pos) {
-                System.out.println("Error parsing values to be inserted, please check that a value has been listed for each column in table.");
-                return;
-            }
-
-			fields[j] = sql.substring(0, pos);
-
-            field_value = get_schema_value(table_name, "FIELD" + j + " TYPE: ");
-            field_sizes.add(ion_switch_value_size(field_value));
+            field_value = get_schema_value(table_name, "FIELD" + j + " TYPE");
+            field_sizes.add(ion_get_value_size(table,table.getSourceFieldsByPosition().get(j).getColumnName()));
 
             /* To be added in function call */
             field_values.add(fields[j]);
-
-            sql = sql.substring(pos + 2);
 
             if (field_value.contains("CHAR")) {
                 string_fields.add(j + 1);
@@ -1506,7 +1469,7 @@ public class IinqExecute {
 
             for (int i = 0; i < fields.length; i++) {
                 field_value = get_schema_value(table_name, "FIELD" + i + " TYPE");
-                String value_size = ion_switch_value_size(field_value);
+                String value_size = ion_get_value_size(table,table.getSourceFieldsByPosition().get(i).getColumnName());
 
                 if (field_value.contains("CHAR")) {
                     out.write("\tmemcpy(data, value_" + (i + 1) + ", " + value_size + ");\n");
@@ -1522,9 +1485,9 @@ public class IinqExecute {
             out.write("\n\treturn p;\n");
             out.write("}\n\n");
 
-            tableInfo table = new tableInfo(table_id, count, iinq_field_types, field_sizes);
+            tableInfo table_info = new tableInfo(table_id, count, iinq_field_types, field_sizes);
 
-            calculateInfo.add(table);
+            calculateInfo.add(table_info);
             tables_count++;
         }
 
@@ -1568,7 +1531,7 @@ public class IinqExecute {
         }
 
         else {
-            inserts.add(new insert(table_name, fields, int_fields, string_fields, count, sql, pos, value, prep_fields, key_type, key_field_num, table_id));
+            inserts.add(new insert(table_name, fields, int_fields, string_fields, count, sql, value, prep_fields, key_type, key_field_num, table_id));
         }
 
         if (!prepare_function.equals("")) {
@@ -1763,6 +1726,8 @@ public class IinqExecute {
             table_id_count++;
             new_table = true;
         }
+
+        SourceTable table = metadata.getTable("IinqDB", table_name);
 
 		sql = sql.substring(table_name.length() + 1);
 
@@ -2064,7 +2029,7 @@ public class IinqExecute {
 
             for (int n = 0; n < Integer.parseInt(get_schema_value(table_name, "NUMBER OF FIELDS: ")); n++) {
                 String field_type = get_schema_value(table_name, "FIELD"+n+" TYPE: ");
-                field_sizes.add(ion_switch_value_size(field_type));
+                field_sizes.add(ion_get_value_size(table,table.getSourceFieldsByPosition().get(n).getColumnName()));
 
                 if (update_field.equals(get_schema_value(table_name, "FIELD" + n + " NAME: "))) {
                     update_field_nums.add(n+1);
@@ -2077,9 +2042,9 @@ public class IinqExecute {
         }
 
         if (new_table) {
-            tableInfo table = new tableInfo(table_id, Integer.parseInt(get_schema_value(table_name, "NUMBER OF FIELDS: ")), iinq_field_types, field_sizes);
+            tableInfo table_info = new tableInfo(table_id, Integer.parseInt(get_schema_value(table_name, "NUMBER OF FIELDS: ")), iinq_field_types, field_sizes);
 
-            calculateInfo.add(table);
+            calculateInfo.add(table_info);
             tables_count++;
         }
 
@@ -2128,6 +2093,8 @@ public class IinqExecute {
             table_id_count++;
             new_table = true;
         }
+
+        SourceTable table = metadata.getTable("IinqDB",table_name);
 
         /* Create print table method if it doesn't already exist */
         if (!print_written) {
@@ -2424,7 +2391,7 @@ public class IinqExecute {
         for (int j = 0; j < num_fields; j++) {
             for (int n = 0; n < Integer.parseInt(get_schema_value(table_name, "NUMBER OF FIELDS: ")); n++) {
                 String field_type = get_schema_value(table_name, "FIELD"+n+" TYPE: ");
-                field_sizes.add(ion_switch_value_size(field_type));
+                field_sizes.add(ion_get_value_size(table, table.getSourceFieldsByPosition().get(j).getColumnName()));
 
                 if ((fields[j].trim()).equals(get_schema_value(table_name, "FIELD" + n + " NAME: "))) {
                     select_field_nums.add(n+1);
@@ -2433,9 +2400,9 @@ public class IinqExecute {
         }
 
         if (new_table) {
-            tableInfo table = new tableInfo(table_id, Integer.parseInt(get_schema_value(table_name, "NUMBER OF FIELDS: ")), iinq_field_types, field_sizes);
+            tableInfo table_info = new tableInfo(table_id, Integer.parseInt(get_schema_value(table_name, "NUMBER OF FIELDS: ")), iinq_field_types, field_sizes);
 
-            calculateInfo.add(table);
+            calculateInfo.add(table_info);
             tables_count++;
         }
 
@@ -2476,6 +2443,8 @@ public class IinqExecute {
             table_id_count++;
             new_table = true;
         }
+
+        SourceTable table = metadata.getTable("IinqDB", table_name);
 
 		sql = sql.substring(table_name.length() - 3);
 
@@ -2645,7 +2614,7 @@ public class IinqExecute {
             for (int n = 0; n < Integer.parseInt(get_schema_value(table_name, "NUMBER OF FIELDS: ")); n++) {
 
                 String field_type = get_schema_value(table_name, "FIELD"+n+" TYPE: ");
-                field_sizes.add(ion_switch_value_size(field_type));
+                field_sizes.add(ion_get_value_size(table, field_type));
 
                 if (field_type.contains("CHAR")) {
                     iinq_field_types.add("iinq_char");
@@ -2662,9 +2631,9 @@ public class IinqExecute {
         }
 
         if (new_table) {
-            tableInfo table = new tableInfo(table_id, Integer.parseInt(get_schema_value(table_name, "NUMBER OF FIELDS: ")), iinq_field_types, field_sizes);
+            tableInfo table_info = new tableInfo(table_id, Integer.parseInt(get_schema_value(table_name, "NUMBER OF FIELDS: ")), iinq_field_types, field_sizes);
 
-            calculateInfo.add(table);
+            calculateInfo.add(table_info);
             tables_count++;
         }
 
