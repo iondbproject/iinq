@@ -510,7 +510,7 @@ public class IinqExecute {
     ion_get_value_size(
         SourceTable table, String field_name
     ) {
-		SourceField field = table.getSourceFields().get(field_name);
+		SourceField field = table.getSourceFields().get(field_name.toLowerCase());
         if (field.getDataType() == Types.CHAR) {
             return "sizeof(char) * "+field.getColumnSize();
         }
@@ -991,7 +991,7 @@ public class IinqExecute {
 		conJava = DriverManager.getConnection(url);
 	}
 
-	// TODO: use schema from UnityJDBC
+	// TODO: change keywords to enum
 	private static String
 	get_schema_value(String table_name, String keyword) throws IOException, RelationNotFoundException, InvalidArgumentException, SQLFeatureNotSupportedException {
 		String line;
@@ -1032,13 +1032,23 @@ public class IinqExecute {
 			case "NUMBER OF FIELDS": {
 				return Integer.toString(table.getNumFields());
 			}
+			case "ION KEY TYPE": {
+				switch (ion_switch_key_type(table.getPrimaryKey().getFieldList())){
+					case Types.INTEGER:
+						return "key_type_numeric_unsigned";
+					case Types.CHAR:
+					case Types.VARCHAR:
+						return "key_type_char_array";
+				}
+				return null;
+			}
 			default: {
 				if (keyword.matches("(FIELD)\\d*\\s(NAME)")) {
 					int field_index = Integer.parseInt(keyword.substring(5, keyword.indexOf(" ")));
 					return table.getSourceFieldsByPosition().get(field_index).getColumnName();
 				} else if (keyword.matches("(FIELD)\\d*\\s(TYPE)")) {
 					int field_index = Integer.parseInt(keyword.substring(5, keyword.indexOf(" ")));
-					return Integer.toString(table.getSourceFieldsByPosition().get(field_index).getDataType());
+					return table.getSourceFieldsByPosition().get(field_index).getDataTypeName();
 				} else {
 					throw new InvalidArgumentException(new String[]{String.format("%s is not a valid keyword.", keyword)});
 				}
@@ -1234,7 +1244,7 @@ public class IinqExecute {
 				value_calculation.append("(sizeof(int) * " + int_count + ")+");
 			}
 			if (char_present) {
-				value_calculation.append("+(sizeof(char) * " + char_multiplier + ")+");
+				value_calculation.append("(sizeof(char) * " + char_multiplier + ")+");
 			}
 			value_calculation.setLength(value_calculation.length()-1); // remove last "+"
 
@@ -1407,7 +1417,7 @@ public class IinqExecute {
         }
 
 		for (int j = 0; j < count; j++) {
-			fields[j] = insert.getInsertFields().get(j).getLocalName();
+        	fields[j] = ((LQExprNode) insert.getInsertValues().get(j)).getContent().toString();
 
             field_value = get_schema_value(table_name, "FIELD" + j + " TYPE");
             field_sizes.add(ion_get_value_size(table,table.getSourceFieldsByPosition().get(j).getColumnName()));
@@ -1446,7 +1456,7 @@ public class IinqExecute {
                 }
             }
 
-            prep_fields[j] = fields[j].contains("(?)");
+            prep_fields[j] = fields[j].equals("?");
         }
 
         if (new_table) {
@@ -1950,7 +1960,7 @@ public class IinqExecute {
             where_fields[j] = conditions[j].substring(0, pos).trim();
             where_value.add(conditions[j].substring(pos + len).trim());
 
-            for (int n = 0; n < Integer.parseInt(get_schema_value(table_name, "NUMBER OF FIELDS: ")); n++) {
+            for (int n = 0; n < Integer.parseInt(get_schema_value(table_name, "NUMBER OF FIELD")); n++) {
 
                 String field_type = get_schema_value(table_name, "FIELD" + n + " TYPE: ");
 
@@ -1960,7 +1970,7 @@ public class IinqExecute {
                     iinq_field_types.add("iinq_int");
                 }
 
-                if (where_fields[j].equals(get_schema_value(table_name, "FIELD" + n + " NAME: "))) {
+                if (where_fields[j].equals(get_schema_value(table_name, "FIELD" + n + " NAM"))) {
                     where_field.add(n + 1);
                     where_field_type.add(field_type);
                 }
@@ -2058,22 +2068,40 @@ public class IinqExecute {
     }
 
     private static void
-    select(String sql, BufferedWriter out) throws IOException, SQLFeatureNotSupportedException, RelationNotFoundException, InvalidArgumentException {
+    select(String sql, BufferedWriter out) throws IOException, SQLException, RelationNotFoundException, InvalidArgumentException {
         System.out.println("select statement");
 
-        sql = sql.trim();
+		String return_val = sql.substring(0, sql.indexOf("=") - 1);
 
-        String table_name = sql.substring(sql.indexOf("FROM") + 5);
+        sql = sql.substring(sql.indexOf("("));
+        sql = sql.substring(sql.toUpperCase().indexOf("SELECT"),sql.indexOf(";")).trim();
+		sql = StringFunc.verifyTerminator(sql);	// Make sure SQL is terminated by semi-colon properly
+
+		// Parse semantic query string into a parse tree
+		GlobalParser kingParser;
+		GlobalQuery gq;
+		if (null != metadata) {
+			kingParser = new GlobalParser(false, true);
+			gq = kingParser.parse(sql, metadata);
+		}
+		else {
+			kingParser = new GlobalParser(false, false);
+			gq = kingParser.parse(sql, new GlobalSchema());
+		}
+		gq.setQueryString(sql);
+
+		// Optimize logical query tree before execution
+		Optimizer opt = new Optimizer(gq, false, null);
+		gq = opt.optimize();
+
+		IinqBuilder builder = new IinqBuilder(gq.getLogicalQueryTree().getRoot());
+		IinqQuery query = builder.toQuery();
+		String table_name = query.getTableName();
+
         int pos = table_name.indexOf(" ");
 
-        if (pos == -1) {
-            pos = table_name.indexOf(";");
-        }
-
-        table_name = (table_name.substring(0, pos))+".inq";
-        String table_name_sub = table_name.substring(0, table_name.length()-4);
-
-        String return_val = sql.substring(0, sql.indexOf("=") - 1);
+		String table_name_sub = table_name;
+        table_name = table_name+".inq";
 
         boolean table_found = false;
         int table_id = 0;
@@ -2094,7 +2122,7 @@ public class IinqExecute {
             new_table = true;
         }
 
-        SourceTable table = metadata.getTable("IinqDB",table_name);
+        SourceTable table = metadata.getTable("IinqDB",table_name_sub);
 
         /* Create print table method if it doesn't already exist */
         if (!print_written) {
@@ -2287,13 +2315,13 @@ public class IinqExecute {
         select_written = true;
 
         pos = sql.toUpperCase().indexOf("WHERE");
-        String where_condition = "";
+        String where_condition = query.getParameter("filter");
         int num_conditions = 0;
         int i = -1;
 
         /* Get WHERE condition if it exists */
         if (-1 != pos) {
-            where_condition = sql.substring(pos + 6, sql.length() - 4);
+            //where_condition = sql.substring(pos + 6, sql.length() - 4);
             i = 0;
         }
 
@@ -2311,7 +2339,7 @@ public class IinqExecute {
         /* Get fields to select */
         String field_list;
         pos = sql.toUpperCase().indexOf("SELECT");
-        field_list = sql.substring(pos + 15, sql.toUpperCase().indexOf("FROM") - 1);
+        field_list = query.getParameter("fields");
 
         int num_fields = 0;
         i = 0;
@@ -2364,9 +2392,9 @@ public class IinqExecute {
             where_value.add(conditions[j].substring(pos + len).trim());
         }
 
-        for (int n = 0; n < Integer.parseInt(get_schema_value(table_name, "NUMBER OF FIELDS: ")); n++) {
+        for (int n = 0; n < Integer.parseInt(get_schema_value(table_name_sub, "NUMBER OF FIELDS")); n++) {
 
-            String field_type = get_schema_value(table_name, "FIELD"+n+" TYPE: ");
+            String field_type = get_schema_value(table_name_sub, "FIELD"+n+" TYPE");
 
             if (field_type.contains("CHAR")) {
                 iinq_field_types.add("iinq_char");
@@ -2375,7 +2403,7 @@ public class IinqExecute {
                 iinq_field_types.add("iinq_int");
             }
 
-            if (field.equals(get_schema_value(table_name, "FIELD"+n+" NAME: "))) {
+            if (field.equals(get_schema_value(table_name_sub, "FIELD"+n+" NAME"))) {
                 where_field.add(n+1);
                 where_field_type.add(field_type);
             }
@@ -2389,28 +2417,28 @@ public class IinqExecute {
         fields = get_fields(field_list, num_fields);
 
         for (int j = 0; j < num_fields; j++) {
-            for (int n = 0; n < Integer.parseInt(get_schema_value(table_name, "NUMBER OF FIELDS: ")); n++) {
-                String field_type = get_schema_value(table_name, "FIELD"+n+" TYPE: ");
+            for (int n = 0; n < Integer.parseInt(get_schema_value(table_name_sub, "NUMBER OF FIELDS")); n++) {
+                String field_type = get_schema_value(table_name_sub, "FIELD"+n+" TYPE");
                 field_sizes.add(ion_get_value_size(table, table.getSourceFieldsByPosition().get(j).getColumnName()));
 
-                if ((fields[j].trim()).equals(get_schema_value(table_name, "FIELD" + n + " NAME: "))) {
+                if ((fields[j].trim()).equals(get_schema_value(table_name_sub, "FIELD" + n + " NAME"))) {
                     select_field_nums.add(n+1);
                 }
             }
         }
 
         if (new_table) {
-            tableInfo table_info = new tableInfo(table_id, Integer.parseInt(get_schema_value(table_name, "NUMBER OF FIELDS: ")), iinq_field_types, field_sizes);
+            tableInfo table_info = new tableInfo(table_id, Integer.parseInt(get_schema_value(table_name_sub, "NUMBER OF FIELDS")), iinq_field_types, field_sizes);
 
             calculateInfo.add(table_info);
             tables_count++;
         }
 
-        String value_size = get_schema_value(table_name, "VALUE SIZE: ");
-        String key_size = get_schema_value(table_name, "PRIMARY KEY SIZE: ");
-        String ion_key = get_schema_value(table_name, "ION KEY TYPE: ");
+        String value_size = get_schema_value(table_name_sub, "VALUE SIZE");
+        String key_size = get_schema_value(table_name_sub, "PRIMARY KEY SIZE");
+        String ion_key = get_schema_value(table_name_sub, "ION KEY TYPE");
 
-        select_fields.add(new select_fields(table_name, table_id, num_conditions, num_fields, where_field, where_operator,
+        select_fields.add(new select_fields(table_name_sub, table_id, num_conditions, num_fields, where_field, where_operator,
                         where_value, where_field_type, ion_key, key_size, value_size, select_field_nums, return_val));
     }
 
