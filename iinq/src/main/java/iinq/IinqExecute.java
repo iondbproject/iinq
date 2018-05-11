@@ -1629,15 +1629,16 @@ public class IinqExecute {
             String size_header = "iinq_field_t getFieldType(const unsigned char *table, int field_num);\n";
             function_headers.add(size_header);
 
+			out.write("\tswitch (*(int *) table) {\n");
+			field_size_function += "\tswitch (*(int *) table) {\n";
+
             for (int i = 0; i < tables_count; i++) {
                 int table_id = calculateInfo.get(i).tableId;
                 int num_fields = calculateInfo.get(i).numFields;
 
-                out.write("\tswitch (*(int *) table) {\n");
                 out.write("\t\tcase "+table_id+" : {\n");
                 out.write("\t\t\tswitch (field_num) {\n");
 
-                field_size_function += "\tswitch (*(int *) table) {\n";
                 field_size_function += "\t\tcase "+table_id+" : {\n";
                 field_size_function += "\t\t\tswitch (field_num) {\n";
 
@@ -1691,17 +1692,17 @@ public class IinqExecute {
                         out.write("(sizeof(char) * "+char_multiplier+");\n");
                     }
                 }
-
-                out.write("\t\t\t\tdefault:\n\t\t\t\t\treturn 0;\n");
-                out.write("\t\t\t}\n\t\t}\n");
-                out.write("\t\tdefault:\n\t\t\treturn 0;\n");
-                out.write("\t}\n}\n\n");
-
-                field_size_function += "\t\t\t\tdefault:\n\t\t\t\t\treturn iinq_int;\n";
-                field_size_function += "\t\t\t}\n\t\t}\n";
-                field_size_function += "\t\tdefault:\n\t\t\treturn iinq_int;\n";
-                field_size_function += "\t}\n}\n\n";
+				out.write("\t\t\t\tdefault:\n\t\t\t\t\treturn 0;\n");
+				out.write("\t\t\t}\n\t\t}\n");
+				field_size_function += "\t\t\t\tdefault:\n\t\t\t\t\treturn iinq_int;\n";
+				field_size_function += "\t\t\t}\n\t\t}\n";
             }
+
+			out.write("\t\tdefault:\n\t\t\treturn 0;\n");
+			out.write("\t}\n}\n\n");
+
+			field_size_function += "\t\tdefault:\n\t\t\treturn iinq_int;\n";
+			field_size_function += "\t}\n}\n\n";
 
             out.write(field_size_function);
         }
