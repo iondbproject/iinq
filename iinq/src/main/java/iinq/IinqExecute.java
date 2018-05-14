@@ -78,7 +78,6 @@ public class IinqExecute {
     private static String directory; /**< Path to directory to output UnityJDBC schema files. Mandatory for iinq to run. */
     private static boolean use_existing = false; /**< Optional JVM option to use pre-existing database files (i.e. Use tables generated from an earlier IinqExecute). */
 
-    private static boolean print_written    = false;
     private static boolean param_written    = false;
     private static boolean delete_written   = false;
     private static boolean update_written   = false;
@@ -108,6 +107,8 @@ public class IinqExecute {
 	private static GlobalSchema metadata = null; /**< Metadata object for Iinq tables */
 	private static String urlUnity = null; /**< Url to use for UnityJDBC connection */
 	private static String urlJava = null; /**< Url to use for HSQLDB */
+
+	private static HashMap<String, IinqTable> tables = new HashMap<>();
 
     public static void main(String args[]) throws IOException, SQLException, RelationNotFoundException, InvalidArgumentException {
 
@@ -245,6 +246,28 @@ public class IinqExecute {
 			/* Create table statements are stored as a comment in the schema */
 			String sql = ((Element) tableNodes.item(i)).getElementsByTagName("comment").item(0).getTextContent();
 			stmt.execute(sql);
+			IinqTable table = new IinqTable();
+			String table_name = sql.substring(sql.toUpperCase().indexOf("TABLE")+5, sql.indexOf("(")).trim();
+			table.setTableName(table_name);
+			DatabaseMetaData newMetaData = conJava.getMetaData();
+			ResultSet rst = newMetaData.getPrimaryKeys(null, null, table.getTableName().toUpperCase());
+			rst.next();
+			table.setPrimaryKey(rst.getString("COLUMN_NAME"));
+			rst.close();
+
+			// Get the remaining data
+			rst = newMetaData.getColumns(null, null, table.getTableName().toUpperCase(), null);
+			int num_fields = 0;
+			while (rst.next()) {
+				num_fields++;
+				String field_name = rst.getString("COLUMN_NAME");
+				int data_type = rst.getInt("DATA_TYPE");
+				if (field_name.equals(table.getPrimaryKey())) {
+					table.setPrimaryKeyIndex(num_fields);
+					table.setPrimaryKeyType(data_type);
+				}
+				table.addField(field_name, data_type, rst.getString("TYPE_NAME"), rst.getInt("COLUMN_SIZE"));
+			}
 		}
 	}
 
@@ -585,7 +608,7 @@ public class IinqExecute {
 
 	private static void
 	print_table(BufferedWriter out, String table_name) throws IOException, InvalidArgumentException, RelationNotFoundException, SQLFeatureNotSupportedException {
-		out.write("void print_table_" + table_name.substring(0, table_name.length() - 4).toLowerCase() + "(ion_dictionary_t *dictionary) {\n");
+		out.write("void print_table_" + table_name.toLowerCase() + "(ion_dictionary_t *dictionary) {\n");
 		out.write("\n\tion_predicate_t predicate;\n");
 		out.write("\tdictionary_build_predicate(&predicate, predicate_all_records);\n\n");
 		out.write("\tion_dict_cursor_t *cursor = NULL;\n");
@@ -1284,6 +1307,7 @@ public class IinqExecute {
 			String schema_name = table.getTableName().toLowerCase().concat(".xml");
 
 			add_table_to_database(directory, "iinq_database.xml", table, sql);
+			tables.put(table.getTableName().toLowerCase(), table);
 
 			File schema = new File(directory + schema_name);
 			FileOutputStream schema_out = new FileOutputStream(schema, false);
@@ -1344,15 +1368,15 @@ public class IinqExecute {
         		getUnityConnection(urlUnity);
 
 				/* Create print table method if it doesn't already exist */
-				if (!print_written) {
+				if (!tables.get(table_name.toLowerCase()).isWritten_table()) {
 					try {
 						print_table(out, table_name);
+						tables.get(table_name.toLowerCase()).setWritten_table(true);
 					} catch (Exception e) {
 						e.printStackTrace();
 					}
 				}
 
-				print_written = true;
 
 			} catch (Exception e) {
         		e.printStackTrace();
@@ -1384,11 +1408,10 @@ public class IinqExecute {
         String table_name = table.getTableName();;
 
         /* Create print table method if it doesn't already exist */
-		if (!print_written) {
+		if (!tables.get(table_name).isWritten_table()) {
 			print_table(out, table_name);
+			tables.get(table_name.toLowerCase()).setWritten_table(true);
 		}
-
-		print_written = true;
 
         /* Count number of fields */
         int count = insert.getInsertFields().size();
@@ -1733,7 +1756,7 @@ public class IinqExecute {
     }
 
 	private static void
-	update(String sql, BufferedWriter out) throws IOException, InvalidArgumentException, RelationNotFoundException, SQLFeatureNotSupportedException {
+	update(String sql, BufferedWriter out) throws IOException, InvalidArgumentException, RelationNotFoundException, SQLException {
 		System.out.println("update statement");
 
         sql = sql.trim();
@@ -1763,15 +1786,19 @@ public class IinqExecute {
         }
 
         SourceTable table = metadata.getTable("IinqDB", table_name_sub);
+		IinqTable iinqTable = tables.get(table_name_sub.toLowerCase());
+		if (null == iinqTable) {
+			throw new SQLException("Update attempted on non-existent table: " + table_name_sub);
+		}
+
 
 		sql = sql.substring(table_name.length() + 1);
 
         /* Create print table method if it doesn't already exist */
-		if (!print_written) {
+		if (!tables.get(table_name_sub.toLowerCase()).isWritten_table()) {
 			print_table(out, table_name_sub);
+			tables.get(table_name_sub.toLowerCase()).setWritten_table(true);
 		}
-
-		print_written = true;
 
         if (!update_written) {
             out.write("void update(int id, char *name, ion_key_type_t key_type, size_t key_size, size_t value_size, int num_wheres, int num_update, int num, ...) {\n\n");
@@ -2150,11 +2177,10 @@ public class IinqExecute {
         SourceTable table = metadata.getTable("IinqDB",table_name_sub);
 
         /* Create print table method if it doesn't already exist */
-        if (!print_written) {
-            print_table(out, table_name);
+        if (!tables.get(table_name_sub.toLowerCase()).isWritten_table()) {
+            print_table(out, table_name_sub);
+			tables.get(table_name_sub.toLowerCase()).setWritten_table(true);
         }
-
-        print_written = true;
 
         if (!select_written) {
             out.write("iinq_result_set iinq_select(int id, char *name, ion_key_type_t key_type, size_t key_size, size_t value_size, int num_wheres, int num_fields, int num, ...) {\n\n");
@@ -2502,11 +2528,10 @@ public class IinqExecute {
 		sql = sql.substring(table_name.length() - 3);
 
         /* Create print table method if it doesn't already exist */
-		if (!print_written) {
-			print_table(out, table_name);
+		if (!tables.get(table_name_sub.toLowerCase()).isWritten_table()) {
+			print_table(out, table_name_sub);
+			tables.get(table_name_sub.toLowerCase()).setWritten_table(true);
 		}
-
-		print_written = true;
 
         /* Write function to file */
         String key_size = get_schema_value(table_name_sub, "PRIMARY KEY SIZE");

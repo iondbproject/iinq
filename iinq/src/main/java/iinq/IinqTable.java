@@ -11,10 +11,32 @@ public class IinqTable implements Iterable<IinqField> {
 	private int primaryKeyType;
 	private String primaryKey;
 	private String tableName;
+	private boolean written_table;
+
+	private int table_id;
 
 	public IinqTable() {
 		fields = new ArrayList<>();
 		numFields = 0;
+		written_table = false;
+		table_id = -1;
+	}
+
+	public boolean isWritten_table() {
+		return written_table;
+	}
+
+	public void setWritten_table(boolean written_table) {
+		this.written_table = written_table;
+	}
+
+	/* Setters and getters */
+	public int getTable_id() {
+		return table_id;
+	}
+
+	public void setTable_id(int table_id) {
+		this.table_id = table_id;
 	}
 
 	public int getPrimaryKeyIndex() {
@@ -65,6 +87,7 @@ public class IinqTable implements Iterable<IinqField> {
 		return fields.get(i).getFieldSize();
 	}
 
+	/* Add a field to the table */
 	public void addField(String fieldName, int fieldType, String fieldTypeName, int fieldSize) {
 		fields.add(new IinqField(fieldName, fieldType, fieldTypeName, fieldSize));
 		numFields++;
