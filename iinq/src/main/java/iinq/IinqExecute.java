@@ -48,6 +48,8 @@ import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 
 import com.sun.javaws.exceptions.InvalidArgumentException;
+import org.w3c.dom.NodeList;
+import org.xml.sax.SAXException;
 import unity.annotation.*;
 import unity.jdbc.UnityConnection;
 import unity.jdbc.UnityPreparedStatement;
@@ -61,6 +63,7 @@ import javax.xml.transform.stream.StreamResult;
 import java.io.*;
 import java.sql.*;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Iterator;
 
 public class IinqExecute {
@@ -139,6 +142,11 @@ public class IinqExecute {
 
 			getUnityConnection(urlUnity);
 			getJavaConnection(urlJava);
+
+			/* Reload the CREATE TABLE statements if we are using an existing database */
+			if (use_existing) {
+				reload_tables();
+			}
 
             in = new FileInputStream(user_file);
 
@@ -225,13 +233,28 @@ public class IinqExecute {
 		}
 	}
 
+	private static void reload_tables() throws SQLException, ParserConfigurationException, IOException, SAXException {
+		Statement stmt = conJava.createStatement();
+		DocumentBuilderFactory docFactory = DocumentBuilderFactory.newInstance();
+		DocumentBuilder builder = docFactory.newDocumentBuilder();
+		TransformerFactory transFactory = TransformerFactory.newInstance();
+		Document xml = builder.parse(directory + "/iinq_database.xml");
+		NodeList tableNodes = xml.getElementsByTagName("TABLE");
+
+		for (int i = 0, n = tableNodes.getLength(); i < n; i++) {
+			/* Create table statements are stored as a comment in the schema */
+			String sql = ((Element) tableNodes.item(i)).getElementsByTagName("comment").item(0).getTextContent();
+			stmt.execute(sql);
+		}
+	}
+
 	public static void create_empty_database(String path) throws Exception {
     	create_xml_source(path, "iinq_sources.xml");
 		create_database(path, "iinq_database.xml");
 
 	}
 
-	public static void add_table_to_database(String path, String filename, IinqTable table) throws Exception {
+	public static void add_table_to_database(String path, String filename, IinqTable table, String sql) throws Exception {
 		String fullPath = path + "/" + filename;
 
 		DocumentBuilderFactory docFactory = DocumentBuilderFactory.newInstance();
@@ -260,7 +283,9 @@ public class IinqExecute {
 		node = xml.createElement("catalogName");
 		tableNode.appendChild(node);
 
+		// add the CREATE TABLE statement as a comment
 		node = xml.createElement("comment");
+		node.appendChild(xml.createTextNode(sql));
 		tableNode.appendChild(node);
 
 		node = xml.createElement("numTuples");
@@ -1192,8 +1217,7 @@ public class IinqExecute {
 			PreparedStatement stmt = conJava.prepareStatement(sql);
 			stmt.execute();
 
-			sql = sql.substring(sql.toUpperCase().indexOf("TABLE")+5).trim();
-			table_name = sql.substring(0, sql.indexOf(" ")).trim();
+			table_name = sql.substring(sql.toUpperCase().indexOf("TABLE")+5, sql.indexOf("(")).trim();
 			table.setTableName(table_name);
 			System.out.println(table.getTableName() + ".inq");
 
@@ -1259,7 +1283,7 @@ public class IinqExecute {
 
 			String schema_name = table.getTableName().toLowerCase().concat(".xml");
 
-			add_table_to_database(directory, "iinq_database.xml", table);
+			add_table_to_database(directory, "iinq_database.xml", table, sql);
 
 			File schema = new File(directory + schema_name);
 			FileOutputStream schema_out = new FileOutputStream(schema, false);
