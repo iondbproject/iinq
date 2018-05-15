@@ -1081,7 +1081,7 @@ public class IinqExecute {
 				return Integer.toString(table.getNumFields());
 			}
 			case "ION KEY TYPE": {
-				switch (ion_switch_key_type(table.getPrimaryKey().getFieldList())){
+				switch (table.getField(table.getPrimaryKey().getFieldList()).getDataType()){
 					case Types.INTEGER:
 						return "key_type_numeric_unsigned";
 					case Types.CHAR:
@@ -2020,7 +2020,7 @@ public class IinqExecute {
                     iinq_field_types.add("iinq_int");
                 }
 
-                if (where_fields[j].equals(get_schema_value(table_name_sub, "FIELD" + n + " NAME"))) {
+                if (where_fields[j].equalsIgnoreCase(get_schema_value(table_name_sub, "FIELD" + n + " NAME"))) {
                     where_field.add(n + 1);
                     where_field_type.add(field_type);
                 }
@@ -2091,11 +2091,11 @@ public class IinqExecute {
                 String field_type = get_schema_value(table_name_sub, "FIELD"+n+" TYPE");
                 field_sizes.add(ion_get_value_size(table,table.getSourceFieldsByPosition().get(n).getColumnName()));
 
-                if (update_field.equals(get_schema_value(table_name_sub, "FIELD" + n + " NAME"))) {
+                if (update_field.equalsIgnoreCase(get_schema_value(table_name_sub, "FIELD" + n + " NAME"))) {
                     update_field_nums.add(n+1);
                     update_field_types.add(field_type);
                 }
-                if (implicit_field.equals(get_schema_value(table_name_sub, "FIELD"+n+" NAME"))) {
+                if (implicit_field.equalsIgnoreCase(get_schema_value(table_name_sub, "FIELD"+n+" NAME"))) {
                     implicit_fields.add(n+1);
                 }
             }
@@ -2700,7 +2700,7 @@ public class IinqExecute {
                     iinq_field_types.add("iinq_int");
                 }
 
-                if (field.equals(get_schema_value(table_name_sub, "FIELD"+n+" NAME"))) {
+                if (field.equalsIgnoreCase(get_schema_value(table_name_sub, "FIELD"+n+" NAME"))) {
                     fields.add(n+1);
                     field_types.add(field_type);
                 }
