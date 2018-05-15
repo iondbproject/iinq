@@ -1236,13 +1236,16 @@ public class IinqExecute {
 
 			IinqTable table = new IinqTable();
 
+			table_name = sql.substring(sql.toUpperCase().indexOf("TABLE")+5, sql.indexOf("(")).trim();
+			table.setTableName(table_name);
+
+			if (tables.get(table_name.toLowerCase()) != null) {
+				throw new SQLException("Table already exists: " + table_name);
+			}
+
 			// Create the table using HSQLDB to avoid string parsing
 			PreparedStatement stmt = conJava.prepareStatement(sql);
 			stmt.execute();
-
-			table_name = sql.substring(sql.toUpperCase().indexOf("TABLE")+5, sql.indexOf("(")).trim();
-			table.setTableName(table_name);
-			System.out.println(table.getTableName() + ".inq");
 
 			DatabaseMetaData newMetaData = conJava.getMetaData();
 
