@@ -53,6 +53,7 @@ import org.xml.sax.SAXException;
 import unity.annotation.*;
 import unity.jdbc.UnityConnection;
 import unity.jdbc.UnityPreparedStatement;
+import unity.jdbc.UnityStatement;
 import unity.parser.GlobalParser;
 import unity.query.*;
 import unity.util.StringFunc;
@@ -274,7 +275,6 @@ public class IinqExecute {
 	public static void create_empty_database(String path) throws Exception {
     	create_xml_source(path, "iinq_sources.xml");
 		create_database(path, "iinq_database.xml");
-
 	}
 
 	public static void add_table_to_database(String path, String filename, IinqTable table, String sql) throws Exception {
@@ -456,7 +456,7 @@ public class IinqExecute {
 		root.appendChild(node);
 
 		node = xml.createElement("urlJDBC");
-		node.appendChild(xml.createTextNode("jdbc:hsqldb:hsql://localhost/tpch"));
+		node.appendChild(xml.createTextNode("jdbc:hsqldb:mem:."));
 		root.appendChild(node);
 
 		node = xml.createElement("userid");
@@ -1406,7 +1406,7 @@ public class IinqExecute {
         String table_name = table.getTableName();;
 
         /* Create print table method if it doesn't already exist */
-		if (!tables.get(table_name).isWritten_table()) {
+		if (!tables.get(table_name.toLowerCase()).isWritten_table()) {
 			print_table(out, table_name);
 			tables.get(table_name.toLowerCase()).setWritten_table(true);
 		}
@@ -2720,15 +2720,44 @@ public class IinqExecute {
     }
 
 	private static void
-	drop_table(String sql, BufferedWriter out) throws IOException {
+	drop_table(String sql, BufferedWriter out) throws Exception {
 		System.out.println("drop statement");
 
-		sql = sql.trim();
+        sql = sql.substring(sql.toUpperCase().indexOf("DROP"));
+		sql = sql.substring(0, sql.indexOf(";"));
+		sql = StringFunc.verifyTerminator(sql);
 
-        // TODO: why 24?
-        sql = sql.substring(24);
+		// Use UnityJDBC to parse the drop table statement (metadata is required to verify table existence)
+		GlobalParser kingParser;
+		GlobalUpdate gu;
+		if (null != metadata) {
+			kingParser = new GlobalParser(false, true);
+			gu = kingParser.parseUpdate(sql, metadata);
+		}
+		else {
+			throw new SQLException("Metadata is required for dropping tables.");
+		}
 
-        String table_name = (sql.substring(0, sql.indexOf(";"))) + ".inq";
+
+		String table_name = ((LQDropNode) gu.getPlan().getLogicalQueryTree().getRoot()).getName();
+		IinqTable table = tables.get(table_name.toLowerCase());
+		if (table == null) {
+			throw new SQLException("Attempt to drop non-existent table: " + table_name);
+		}
+
+		/* Delete from XML schema file */
+		drop_table_from_database(directory, "iinq_database.xml", table_name);
+
+		/* Refresh UnityJDBC */
+		conUnity.close();
+		getUnityConnection(urlUnity);
+
+		/* Delete IinqTable reference */
+		tables.remove(table_name.toLowerCase());
+
+		/* Drop table from in-memory database */
+		Statement stmt = conJava.createStatement();
+		stmt.execute(sql);
 
         /* Write function to file */
         if (!drop_written) {
@@ -2736,12 +2765,6 @@ public class IinqExecute {
             out.write("\tion_err_t error;\n\n");
             out.write("\terror = iinq_drop(table_name);");
             print_error(out);
-
-            File file = new File(directory + table_name.substring(0, table_name.length() - 4).toLowerCase() + ".xml");
-
-            if (!file.delete()) {
-                out.write("\tprintf(\"Error occurred deleting table." + "\\" + "n" + "\");");
-            }
 
             out.write("\tprintf(\"Table %s has been deleted." + "\\" + "n" + "\", table_name);");
 
@@ -2755,7 +2778,33 @@ public class IinqExecute {
         drop_tables.add(table_name);
     }
 
-    private static void
+	public static void drop_table_from_database(String path, String filename, String table_name) throws Exception {
+		String fullPath = path + "/" + filename;
+
+		DocumentBuilderFactory docFactory = DocumentBuilderFactory.newInstance();
+		DocumentBuilder builder = docFactory.newDocumentBuilder();
+		TransformerFactory transFactory = TransformerFactory.newInstance();
+		Transformer trans = transFactory.newTransformer();
+		Document xml = builder.parse(fullPath);
+		StreamResult result;
+		NodeList nodeList = xml.getElementsByTagName("TABLE");
+		Element node;
+
+		for (int i = 0, n = nodeList.getLength(); i < n; i++) {
+			node = (Element) nodeList.item(i);
+			if (node.getElementsByTagName("tableName").item(0).getTextContent().equalsIgnoreCase(table_name)) {
+				node.getParentNode().removeChild(node);
+				break;
+			}
+		}
+
+		// write to sources XML file
+		DOMSource dom = new DOMSource(xml);
+		result = new StreamResult(new File(fullPath));
+		trans.transform(dom, result);
+	}
+
+	private static void
     function_close() throws IOException {
         /* Closes insert functions because there do not exist any more commands to be read */
         String path = function_file;
