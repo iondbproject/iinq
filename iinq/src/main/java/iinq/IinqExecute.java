@@ -1228,100 +1228,99 @@ public class IinqExecute {
 	}
 
 	private static void
-	create_table(String sql, BufferedWriter out) throws IOException, SQLException, InvalidArgumentException, RelationNotFoundException {
-    	String table_name = null;
-    	try {
-			sql = sql.substring(sql.toUpperCase().indexOf("CREATE"),sql.indexOf(";"));
-			sql = StringFunc.verifyTerminator(sql);    // Make sure SQL is terminated by semi-colon properly
+	create_table(String sql, BufferedWriter out) throws Exception {
+		String table_name = null;
+		sql = sql.substring(sql.toUpperCase().indexOf("CREATE"), sql.indexOf(";"));
+		sql = StringFunc.verifyTerminator(sql);    // Make sure SQL is terminated by semi-colon properly
 
-			IinqTable table = new IinqTable();
+		IinqTable table = new IinqTable();
 
-			table_name = sql.substring(sql.toUpperCase().indexOf("TABLE")+5, sql.indexOf("(")).trim();
-			table.setTableName(table_name);
+		table_name = sql.substring(sql.toUpperCase().indexOf("TABLE") + 5, sql.indexOf("(")).trim();
+		table.setTableName(table_name);
 
-			if (tables.get(table_name.toLowerCase()) != null) {
-				throw new SQLException("Table already exists: " + table_name);
+		if (tables.get(table_name.toLowerCase()) != null) {
+			throw new SQLException("Table already exists: " + table_name);
+		}
+
+		// Create the table using HSQLDB to avoid string parsing
+		PreparedStatement stmt = conJava.prepareStatement(sql);
+		stmt.execute();
+
+		DatabaseMetaData newMetaData = conJava.getMetaData();
+
+		// TODO: Add support for composite keys
+		// Get primary key
+		ResultSet rst = newMetaData.getPrimaryKeys(null, null, table.getTableName().toUpperCase());
+		rst.next();
+		table.setPrimaryKey(rst.getString("COLUMN_NAME"));
+		rst.close();
+
+		// Get the remaining data
+		rst = newMetaData.getColumns(null, null, table.getTableName().toUpperCase(), null);
+		int num_fields = 0;
+		while (rst.next()) {
+			num_fields++;
+			String field_name = rst.getString("COLUMN_NAME");
+			int data_type = rst.getInt("DATA_TYPE");
+			if (field_name.equals(table.getPrimaryKey())) {
+				table.setPrimaryKeyIndex(num_fields);
+				table.setPrimaryKeyType(data_type);
 			}
+			table.addField(field_name, data_type, rst.getString("TYPE_NAME"), rst.getInt("COLUMN_SIZE"));
+		}
 
-			// Create the table using HSQLDB to avoid string parsing
-			PreparedStatement stmt = conJava.prepareStatement(sql);
-			stmt.execute();
+		rst.close();
 
-			DatabaseMetaData newMetaData = conJava.getMetaData();
+		String primary_key_size = ion_switch_key_size(table.getPrimaryKeyType());
 
-			// TODO: Add support for composite keys
-			// Get primary key
-			ResultSet rst = newMetaData.getPrimaryKeys(null, null, table.getTableName().toUpperCase());
-			rst.next();
-			table.setPrimaryKey(rst.getString("COLUMN_NAME"));
-			rst.close();
+		StringBuilder value_calculation = new StringBuilder();
+		String value_size = "";
+		int int_count = 0;
+		boolean char_present = false;
+		int char_multiplier = 0;
 
-			// Get the remaining data
-			rst = newMetaData.getColumns(null, null, table.getTableName().toUpperCase(), null);
-			int num_fields = 0;
-			while (rst.next()) {
-				num_fields++;
-				String field_name = rst.getString("COLUMN_NAME");
-				int data_type = rst.getInt("DATA_TYPE");
-				if (field_name.equals(table.getPrimaryKey())) {
-					table.setPrimaryKeyIndex(num_fields);
-					table.setPrimaryKeyType(data_type);
-				}
-				table.addField(field_name, data_type, rst.getString("TYPE_NAME"), rst.getInt("COLUMN_SIZE"));
+		for (int i = 0; i < num_fields - 1; i++) {
+			if (table.getFieldTypeName(i).contains("CHAR")) {
+				char_multiplier += table.getFieldSize(i);
+				char_present = true;
+			} else if (table.getFieldTypeName(i).contains("INT")) {
+				int_count++;
 			}
+		}
 
-			rst.close();
+		// TODO: add support for more data types
+		if (int_count > 0) {
+			value_calculation.append("(sizeof(int) * " + int_count + ")+");
+		}
+		if (char_present) {
+			value_calculation.append("(sizeof(char) * " + char_multiplier + ")+");
+		}
+		value_calculation.setLength(value_calculation.length() - 1); // remove last "+"
 
-			String primary_key_size = ion_switch_key_size(table.getPrimaryKeyType());
+		String ion_key = "";
 
-			StringBuilder value_calculation = new StringBuilder();
-			String value_size = "";
-			int int_count = 0;
-			boolean char_present = false;
-			int char_multiplier = 0;
+		// TODO: add signed integer
+		if (table.getPrimaryKeyType() == Types.INTEGER) {
+			ion_key = "key_type_numeric_unsigned";
+		} else if (table.getPrimaryKeyType() == Types.CHAR || table.getPrimaryKeyType() == Types.VARCHAR) {
+			ion_key = "key_type_char_array";
+		}
 
-			for (int i = 0; i < num_fields - 1; i++) {
-				if (table.getFieldTypeName(i).contains("CHAR")) {
-					char_multiplier += table.getFieldSize(i);
-					char_present = true;
-				} else if (table.getFieldTypeName(i).contains("INT")) {
-					int_count++;
-				}
-			}
+		String schema_name = table.getTableName().toLowerCase().concat(".xml");
 
-			// TODO: add support for more data types
-			if (int_count > 0) {
-				value_calculation.append("(sizeof(int) * " + int_count + ")+");
-			}
-			if (char_present) {
-				value_calculation.append("(sizeof(char) * " + char_multiplier + ")+");
-			}
-			value_calculation.setLength(value_calculation.length()-1); // remove last "+"
+		add_table_to_database(directory, "iinq_database.xml", table, sql);
+		tables.put(table.getTableName().toLowerCase(), table);
 
-			String ion_key = "";
+		File schema = new File(directory + schema_name);
+		FileOutputStream schema_out = new FileOutputStream(schema, false);
 
-			// TODO: add signed integer
-			if (table.getPrimaryKeyType() == Types.INTEGER) {
-				ion_key = "key_type_numeric_unsigned";
-			} else if (table.getPrimaryKeyType() == Types.CHAR || table.getPrimaryKeyType() == Types.VARCHAR) {
-				ion_key = "key_type_char_array";
-			}
+		//schema_out.write(contents.getBytes());
 
-			String schema_name = table.getTableName().toLowerCase().concat(".xml");
+		schema_out.close();
 
-			add_table_to_database(directory, "iinq_database.xml", table, sql);
-			tables.put(table.getTableName().toLowerCase(), table);
+		xml_schemas.add(schema_name);
 
-			File schema = new File(directory + schema_name);
-			FileOutputStream schema_out = new FileOutputStream(schema, false);
-
-			//schema_out.write(contents.getBytes());
-
-			schema_out.close();
-
-			xml_schemas.add(schema_name);
-
-			/* Create CREATE TABLE method - (Schema in .inq file) */
+		/* Create CREATE TABLE method - (Schema in .inq file) */
 		/* out.write("void create_table" + create_count + "() {\n");
 		out.write("\tprintf(\"%s" + "\\" + "n" + "\\" + "n" + "\", \"" + statement.substring(statement.indexOf("(") + 2, statement.length() - 4) + "\");\n");
 		out.newLine();
@@ -1345,45 +1344,41 @@ public class IinqExecute {
 
 		System.out.println("schema " + schema_name);*/
 
-			/* Create CREATE TABLE method */
-			if (!create_written) {
-				out.write("void create_table(char *table_name, ion_key_type_t key_type, ion_key_size_t key_size, ion_value_size_t value_size) {\n");
-				out.write("\tion_err_t error = iinq_create_source(table_name, key_type, key_size, value_size);");
+		/* Create CREATE TABLE method */
+		if (!create_written) {
+			out.write("void create_table(char *table_name, ion_key_type_t key_type, ion_key_size_t key_size, ion_value_size_t value_size) {\n");
+			out.write("\tion_err_t error = iinq_create_source(table_name, key_type, key_size, value_size);");
 
-				print_error(out);
+			print_error(out);
 
-				out.write("}\n\n");
+			out.write("}\n\n");
 
-				function_headers.add("void create_table(char *table_name, ion_key_type_t key_type, ion_key_size_t key_size, ion_value_size_t value_size);\n");
+			function_headers.add("void create_table(char *table_name, ion_key_type_t key_type, ion_key_size_t key_size, ion_value_size_t value_size);\n");
+		}
+
+		create_written = true;
+
+		create_fields.add(new create_fields(table.getTableName(), ion_key, primary_key_size, value_calculation.toString()));
+
+		try {
+			// Reload database with new tables
+			if (conUnity != null)
+				conUnity.close();
+			getUnityConnection(urlUnity);
+
+			/* Create print table method if it doesn't already exist */
+			if (!tables.get(table_name.toLowerCase()).isWritten_table()) {
+				try {
+					print_table(out, table_name);
+					tables.get(table_name.toLowerCase()).setWritten_table(true);
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
 			}
 
-			create_written = true;
-
-			create_fields.add(new create_fields(table.getTableName(), ion_key, primary_key_size, value_calculation.toString()));
 
 		} catch (Exception e) {
-    		e.printStackTrace();
-		} finally {
-        	try {
-        		// Reload database with new tables
-        		if (conUnity != null)
-        			conUnity.close();
-        		getUnityConnection(urlUnity);
-
-				/* Create print table method if it doesn't already exist */
-				if (!tables.get(table_name.toLowerCase()).isWritten_table()) {
-					try {
-						print_table(out, table_name);
-						tables.get(table_name.toLowerCase()).setWritten_table(true);
-					} catch (Exception e) {
-						e.printStackTrace();
-					}
-				}
-
-
-			} catch (Exception e) {
-        		e.printStackTrace();
-			}
+			e.printStackTrace();
 		}
     }
 
