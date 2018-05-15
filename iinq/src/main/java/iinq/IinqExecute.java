@@ -215,8 +215,6 @@ public class IinqExecute {
             drop_setup();
             function_close();
 
-
-			//create_xml_source();
 		} catch (Exception e) {
 			e.printStackTrace();
 		} finally {
@@ -708,7 +706,14 @@ public class IinqExecute {
             if ((line.toUpperCase()).contains("INSERT") && !line.contains("/*") && !line.contains("//")) {
                 contents += "/* "+line + " */\n";
 
-                String temp = line.substring(0, line.indexOf("SQL_prepare"));
+                int index = line.indexOf("SQL_prepare");
+                if (index == -1) {
+                	index = line.indexOf("SQL_execute");
+				}
+				String sql = line.substring(index);
+                sql = sql.substring(sql.toUpperCase().indexOf("INSERT"), sql.indexOf(";")).trim();
+                StringFunc.verifyTerminator(sql);
+                String temp = line.substring(0, index);
 
                 insert = insert_fields.get(count);
 
@@ -727,7 +732,7 @@ public class IinqExecute {
                             }
 
                             else {
-                                if (insert.fields.get(j).contains("(?)")) {
+                                if (insert.fields.get(j).equals("(?)") || insert.fields.get(j).equals("?")) {
                                     contents += "NULL";
                                 }
 
@@ -1235,10 +1240,10 @@ public class IinqExecute {
 
 		IinqTable table = new IinqTable();
 
-		table_name = sql.substring(sql.toUpperCase().indexOf("TABLE") + 5, sql.indexOf("(")).trim();
+		table_name = sql.substring(sql.toUpperCase().indexOf("TABLE") + 5, sql.indexOf("(")).trim().toLowerCase();
 		table.setTableName(table_name);
 
-		if (tables.get(table_name.toLowerCase()) != null) {
+		if (tables.get(table_name) != null) {
 			throw new SQLException("Table already exists: " + table_name);
 		}
 
@@ -1367,12 +1372,23 @@ public class IinqExecute {
 			getUnityConnection(urlUnity);
 
 			/* Create print table method if it doesn't already exist */
-			if (!tables.get(table_name.toLowerCase()).isWritten_table()) {
-				try {
-					print_table(out, table_name);
-					tables.get(table_name.toLowerCase()).setWritten_table(true);
-				} catch (Exception e) {
-					e.printStackTrace();
+			if (!tables.get(table_name).isWritten_table()) {
+				if (drop_tables.contains(table_name)) {
+					out.write("/* Table has the same name as a previously dropped table: " + table_name + ". Print table function is commented out. */\n/*");
+					try {
+						print_table(out, table_name);
+						tables.get(table_name.toLowerCase()).setWritten_table(true);
+					} catch (Exception e) {
+						e.printStackTrace();
+					}
+					out.write("*/\n\n");
+				} else {
+					try {
+						print_table(out, table_name);
+						tables.get(table_name.toLowerCase()).setWritten_table(true);
+					} catch (Exception e) {
+						e.printStackTrace();
+					}
 				}
 			}
 
@@ -1403,12 +1419,12 @@ public class IinqExecute {
 		LQInsertNode insert = (LQInsertNode) gu.getPlan().getLogicalQueryTree().getRoot();
 
 		SourceTable table = insert.getSourceTable().getTable();
-        String table_name = table.getTableName();;
+        String table_name = table.getTableName().toLowerCase();
 
         /* Create print table method if it doesn't already exist */
-		if (!tables.get(table_name.toLowerCase()).isWritten_table()) {
+		if (!tables.get(table_name).isWritten_table()) {
 			print_table(out, table_name);
-			tables.get(table_name.toLowerCase()).setWritten_table(true);
+			tables.get(table_name).setWritten_table(true);
 		}
 
         /* Count number of fields */
@@ -1761,15 +1777,14 @@ public class IinqExecute {
         sql = sql.substring(20);
 
         // TODO: simplify this
-        String table_name = (sql.substring(0, sql.indexOf(" ")))+".inq";
-        String table_name_sub = table_name.substring(0, table_name.length()-4);
+        String table_name = sql.substring(0, sql.indexOf(" ")).toLowerCase();
 
         boolean table_found = false;
         int table_id = 0;
 
         /* Check if that table name already has an ID */
         for (int i = 0; i < table_names.size(); i++) {
-            if (table_names.get(i).equals(table_name_sub)) {
+            if (table_names.get(i).equals(table_name)) {
                 table_id = i;
                 new_table = false;
                 table_found = true;
@@ -1777,25 +1792,23 @@ public class IinqExecute {
         }
 
         if (!table_found) {
-            table_names.add(table_name_sub);
+            table_names.add(table_name);
             table_id = table_id_count;
             table_id_count++;
             new_table = true;
         }
 
-        SourceTable table = metadata.getTable("IinqDB", table_name_sub);
-		IinqTable iinqTable = tables.get(table_name_sub.toLowerCase());
+        SourceTable table = metadata.getTable("IinqDB", table_name);
+		IinqTable iinqTable = tables.get(table_name);
 		if (null == iinqTable) {
-			throw new SQLException("Update attempted on non-existent table: " + table_name_sub);
+			throw new SQLException("Update attempted on non-existent table: " + table_name);
 		}
 
 
-		sql = sql.substring(table_name.length() + 1);
-
         /* Create print table method if it doesn't already exist */
-		if (!tables.get(table_name_sub.toLowerCase()).isWritten_table()) {
-			print_table(out, table_name_sub);
-			tables.get(table_name_sub.toLowerCase()).setWritten_table(true);
+		if (!tables.get(table_name).isWritten_table()) {
+			print_table(out, table_name);
+			tables.get(table_name).setWritten_table(true);
 		}
 
         if (!update_written) {
@@ -1906,7 +1919,7 @@ public class IinqExecute {
             out.write("\t\t\tprintf(\"Error occurred. Error code: %i"+"\\"+"n"+"\", error);\n");
             out.write("\t\t}\n\t}\n\n");
             out.write("\tcursor_temp->destroy(&cursor_temp);\n");
-            out.write("\tprint_table_cats(&dictionary);\n\n");
+            out.write("\tprint_table_" + table_name.toLowerCase() + "(&dictionary);\n\n");
             out.write("\terror = dictionary_delete_dictionary(&dictionary_temp);\n\n");
             out.write("\tif (err_ok != error) {\n");
             out.write("\t\tprintf(\"Error occurred. Error code: %i"+"\\"+"n"+"\", error);\n");
@@ -2010,9 +2023,9 @@ public class IinqExecute {
             where_fields[j] = conditions[j].substring(0, pos).trim();
             where_value.add(conditions[j].substring(pos + len).trim());
 
-            for (int n = 0; n < Integer.parseInt(get_schema_value(table_name_sub, "NUMBER OF FIELDS")); n++) {
+            for (int n = 0; n < Integer.parseInt(get_schema_value(table_name, "NUMBER OF FIELDS")); n++) {
 
-                String field_type = get_schema_value(table_name_sub, "FIELD" + n + " TYPE");
+                String field_type = get_schema_value(table_name, "FIELD" + n + " TYPE");
 
                 if (field_type.contains("CHAR")) {
                     iinq_field_types.add("iinq_char");
@@ -2020,7 +2033,7 @@ public class IinqExecute {
                     iinq_field_types.add("iinq_int");
                 }
 
-                if (where_fields[j].equalsIgnoreCase(get_schema_value(table_name_sub, "FIELD" + n + " NAME"))) {
+                if (where_fields[j].equalsIgnoreCase(get_schema_value(table_name, "FIELD" + n + " NAME"))) {
                     where_field.add(n + 1);
                     where_field_type.add(field_type);
                 }
@@ -2087,32 +2100,32 @@ public class IinqExecute {
                 implicit_count++;
             }
 
-            for (int n = 0; n < Integer.parseInt(get_schema_value(table_name_sub, "NUMBER OF FIELDS")); n++) {
-                String field_type = get_schema_value(table_name_sub, "FIELD"+n+" TYPE");
+            for (int n = 0; n < Integer.parseInt(get_schema_value(table_name, "NUMBER OF FIELDS")); n++) {
+                String field_type = get_schema_value(table_name, "FIELD"+n+" TYPE");
                 field_sizes.add(ion_get_value_size(table,table.getSourceFieldsByPosition().get(n).getColumnName()));
 
-                if (update_field.equalsIgnoreCase(get_schema_value(table_name_sub, "FIELD" + n + " NAME"))) {
+                if (update_field.equalsIgnoreCase(get_schema_value(table_name, "FIELD" + n + " NAME"))) {
                     update_field_nums.add(n+1);
                     update_field_types.add(field_type);
                 }
-                if (implicit_field.equalsIgnoreCase(get_schema_value(table_name_sub, "FIELD"+n+" NAME"))) {
+                if (implicit_field.equalsIgnoreCase(get_schema_value(table_name, "FIELD"+n+" NAME"))) {
                     implicit_fields.add(n+1);
                 }
             }
         }
 
         if (new_table) {
-            tableInfo table_info = new tableInfo(table_id, Integer.parseInt(get_schema_value(table_name_sub, "NUMBER OF FIELDS")), iinq_field_types, field_sizes);
+            tableInfo table_info = new tableInfo(table_id, Integer.parseInt(get_schema_value(table_name, "NUMBER OF FIELDS")), iinq_field_types, field_sizes);
 
             calculateInfo.add(table_info);
             tables_count++;
         }
 
-        String key_size = get_schema_value(table_name_sub, "PRIMARY KEY SIZE");
-        String value_size = get_schema_value(table_name_sub, "VALUE SIZE");
-        String ion_key = get_schema_value(table_name_sub, "ION KEY TYPE");
+        String key_size = get_schema_value(table_name, "PRIMARY KEY SIZE");
+        String value_size = get_schema_value(table_name, "VALUE SIZE");
+        String ion_key = get_schema_value(table_name, "ION KEY TYPE");
 
-        update_fields.add(new update_fields(table_name_sub, table_id, num_conditions, num_fields, where_field, where_operator,
+        update_fields.add(new update_fields(table_name, table_id, num_conditions, num_fields, where_field, where_operator,
                 where_value, where_field_type, key_size, value_size, ion_key, update_field_nums, implicit, implicit_fields, update_operators,
                 update_values, update_field_types, implicit_count));
     }
@@ -2599,7 +2612,7 @@ public class IinqExecute {
             out.write("\t}\n\n");
 
             out.write("\tcursor_temp->destroy(&cursor_temp);\n");
-            out.write("\tprint_table_cats(&dictionary);\n\n");
+            out.write("\tprint_table_" + table_name_sub.toLowerCase() + "(&dictionary);\n\n");
             out.write("\terror = ion_close_dictionary(&dictionary);\n\n");
             out.write("\tif (err_ok != error) {\n");
             out.write("\t\tprintf(\"Error occurred. Error code: %i"+"\\"+"n"+"\", error);\n");
@@ -2739,8 +2752,8 @@ public class IinqExecute {
 		}
 
 
-		String table_name = ((LQDropNode) gu.getPlan().getLogicalQueryTree().getRoot()).getName();
-		IinqTable table = tables.get(table_name.toLowerCase());
+		String table_name = ((LQDropNode) gu.getPlan().getLogicalQueryTree().getRoot()).getName().toLowerCase();
+		IinqTable table = tables.get(table_name);
 		if (table == null) {
 			throw new SQLException("Attempt to drop non-existent table: " + table_name);
 		}
@@ -2753,7 +2766,7 @@ public class IinqExecute {
 		getUnityConnection(urlUnity);
 
 		/* Delete IinqTable reference */
-		tables.remove(table_name.toLowerCase());
+		tables.remove(table_name);
 
 		/* Drop table from in-memory database */
 		Statement stmt = conJava.createStatement();
