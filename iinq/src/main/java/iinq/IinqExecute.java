@@ -1771,7 +1771,6 @@ public class IinqExecute {
         }
     }
 
-    /* TODO: IinqBuilder for update */
 	private static void
 	update(String sql, BufferedWriter out) throws IOException, InvalidArgumentException, RelationNotFoundException, SQLException {
 		System.out.println("update statement");
@@ -1964,7 +1963,7 @@ public class IinqExecute {
 			LQSelNode selNode = new LQSelNode();
 			selNode.setCondition(conditionNode);
 			// TODO: Is there a better way to do this?
-			IinqBuilder builder = new IinqBuilder(kingParser.parse("SELECT * FROM cats WHERE " + conditionNode.generateSQL() + ";",metadata).getLogicalQueryTree().getRoot());
+			IinqBuilder builder = new IinqBuilder(kingParser.parse("SELECT * FROM " + table_name + " WHERE " + conditionNode.generateSQL() + ";", metadata).getLogicalQueryTree().getRoot());
 			IinqQuery query = builder.toQuery();
 			Object filters = query.getParameterObject("filter");
 			if (filters instanceof ArrayList) {
@@ -2068,14 +2067,12 @@ public class IinqExecute {
         String update_field;
         String implicit_field = "";
         boolean is_implicit;
-        String update_value;
+        String update_value = null;
         int implicit_count = 0;
 
         for (int j = 0; j < num_fields; j++) {
             is_implicit = false;
-            update_field = fields[j].substring(0, pos).trim();
-            set_string = fields[j].substring(pos + 1).trim();
-            update_value = set_string;
+            update_field = fields[j].trim();
 
             /* Check if update value contains an operator */
             if (fieldValues[j].getContent().equals("+")) {
@@ -2512,22 +2509,31 @@ public class IinqExecute {
     }
 
 	private static void
-	delete(String sql, BufferedWriter out) throws IOException, InvalidArgumentException, RelationNotFoundException, SQLFeatureNotSupportedException {
+	delete(String sql, BufferedWriter out) throws IOException, InvalidArgumentException, RelationNotFoundException, SQLException {
 		System.out.println("delete statement");
 
-        sql = sql.trim();
-        sql = sql.substring(25);
+        sql = sql.substring(sql.toUpperCase().indexOf("DELETE"), sql.indexOf(";"));
+        sql = StringFunc.verifyTerminator(sql);
 
-        // TODO: simplify this
-        String table_name = (sql.substring(0, sql.indexOf(" ")))+".inq";
-        String table_name_sub = table_name.substring(0, table_name.length()-4);
+		// Use UnityJDBC to parse the drop table statement (metadata is required to verify table existence)
+		GlobalParser kingParser;
+		GlobalUpdate gu;
+		if (null != metadata) {
+			kingParser = new GlobalParser(false, true);
+			gu = kingParser.parseUpdate(sql, metadata);
+		}
+		else {
+			throw new SQLException("Metadata is required for dropping tables.");
+		}
+		LQDeleteNode delete = (LQDeleteNode) gu.getPlan().getLogicalQueryTree().getRoot();
+        String table_name = delete.getSourceTable().getLocalName().toLowerCase();
 
         boolean table_found = false;
         int table_id = 0;
 
         /* Check if that table name already has an ID */
         for (int i = 0; i < table_names.size(); i++) {
-            if (table_names.get(i).equals(table_name_sub)) {
+            if (table_names.get(i).equals(table_name)) {
                 table_id = i;
                 new_table = false;
                 table_found = true;
@@ -2535,28 +2541,28 @@ public class IinqExecute {
         }
 
         if (!table_found) {
-            table_names.add(table_name_sub);
+            table_names.add(table_name);
             table_id = table_id_count;
             table_id_count++;
             new_table = true;
         }
 
-        SourceTable table = metadata.getTable("IinqDB", table_name_sub);
+        SourceTable table = metadata.getTable("IinqDB", table_name);
 
 		sql = sql.substring(table_name.length() - 3);
 
         /* Create print table method if it doesn't already exist */
-		if (!tables.get(table_name_sub.toLowerCase()).isWritten_table()) {
-			print_table(out, table_name_sub);
-			tables.get(table_name_sub.toLowerCase()).setWritten_table(true);
+		if (!tables.get(table_name).isWritten_table()) {
+			print_table(out, table_name);
+			tables.get(table_name).setWritten_table(true);
 		}
 
         /* Write function to file */
-        String key_size = get_schema_value(table_name_sub, "PRIMARY KEY SIZE");
-        String value_size = get_schema_value(table_name_sub, "VALUE SIZE");
+        String key_size = get_schema_value(table_name, "PRIMARY KEY SIZE");
+        String value_size = get_schema_value(table_name, "VALUE SIZE");
 
         if (!delete_written) {
-            out.write("void delete_record(int id, char *name, ion_key_type_t key_type, size_t key_size, size_t value_size, int num_fields, ...) {\n\n");
+            out.write("void delete_record(int id, char *name, iinq_print_table_t print_function, ion_key_type_t key_type, size_t key_size, size_t value_size, int num_fields, ...) {\n\n");
             out.write("\tva_list valist;\n");
             out.write("\tva_start(valist, num_fields);\n\n");
             out.write("\tunsigned char *table_id = malloc(sizeof(int));\n");
@@ -2619,7 +2625,7 @@ public class IinqExecute {
             out.write("\t}\n\n");
 
             out.write("\tcursor_temp->destroy(&cursor_temp);\n");
-            out.write("\tprint_table_" + table_name_sub.toLowerCase() + "(&dictionary);\n\n");
+            out.write("\tprint_function(&dictionary);\n\n");
             out.write("\terror = ion_close_dictionary(&dictionary);\n\n");
             out.write("\tif (err_ok != error) {\n");
             out.write("\t\tprintf(\"Error occurred. Error code: %i"+"\\"+"n"+"\", error);\n");
@@ -2707,10 +2713,10 @@ public class IinqExecute {
             field = conditions[j].substring(0, pos).trim();
             values.add(conditions[j].substring(pos + len).trim());
 
-            for (int n = 0; n < Integer.parseInt(get_schema_value(table_name_sub, "NUMBER OF FIELDS")); n++) {
+            for (int n = 0; n < Integer.parseInt(get_schema_value(table_name, "NUMBER OF FIELDS")); n++) {
 
-                String field_type = get_schema_value(table_name_sub, "FIELD"+n+" TYPE");
-                String field_name = get_schema_value(table_name_sub, "FIELD"+n+" NAME");
+                String field_type = get_schema_value(table_name, "FIELD"+n+" TYPE");
+                String field_name = get_schema_value(table_name, "FIELD"+n+" NAME");
                 field_sizes.add(ion_get_value_size(table, field_name));
 
                 if (field_type.contains("CHAR")) {
@@ -2720,7 +2726,7 @@ public class IinqExecute {
                     iinq_field_types.add("iinq_int");
                 }
 
-                if (field.equalsIgnoreCase(get_schema_value(table_name_sub, "FIELD"+n+" NAME"))) {
+                if (field.equalsIgnoreCase(get_schema_value(table_name, "FIELD"+n+" NAME"))) {
                     fields.add(n+1);
                     field_types.add(field_type);
                 }
@@ -2728,15 +2734,15 @@ public class IinqExecute {
         }
 
         if (new_table) {
-            tableInfo table_info = new tableInfo(table_id, Integer.parseInt(get_schema_value(table_name_sub, "NUMBER OF FIELDS")), iinq_field_types, field_sizes);
+            tableInfo table_info = new tableInfo(table_id, Integer.parseInt(get_schema_value(table_name, "NUMBER OF FIELDS")), iinq_field_types, field_sizes);
 
             calculateInfo.add(table_info);
             tables_count++;
         }
 
-        String ion_key = get_schema_value(table_name_sub, "ION KEY TYPE");
+        String ion_key = get_schema_value(table_name, "ION KEY TYPE");
 
-        delete_fields.add(new delete_fields(table_name_sub, table_id, num_conditions, fields, operators, values, field_types, key_size, value_size, ion_key));
+        delete_fields.add(new delete_fields(table_name, table_id, num_conditions, fields, operators, values, field_types, key_size, value_size, ion_key));
     }
 
 	private static void

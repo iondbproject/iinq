@@ -63,11 +63,11 @@ main(
 	/* Test INSERT statements */
 	SQL_execute("INSERT INTO Dogs VALUES (10, 'Frenchie', 'Minnie', 1, 'Penticton');");
 	SQL_execute("INSERT INTO Dogs VALUES (40, 'Chihuahua', 'Barky', 7, 'Van');");
-	SQL_execute("INSERT INTO Dogs VALUES (30, 'Black Lab', 'Thunder', 5, 'Penticton');");
-	SQL_execute("INSERT INTO Dogs VALUES (50, 'Cockapoo', 'Corky', 2, 'West Bench');");
+	SQL_execute("INSERT INTO Dogs COLUMNS (id, type, age) VALUES (30, 'Black Lab', 5);");
+	SQL_execute("INSERT INTO Dogs COLUMNS (city, name, id) VALUES ('West Bench', 'Corky', 50);");
 
 	/* Test UPDATE statement */
-	/*SQL_execute("UPDATE Dogs SET id = id-1, age = age * 10 WHERE name = 'Barky';");*/
+	SQL_execute("UPDATE Dogs SET id = id-1, age = age * 10 WHERE name = 'Barky';");
 
 	/* Test DELETE statement */
 	SQL_execute("DELETE FROM Dogs WHERE age < 5;");
@@ -95,7 +95,7 @@ main(
 
 	/* Test update with implicit fields */
 	SQL_execute("UPDATE Cats SET age = 90, id = id+1, name = 'Chichi' WHERE age < 5;");
-	SQL_execute("UPDATE Cats SET age = 90, id = id+1, name = 'Chichi' WHERE id >= 5, id < 10, name != 'Minnie';");
+	SQL_execute("UPDATE Cats SET age = 90, id = id+1, name = 'Chichi' WHERE id >= 5 AND id < 10 AND name != 'Minnie';");
 
 	iinq_prepared_sql p4 = SQL_prepare("INSERT INTO Cats VALUES (3, 'Buttons', 2);");
 
