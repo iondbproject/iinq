@@ -51,10 +51,12 @@ import com.sun.javaws.exceptions.InvalidArgumentException;
 import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
 import unity.annotation.*;
+import unity.generic.query.QueryBuilder;
 import unity.jdbc.UnityConnection;
 import unity.jdbc.UnityPreparedStatement;
 import unity.jdbc.UnityStatement;
 import unity.parser.GlobalParser;
+import unity.parser.PTreeBuilderValidater;
 import unity.query.*;
 import unity.util.StringFunc;
 
@@ -1769,25 +1771,37 @@ public class IinqExecute {
         }
     }
 
+    /* TODO: IinqBuilder for update */
 	private static void
 	update(String sql, BufferedWriter out) throws IOException, InvalidArgumentException, RelationNotFoundException, SQLException {
 		System.out.println("update statement");
 
-        sql = sql.trim();
-        sql = sql.substring(20);
+        sql = sql.substring(sql.toUpperCase().indexOf("UPDATE"), sql.indexOf(";"));
+        sql = StringFunc.verifyTerminator(sql);
 
-        // TODO: simplify this
-        String table_name = sql.substring(0, sql.indexOf(" ")).toLowerCase();
+		GlobalParser kingParser;
+		GlobalUpdate gu;
+		if (null != metadata) {
+			kingParser = new GlobalParser(false, true);
+			gu = kingParser.parseUpdate(sql, metadata);
+		}
+		else {
+			throw new SQLException("Metadata is required for updating tables.");
+		}
+
+		LQUpdateNode updateNode = (LQUpdateNode) gu.getPlan().getLogicalQueryTree().getRoot();
+        String table_name = updateNode.getTable().getLocalName().toLowerCase();
 
         boolean table_found = false;
         int table_id = 0;
 
         /* Check if that table name already has an ID */
         for (int i = 0; i < table_names.size(); i++) {
-            if (table_names.get(i).equals(table_name)) {
+            if (table_names.get(i).equalsIgnoreCase(table_name)) {
                 table_id = i;
                 new_table = false;
                 table_found = true;
+                break;
             }
         }
 
@@ -1812,7 +1826,7 @@ public class IinqExecute {
 		}
 
         if (!update_written) {
-            out.write("void update(int id, char *name, ion_key_type_t key_type, size_t key_size, size_t value_size, int num_wheres, int num_update, int num, ...) {\n\n");
+            out.write("void update(int id, char *name, iinq_print_table_t print_function, ion_key_type_t key_type, size_t key_size, size_t value_size, int num_wheres, int num_update, int num, ...) {\n\n");
             out.write("\tva_list valist;\n");
             out.write("\tva_start(valist, num);\n\n");
             out.write("\tunsigned char *table_id = malloc(sizeof(int));\n");
@@ -1919,7 +1933,7 @@ public class IinqExecute {
             out.write("\t\t\tprintf(\"Error occurred. Error code: %i"+"\\"+"n"+"\", error);\n");
             out.write("\t\t}\n\t}\n\n");
             out.write("\tcursor_temp->destroy(&cursor_temp);\n");
-            out.write("\tprint_table_" + table_name.toLowerCase() + "(&dictionary);\n\n");
+            out.write("\tprint_function(&dictionary);\n\n");
             out.write("\terror = dictionary_delete_dictionary(&dictionary_temp);\n\n");
             out.write("\tif (err_ok != error) {\n");
             out.write("\t\tprintf(\"Error occurred. Error code: %i"+"\\"+"n"+"\", error);\n");
@@ -1937,50 +1951,43 @@ public class IinqExecute {
             out.write("\tfree(ion_record.value);\n");
             out.write("}\n\n");
 
-            function_headers.add("void update(int id, char *name, ion_key_type_t key_type, size_t key_size, size_t value_size, int num_wheres, int num_update, int num, ...);\n");
+            function_headers.add("void update(int id, char *name, iinq_print_table_t print_function, ion_key_type_t key_type, size_t key_size, size_t value_size, int num_wheres, int num_update, int num, ...);\n");
         }
 
         update_written = true;
 
-        int pos = sql.toUpperCase().indexOf("WHERE");
-        String where_condition = "";
-        int num_conditions = 0;
-        int i = -1;
-
-        /* Get WHERE condition if it exists */
-		if (-1 != pos) {
-			where_condition = sql.substring(pos + 6, sql.length() - 4);
-			i = 0;
+		LQCondNode conditionNode =  updateNode.getCondition();
+		String where_condition = "";
+		ArrayList<String> conditions = null;
+		int num_conditions = 0;
+		if (conditionNode != null) {
+			LQSelNode selNode = new LQSelNode();
+			selNode.setCondition(conditionNode);
+			// TODO: Is there a better way to do this?
+			IinqBuilder builder = new IinqBuilder(kingParser.parse("SELECT * FROM cats WHERE " + conditionNode.generateSQL() + ";",metadata).getLogicalQueryTree().getRoot());
+			IinqQuery query = builder.toQuery();
+			Object filters = query.getParameterObject("filter");
+			if (filters instanceof ArrayList) {
+				conditions = (ArrayList) filters;
+				num_conditions = conditions.size();
+			} else if (filters instanceof String) {
+				num_conditions = 1;
+				conditions = new ArrayList<>();
+				conditions.add((String) filters);
+			}
 		}
 
-        /* Calculate number of WHERE conditions in statement */
+		String[] conditionFields = new String[num_conditions];
 
-		while (-1 != i) {
-			num_conditions++;
-			i = where_condition.indexOf(",", i + 1);
+		for (int i = 0; i < num_conditions; i++) {
+			conditionFields[i] = conditions.get(i);
 		}
-
-		String[] conditions;
-
-		conditions = get_fields(where_condition, num_conditions);
 
         /* Get fields to update */
 		String update;
 
-		if (-1 != pos) {
-			update = sql.substring(0, pos);
-		} else {
-			update = sql.substring(0, sql.length() - 4);
-		}
-
-		int num_fields = 0;
-		i = 0;
-
-        /* Calculate number of fields to update in statement */
-		while (-1 != i) {
-			num_fields++;
-			i = update.indexOf(",", i + 1);
-		}
+		/* Calculate number of fields to update in statement */
+		int num_fields = updateNode.getNumFields();
 
         ArrayList<Integer> where_field      = new ArrayList<>(); /* Field value that is being used to update a field. */
         ArrayList<String> where_value       = new ArrayList<>(); /* Value that is being added to another field value to update a field. */
@@ -1991,37 +1998,38 @@ public class IinqExecute {
         int len = 0;
         String[] where_fields = new String[num_conditions];
 
+        int pos=-1;
         for (int j = 0; j < num_conditions; j++) {
 
             /* Set up field, operator, and condition for each WHERE clause */
-            if (conditions[j].contains("!=")) {
-                pos = conditions[j].indexOf("!=");
+            if (conditionFields[j].contains("!=")) {
+                pos = conditionFields[j].indexOf("!=");
                 len = 2;
                 where_operator.add("iinq_not_equal");
-            } else if (conditions[j].contains("<=")) {
-                pos = conditions[j].indexOf("<=");
+            } else if (conditionFields[j].contains("<=")) {
+                pos = conditionFields[j].indexOf("<=");
                 len = 2;
                 where_operator.add("iinq_less_than_equal_to");
-            } else if (conditions[j].contains(">=")) {
-                pos = conditions[j].indexOf(">=");
+            } else if (conditionFields[j].contains(">=")) {
+                pos = conditionFields[j].indexOf(">=");
                 len = 2;
                 where_operator.add("iinq_greater_than_equal_to");
-            } else if (conditions[j].contains("=")) {
-                pos = conditions[j].indexOf("=");
+            } else if (conditionFields[j].contains("=")) {
+                pos = conditionFields[j].indexOf("=");
                 len = 1;
                 where_operator.add("iinq_equal");
-            } else if (conditions[j].contains("<")) {
-                pos = conditions[j].indexOf("<");
+            } else if (conditionFields[j].contains("<")) {
+                pos = conditionFields[j].indexOf("<");
                 len = 1;
                 where_operator.add("iinq_less_than");
-            } else if (conditions[j].contains(">")) {
-                pos = conditions[j].indexOf(">");
+            } else if (conditionFields[j].contains(">")) {
+                pos = conditionFields[j].indexOf(">");
                 len = 1;
                 where_operator.add("iinq_greater_than");
             }
 
-            where_fields[j] = conditions[j].substring(0, pos).trim();
-            where_value.add(conditions[j].substring(pos + len).trim());
+            where_fields[j] = conditionFields[j].substring(0, pos).trim();
+            where_value.add(conditionFields[j].substring(pos + len).trim());
 
             for (int n = 0; n < Integer.parseInt(get_schema_value(table_name, "NUMBER OF FIELDS")); n++) {
 
@@ -2048,9 +2056,13 @@ public class IinqExecute {
         ArrayList<String> update_field_types    = new ArrayList<>();
         ArrayList<String>   field_sizes         = new ArrayList<>();
 
-        String[] fields;
-
-		fields = get_fields(update, num_fields);
+        String[] fields = new String[updateNode.getNumFields()];
+		LQExprNode[] fieldValues = new LQExprNode[updateNode.getNumFields()];
+        for (int i = 0; i < fields.length; i++) {
+			LQExprNode node = ((LQExprNode) updateNode.getField(i));
+        	fields[i] = node.getContent().toString();
+        	fieldValues[i] = (LQExprNode)updateNode.getValue(i);
+		}
 
         String set_string;
         String update_field;
@@ -2061,35 +2073,30 @@ public class IinqExecute {
 
         for (int j = 0; j < num_fields; j++) {
             is_implicit = false;
-            pos = fields[j].indexOf("=");
             update_field = fields[j].substring(0, pos).trim();
             set_string = fields[j].substring(pos + 1).trim();
             update_value = set_string;
 
             /* Check if update value contains an operator */
-            if (set_string.contains("+")) {
+            if (fieldValues[j].getContent().equals("+")) {
                 update_operators.add("iinq_add");
-                pos = set_string.indexOf("+");
-                implicit_field = set_string.substring(0, pos).trim();
-                update_value = set_string.substring(pos + 1).trim();
+                implicit_field = fieldValues[j].getChild(0).getContent().toString();
+                update_value = fieldValues[j].getChild(1).getContent().toString();
                 is_implicit = true;
-            } else if (set_string.contains("-")) {
+            } else if (fieldValues[j].getContent().equals("-")) {
                 update_operators.add("iinq_subtract");
-                pos = set_string.indexOf("-");
-                implicit_field = set_string.substring(0, pos).trim();
-                update_value = set_string.substring(pos + 1).trim();
+				implicit_field = fieldValues[j].getChild(0).getContent().toString();
+				update_value = fieldValues[j].getChild(1).getContent().toString();
                 is_implicit = true;
-            } else if (set_string.contains("*")) {
+            } else if (fieldValues[j].getContent().equals("*")) {
                 update_operators.add("iinq_multiply");
-                pos = set_string.indexOf("*");
-                implicit_field = set_string.substring(0, pos).trim();
-                update_value = set_string.substring(pos + 1).trim();
+				implicit_field = fieldValues[j].getChild(0).getContent().toString();
+				update_value = fieldValues[j].getChild(1).getContent().toString();
                 is_implicit = true;
-            } else if (set_string.contains("/")) {
+            } else if (fieldValues[j].getContent().equals("/")) {
                 update_operators.add("iinq_divide");
-                pos = set_string.indexOf("/");
-                implicit_field = set_string.substring(0, pos).trim();
-                update_value = set_string.substring(pos + 1).trim();
+				implicit_field = fieldValues[j].getChild(0).getContent().toString();
+				update_value = fieldValues[j].getChild(1).getContent().toString();
                 is_implicit = true;
             }
 

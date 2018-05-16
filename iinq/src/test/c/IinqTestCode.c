@@ -67,7 +67,7 @@ main(
 	SQL_execute("INSERT INTO Dogs VALUES (50, 'Cockapoo', 'Corky', 2, 'West Bench');");
 
 	/* Test UPDATE statement */
-	SQL_execute("UPDATE Dogs SET id = id-1, age = age * 10 WHERE name = 'Barky';");
+	/*SQL_execute("UPDATE Dogs SET id = id-1, age = age * 10 WHERE name = 'Barky';");*/
 
 	/* Test DELETE statement */
 	SQL_execute("DELETE FROM Dogs WHERE age < 5;");
@@ -90,8 +90,8 @@ main(
 	SQL_execute("DELETE FROM Cats WHERE id >= 5, id < 10, name != 'Minnie';");
 
 	/* Test UPDATE with multiple conditions */
+	SQL_execute("UPDATE Cats SET age = age + 90 WHERE id >= 5 AND id < 10 AND name != 'Minnie';");
 	SQL_execute("UPDATE Cats SET age = 90 WHERE age < 5;");
-	SQL_execute("UPDATE Cats SET age = 90 WHERE id >= 5, id < 10, name != 'Minnie';");
 
 	/* Test update with implicit fields */
 	SQL_execute("UPDATE Cats SET age = 90, id = id+1, name = 'Chichi' WHERE age < 5;");
