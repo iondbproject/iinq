@@ -50,6 +50,7 @@ cleanup(
 	fremove("ion_mt.tbl");
 }
 
+// TODO: test OR and XOR once implemented
 int
 main(
 		void
@@ -70,7 +71,7 @@ main(
 	SQL_execute("UPDATE Dogs SET id = id-1, age = age * 10 WHERE name = 'Barky';");
 
 	/* Test DELETE statement */
-	SQL_execute("DELETE FROM Dogs WHERE age < 5;");
+	SQL_execute("DELETE FROM Dogs WHERE age < 5 AND age > 2;");
 
 	/* Test DROP TABLE statement */
 	SQL_execute("DROP TABLE Dogs;");
@@ -87,7 +88,7 @@ main(
 	iinq_prepared_sql p2 = SQL_prepare("INSERT INTO Cats VALUES (1, 'Chester', (?));");
 
 	/* Test DELETE with multiple conditions */
-	SQL_execute("DELETE FROM Cats WHERE id >= 5, id < 10, name != 'Minnie';");
+	SQL_execute("DELETE FROM Cats WHERE id >= 5 AND id < 10 AND name != 'Minnie';");
 
 	/* Test UPDATE with multiple conditions */
 	SQL_execute("UPDATE Cats SET age = age + 90 WHERE id >= 5 AND id < 10 AND name != 'Minnie';");
