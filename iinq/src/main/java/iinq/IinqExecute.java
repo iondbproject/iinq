@@ -2292,6 +2292,7 @@ public class IinqExecute {
 		for (int j = 0; j < num_fields; j++) {
 			is_implicit = false;
 			update_field = fields[j].trim();
+			update_value = fieldValues[j].getContent().toString();
 
 			/* Check if update value contains an operator */
 			if (fieldValues[j].getContent().equals("+")) {
