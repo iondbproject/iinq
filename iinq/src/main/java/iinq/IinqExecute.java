@@ -52,6 +52,7 @@ import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
 import unity.annotation.*;
 import unity.generic.query.QueryBuilder;
+import unity.generic.query.WebQuery;
 import unity.jdbc.UnityConnection;
 import unity.jdbc.UnityPreparedStatement;
 import unity.jdbc.UnityStatement;
@@ -950,6 +951,11 @@ public class IinqExecute {
 		return "20"; // TODO: Where did this value come from?
 	}
 
+	protected static String
+	ion_get_value_size(String table_name, String field_type) {
+		return ion_get_value_size(metadata.getTable("IinqDB", table_name), field_type);
+	}
+
     private static String
     ion_get_value_size(
         SourceTable table, String field_name
@@ -1531,12 +1537,12 @@ public class IinqExecute {
 		String field;
 
 		for (int j = 0; j < num_fields; j++) {
-			pos = statement.indexOf(",");
+			pos = statement.indexOf("AND");
 
 			if (-1 != pos) {
-				field = statement.substring(0, pos);
+				field = statement.substring(0, pos).trim();
 
-				statement = statement.substring(pos + 2);
+				statement = statement.substring(pos + 3).trim();
 
 				fields[j] = field;
 			} else {
@@ -2227,7 +2233,6 @@ public class IinqExecute {
         update_written = true;
 
 		LQCondNode conditionNode =  updateNode.getCondition();
-		String where_condition = "";
 		ArrayList<String> conditions = null;
 		int num_conditions = 0;
 		if (conditionNode != null) {
@@ -2567,12 +2572,32 @@ public class IinqExecute {
 		LQDeleteNode delete = (LQDeleteNode) gu.getPlan().getLogicalQueryTree().getRoot();
         String table_name = delete.getSourceTable().getLocalName().toLowerCase();
 
+        // TODO: update this after writing new buildCondition method for IinqBuilder
+        LQCondNode conditionNode = delete.getCondition();
+		ArrayList<String> conditions = null;
+		int num_conditions = 0;
+		if (conditionNode != null) {
+			LQSelNode selNode = new LQSelNode();
+			selNode.setCondition(conditionNode);
+			IinqBuilder builder = new IinqBuilder(kingParser.parse("SELECT * FROM " + table_name + " WHERE " + conditionNode.generateSQL() + ";", metadata).getLogicalQueryTree().getRoot());
+			IinqQuery query = builder.toQuery();
+			Object filters = query.getParameterObject("filter");
+			if (filters instanceof ArrayList) {
+				conditions = (ArrayList) filters;
+				num_conditions = conditions.size();
+			} else if (filters instanceof String) {
+				num_conditions = 1;
+				conditions = new ArrayList<>();
+				conditions.add((String) filters);
+			}
+		}
+
         boolean table_found = false;
         int table_id = 0;
 
         /* Check if that table name already has an ID */
         for (int i = 0; i < table_names.size(); i++) {
-            if (table_names.get(i).equals(table_name)) {
+            if (table_names.get(i).equalsIgnoreCase(table_name)) {
                 table_id = i;
                 new_table = false;
                 table_found = true;
@@ -2587,13 +2612,15 @@ public class IinqExecute {
         }
 
         SourceTable table = metadata.getTable("IinqDB", table_name);
-
-		sql = sql.substring(table_name.length() - 3);
+        IinqTable iinqTable = tables.get(table_name);
+        if (null == iinqTable) {
+        	throw new SQLException("Delete attempted on non-existent table: " + table_name);
+		}
 
         /* Create print table method if it doesn't already exist */
-		if (!tables.get(table_name).isWritten_table()) {
+		if (!iinqTable.isWritten_table()) {
 			print_table(out, table_name);
-			tables.get(table_name).setWritten_table(true);
+			iinqTable.setWritten_table(true);
 		}
 
         /* Write function to file */
@@ -2606,95 +2633,26 @@ public class IinqExecute {
 
         delete_written = true;
 
-        int pos = sql.indexOf("WHERE");
-        String where_condition = "";
-        int num_conditions = 0;
-        int i = -1;
 
-        /* Get WHERE condition if it exists */
-        if (-1 != pos) {
-            where_condition = sql.substring(pos + 6, sql.length() - 4);
-            i = 0;
-        }
+        String[] conditionFields = new String[num_conditions];
 
-        /* Calculate number of WHERE conditions in statement */
-        while (-1 != i) {
-            num_conditions++;
-            i = where_condition.indexOf(",", i + 1);
-        }
+        for (int i = 0; i < num_conditions; i++) {
+        	conditionFields[i] = conditions.get(i);
+		}
 
-		String[] conditions;
+		IinqWhere iinqWhere = new IinqWhere(num_conditions);
+		iinqWhere.generateWhere(conditionFields,table_name);
 
-		conditions = get_fields(where_condition, num_conditions);
+		String[] conditions1;
+		String where_condition = sql.substring(sql.toUpperCase().indexOf("WHERE")+5).trim();
 
-        ArrayList<Integer>  fields           = new ArrayList<>();
-        ArrayList<String>   operators         = new ArrayList<>();
-        ArrayList<String>   values            = new ArrayList<>();
-        ArrayList<String>   field_types       = new ArrayList<>();
-        ArrayList<String>   iinq_field_types  = new ArrayList<>();
-        ArrayList<String>   field_sizes       = new ArrayList<>();
-        int len = 0;
+		conditions1 = get_fields(where_condition, num_conditions);
+
         String field;
 
-        for (int j = 0; j < num_conditions; j++) {
-
-            /* Set up field, operator, and condition for each WHERE clause */
-            if (conditions[j].contains("!=")) {
-                pos = conditions[j].indexOf("!=");
-                len = 2;
-                operators.add("iinq_not_equal");
-            }
-            else if (conditions[j].contains("<=")) {
-                pos = conditions[j].indexOf("<=");
-                len = 2;
-                operators.add("iinq_less_than_equal_to");
-            }
-            else if (conditions[j].contains(">=")) {
-                pos = conditions[j].indexOf(">=");
-                len = 2;
-                operators.add("iinq_greater_than_equal_to");
-            }
-            else if (conditions[j].contains("=")) {
-                pos = conditions[j].indexOf("=");
-                len = 1;
-                operators.add("iinq_equal");
-            }
-            else if (conditions[j].contains("<")) {
-                pos = conditions[j].indexOf("<");
-                len = 1;
-                operators.add("iinq_less_than");
-            }
-            else if (conditions[j].contains(">")) {
-                pos = conditions[j].indexOf(">");
-                len = 1;
-                operators.add("iinq_greater than");
-            }
-
-            field = conditions[j].substring(0, pos).trim();
-            values.add(conditions[j].substring(pos + len).trim());
-
-            for (int n = 0; n < Integer.parseInt(get_schema_value(table_name, "NUMBER OF FIELDS")); n++) {
-
-                String field_type = get_schema_value(table_name, "FIELD"+n+" TYPE");
-                String field_name = get_schema_value(table_name, "FIELD"+n+" NAME");
-                field_sizes.add(ion_get_value_size(table, field_name));
-
-                if (field_type.contains("CHAR")) {
-                    iinq_field_types.add("iinq_char");
-                }
-                else {
-                    iinq_field_types.add("iinq_int");
-                }
-
-                if (field.equalsIgnoreCase(get_schema_value(table_name, "FIELD"+n+" NAME"))) {
-                    fields.add(n+1);
-                    field_types.add(field_type);
-                }
-            }
-        }
-
         if (new_table) {
-            tableInfo table_info = new tableInfo(table_id, Integer.parseInt(get_schema_value(table_name, "NUMBER OF FIELDS")), iinq_field_types, field_sizes);
+        	// TODO: update tableInfo constructor to take IinqWhere object a a parameter
+            tableInfo table_info = new tableInfo(table_id, Integer.parseInt(get_schema_value(table_name, "NUMBER OF FIELDS")), new ArrayList(Arrays.asList(iinqWhere.getIinq_field_types())), new ArrayList(Arrays.asList(iinqWhere.getField_sizes())));
 
             calculateInfo.add(table_info);
             tables_count++;
@@ -2702,7 +2660,8 @@ public class IinqExecute {
 
         String ion_key = get_schema_value(table_name, "ION KEY TYPE");
 
-        delete_fields.add(new delete_fields(table_name, table_id, num_conditions, fields, operators, values, field_types, key_size, value_size, ion_key));
+		// TODO: update delete_fields to take an IinqWhere object as a parameter
+        delete_fields.add(new delete_fields(table_name, table_id, num_conditions, new ArrayList<Integer>(Arrays.asList(iinqWhere.getWhere_field_nums())), new ArrayList<String>(Arrays.asList(iinqWhere.getWhere_operators())), new ArrayList<String>(Arrays.asList(iinqWhere.getWhere_values())), new ArrayList<String>(Arrays.asList(iinqWhere.getWhere_field_types())), key_size, value_size, ion_key));
     }
 
 	private static void
