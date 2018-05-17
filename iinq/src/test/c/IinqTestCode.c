@@ -65,6 +65,7 @@ main(
 	SQL_execute("INSERT INTO Dogs VALUES (10, 'Frenchie', 'Minnie', 1, 'Penticton');");
 	SQL_execute("INSERT INTO Dogs VALUES (40, 'Chihuahua', 'Barky', 7, 'Van');");
 	SQL_execute("INSERT INTO Dogs COLUMNS (id, type, age) VALUES (30, 'Black Lab', 5);");
+	SQL_execute("INSERT INTO Dogs COLUMNS (id, type) VALUES (30, 'Black Lab');");
 	SQL_execute("INSERT INTO Dogs COLUMNS (city, name, id) VALUES ('West Bench', 'Corky', 50);");
 
 	/* Test UPDATE statement */
@@ -85,7 +86,7 @@ main(
 	/* Test that multiple tables simultaneously will not break functionality */
 	SQL_execute("CREATE TABLE Cats (id INT, name VARCHAR(30), age INT, primary key(id));");
 
-	iinq_prepared_sql p2 = SQL_prepare("INSERT INTO Cats VALUES (1, 'Chester', (?));");
+	iinq_prepared_sql p2 = SQL_prepare("INSERT INTO Cats VALUES (1, ?, (?));");
 
 	/* Test DELETE with multiple conditions */
 	SQL_execute("DELETE FROM Cats WHERE id >= 5 AND id < 10 AND name != 'Minnie';");

@@ -1,7 +1,7 @@
 /******************************************************************************/
 /**
  @file		    insert_fields.java
- @author		Dana Klamut
+ @author		Dana Klamut, Kai Neubauer
  @copyright	    Copyright 2018
  The University of British Columbia,
  IonDB Project Contributors (see AUTHORS.md)
@@ -36,15 +36,39 @@
 package iinq;
 
 import java.util.ArrayList;
+import java.util.Collections;
 
 public class insert_fields {
-    public String table;
-    public ArrayList<String> fields;
-    public ArrayList<String> field_types;
+	class FieldNode implements Comparable<FieldNode> {
+		int field_num;
+		String field;
+		String field_type;
 
-    public insert_fields(String name, ArrayList<String> vals, ArrayList<String> types) {
+		@Override
+		public int compareTo(FieldNode o) {
+			return this.field_num-o.field_num;
+		}
+
+		FieldNode(String field, String field_type, int field_num) {
+			this.field_num = field_num;
+			this.field = field;
+			this.field_type = field_type;
+		}
+	}
+	public ArrayList<FieldNode> fields;
+    public String table;
+    public int total_fields;
+
+    public insert_fields(String name, ArrayList<String> vals, ArrayList<String> types, int[] field_nums, int total_fields) {
         table = name;
-        fields = vals;
-        field_types = types;
+        fields = new ArrayList<>();
+        for (int i = 0; i < field_nums.length; i++) {
+        	fields.add(new FieldNode(vals.get(i), types.get(i), field_nums[i]));
+		}
+		this.total_fields = total_fields;
     }
+
+    public void sortFields() {
+		Collections.sort(this.fields);
+	}
 }
