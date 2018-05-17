@@ -66,6 +66,7 @@ import javax.xml.transform.stream.StreamResult;
 import java.io.*;
 import java.sql.*;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
 
@@ -1047,7 +1048,7 @@ public class IinqExecute {
 	}
 
 	// TODO: change keywords to enum
-	private static String
+	protected static String
 	get_schema_value(String table_name, String keyword) throws IOException, RelationNotFoundException, InvalidArgumentException, SQLFeatureNotSupportedException {
 		String line;
 		SourceTable table = metadata.getTable("IinqDB", table_name);
@@ -1988,64 +1989,8 @@ public class IinqExecute {
 		/* Calculate number of fields to update in statement */
 		int num_fields = updateNode.getNumFields();
 
-        ArrayList<Integer> where_field      = new ArrayList<>(); /* Field value that is being used to update a field. */
-        ArrayList<String> where_value       = new ArrayList<>(); /* Value that is being added to another field value to update a field. */
-        ArrayList<String> where_operator    = new ArrayList<>(); /* Whether values are being updated through addition or subtraction. */
-        ArrayList<String> iinq_field_types  = new ArrayList<>();
-        ArrayList<String> where_field_type  = new ArrayList<>();
-
-        int len = 0;
-        String[] where_fields = new String[num_conditions];
-
-        int pos=-1;
-        for (int j = 0; j < num_conditions; j++) {
-
-            /* Set up field, operator, and condition for each WHERE clause */
-            if (conditionFields[j].contains("!=")) {
-                pos = conditionFields[j].indexOf("!=");
-                len = 2;
-                where_operator.add("iinq_not_equal");
-            } else if (conditionFields[j].contains("<=")) {
-                pos = conditionFields[j].indexOf("<=");
-                len = 2;
-                where_operator.add("iinq_less_than_equal_to");
-            } else if (conditionFields[j].contains(">=")) {
-                pos = conditionFields[j].indexOf(">=");
-                len = 2;
-                where_operator.add("iinq_greater_than_equal_to");
-            } else if (conditionFields[j].contains("=")) {
-                pos = conditionFields[j].indexOf("=");
-                len = 1;
-                where_operator.add("iinq_equal");
-            } else if (conditionFields[j].contains("<")) {
-                pos = conditionFields[j].indexOf("<");
-                len = 1;
-                where_operator.add("iinq_less_than");
-            } else if (conditionFields[j].contains(">")) {
-                pos = conditionFields[j].indexOf(">");
-                len = 1;
-                where_operator.add("iinq_greater_than");
-            }
-
-            where_fields[j] = conditionFields[j].substring(0, pos).trim();
-            where_value.add(conditionFields[j].substring(pos + len).trim());
-
-            for (int n = 0; n < Integer.parseInt(get_schema_value(table_name, "NUMBER OF FIELDS")); n++) {
-
-                String field_type = get_schema_value(table_name, "FIELD" + n + " TYPE");
-
-                if (field_type.contains("CHAR")) {
-                    iinq_field_types.add("iinq_char");
-                } else {
-                    iinq_field_types.add("iinq_int");
-                }
-
-                if (where_fields[j].equalsIgnoreCase(get_schema_value(table_name, "FIELD" + n + " NAME"))) {
-                    where_field.add(n + 1);
-                    where_field_type.add(field_type);
-                }
-            }
-        }
+        IinqWhere where = new IinqWhere(num_conditions);
+        where.generateWhere(conditionFields,table_name);
 
         ArrayList<Integer> update_field_nums    = new ArrayList<>();
         ArrayList<Boolean> implicit             = new ArrayList<>();
@@ -2119,7 +2064,7 @@ public class IinqExecute {
         }
 
         if (new_table) {
-            tableInfo table_info = new tableInfo(table_id, Integer.parseInt(get_schema_value(table_name, "NUMBER OF FIELDS")), iinq_field_types, field_sizes);
+            tableInfo table_info = new tableInfo(table_id, Integer.parseInt(get_schema_value(table_name, "NUMBER OF FIELDS")), new ArrayList<String>(Arrays.asList(where.getIinq_field_types())), field_sizes);
 
             calculateInfo.add(table_info);
             tables_count++;
@@ -2129,8 +2074,9 @@ public class IinqExecute {
         String value_size = get_schema_value(table_name, "VALUE SIZE");
         String ion_key = get_schema_value(table_name, "ION KEY TYPE");
 
-        update_fields.add(new update_fields(table_name, table_id, num_conditions, num_fields, where_field, where_operator,
-                where_value, where_field_type, key_size, value_size, ion_key, update_field_nums, implicit, implicit_fields, update_operators,
+        // TODO revise update_fields to use IinqWhere object
+        update_fields.add(new update_fields(table_name, table_id, num_conditions, num_fields, new ArrayList<Integer>(Arrays.asList(where.getWhere_field_nums())), new ArrayList<String>(Arrays.asList(where.getWhere_operators())),
+                new ArrayList<String>(Arrays.asList(where.getWhere_values())), new ArrayList<String>(Arrays.asList(where.getWhere_field_types())), key_size, value_size, ion_key, update_field_nums, implicit, implicit_fields, update_operators,
                 update_values, update_field_types, implicit_count));
     }
 
