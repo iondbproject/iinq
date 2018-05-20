@@ -1900,10 +1900,11 @@ public class IinqExecute {
 		}
 
 		for (int j = 0; j < count; j++) {
+			GQFieldRef fieldNode = (GQFieldRef) insert.getInsertFields().get(j);
 			fields[j] = ((LQExprNode) insert.getInsertValues().get(j)).getContent().toString();
 
-			field_value = get_schema_value(table_name, schema_keyword.FIELD_TYPE, j);
-			field_sizes.add(ion_get_value_size(table, table.getSourceFieldsByPosition().get(j).getColumnName()));
+			field_value = fieldNode.getField().getDataTypeName();
+			field_sizes.add(ion_get_value_size(table, fieldNode.getName()));
 
 			/* To be added in function call */
 			field_values.add(fields[j]);
@@ -1954,18 +1955,23 @@ public class IinqExecute {
 			out.write("\tunsigned char\t*data = p.value;\n");
 			out.write("\tp.key = malloc(" + ion_switch_key_size(Integer.parseInt(key_type)) + ");\n");
 
-			if (key_type.equals("0") || key_type.equals("1")) {
-				out.write("\t*(int *) p.key = value_" + (Integer.parseInt(key_field_num) + 1) + ";\n\n");
+			if (Integer.parseInt(key_type) == Types.INTEGER) {
+				out.write("\t*(int *) p.key = value_" + (Integer.parseInt(key_field_num)) + ";\n\n");
 			} else {
-				out.write("\tmemcpy(p.key, value_" + (Integer.parseInt(key_field_num) + 1) + ", " + key_type + ");\n\n");
+				out.write("\tmemcpy(p.key, value_" + (Integer.parseInt(key_field_num)) + ", " + key_type + ");\n\n");
 			}
 
-			for (int i = 0; i < fields.length; i++) {
+			// TODO: allow for fields other than the first to be the key
+			// Skip first field (key)
+			for (int i = 1; i < fields.length; i++) {
 				field_value = get_schema_value(table_name, schema_keyword.FIELD_TYPE, i);
 				String value_size = ion_get_value_size(table, table.getSourceFieldsByPosition().get(i).getColumnName());
 
 				if (field_value.contains("CHAR")) {
-					out.write("\tmemcpy(data, value_" + (i + 1) + ", " + value_size + ");\n");
+					out.write("\tif (value_" + (i+1) + " != NULL)\n");
+					out.write("\t\tmemcpy(data, value_" + (i + 1) + ", " + value_size + ");\n");
+					out.write("\telse\n");
+					out.write("\t\t*(char*) data = NULL;\n");
 				} else {
 					out.write("\t*(int *) data = value_" + (i + 1) + ";\n");
 				}
