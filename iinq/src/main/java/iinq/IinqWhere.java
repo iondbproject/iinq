@@ -64,7 +64,7 @@ public class IinqWhere {
 	public void generateWhere(String[] conditionFields, String table_name) throws InvalidArgumentException, SQLFeatureNotSupportedException, RelationNotFoundException, IOException {
 		if (conditionFields.length != this.num_conditions)
 			throw new InvalidArgumentException(new String[]{"Array must be the same length as specified in the constructor."});
-		int num_fields = Integer.parseInt(get_schema_value(table_name, "NUMBER OF FIELDS"));
+		int num_fields = Integer.parseInt(get_schema_value(table_name, IinqExecute.schema_keyword.NUMBER_OF_FIELDS));
 		this.iinq_field_types	= new String[num_fields*num_conditions];
 		this.field_sizes		= new String[num_fields*num_conditions];
 		for (int i = 0; i < num_conditions; i++) {
@@ -100,8 +100,8 @@ public class IinqWhere {
 			where_values[i] = conditionFields[i].substring(pos + len).trim();
 
 			for (int j = 0; j < num_fields; j++) {
-				String field_type = get_schema_value(table_name, "FIELD" + j + " TYPE");
-				field_sizes[j] = ion_get_value_size(table_name, get_schema_value(table_name, "FIELD" + j + " NAME"));
+				String field_type = get_schema_value(table_name, IinqExecute.schema_keyword.FIELD_TYPE, j);
+				field_sizes[j] = ion_get_value_size(table_name, get_schema_value(table_name, IinqExecute.schema_keyword.FIELD_NAME, j));
 
 				if (field_type.contains("CHAR")) {
 					iinq_field_types[i*num_conditions + j] = "iinq_char";
@@ -109,7 +109,7 @@ public class IinqWhere {
 					iinq_field_types[i*num_conditions + j] = "iinq_int";
 				}
 
-				if (where_field_names[i].equalsIgnoreCase(get_schema_value(table_name, "FIELD" + j + " NAME"))) {
+				if (where_field_names[i].equalsIgnoreCase(get_schema_value(table_name, IinqExecute.schema_keyword.FIELD_NAME, j))) {
 					where_field_nums[i] = j + 1;
 					where_field_types[i] = field_type;
 				}
