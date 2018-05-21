@@ -1147,9 +1147,11 @@ public class IinqExecute {
 			if ((line.toUpperCase()).contains("INSERT") && !line.contains("/*") && !line.contains("//")) {
 				contents += "/* " + line + " */\n";
 
+				boolean prep = true;
 				int index = line.indexOf("SQL_prepare");
 				if (index == -1) {
 					index = line.indexOf("SQL_execute");
+					prep = false;
 				}
 				String sql = line.substring(index);
 				sql = sql.substring(sql.toUpperCase().indexOf("INSERT"), sql.indexOf(";")).trim();
@@ -1160,7 +1162,10 @@ public class IinqExecute {
 
 				if (insert != null) {
 					insert.sortFields();
-					contents += "\t" + temp + "insert_" + insert.table + "(";
+					contents += "\t" + temp;
+					if (!prep)
+						contents += "execute(";
+					contents += "insert_" + insert.table + "(";
 					int field_count = 1;
 					for (int j = 0; j < insert.fields.size(); j++) {
 						if (insert.fields.get(j) != null) {
@@ -1172,7 +1177,7 @@ public class IinqExecute {
 								field_count++;
 							}
 
-							if (insert.fields.get(j).field.equals("(?)") || insert.fields.get(j).field.equals("?"))
+							if (prep && insert.fields.get(j).field.equals("(?)") || insert.fields.get(j).field.equals("?"))
 								contents += "PREPARED_FIELD";
 							else {
 								if (insert.fields.get(j).field_type.equals("char")) {
@@ -1189,7 +1194,8 @@ public class IinqExecute {
 						field_count++;
 					}
 				}
-
+				if (!prep)
+					contents += ")";
 				contents += ");\n";
 				count++;
 			} else {
