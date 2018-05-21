@@ -84,9 +84,9 @@ main(
 	iinq_prepared_sql p1 = SQL_prepare("INSERT INTO Dogs VALUES (10, (?), 'Minnie', (?), 'Penticton');");
 
 	/* Test that multiple tables simultaneously will not break functionality */
-	SQL_execute("CREATE TABLE Cats (id INT, name VARCHAR(30), age INT, primary key(id));");
+	SQL_execute("CREATE TABLE Cats (id VARCHAR(2), name VARCHAR(30), age INT, primary key(id));");
 
-	iinq_prepared_sql p2 = SQL_prepare("INSERT INTO Cats VALUES (1, ?, (?));");
+	iinq_prepared_sql p2 = SQL_prepare("INSERT INTO Cats VALUES ('1', ?, (?));");
 
 	/* Test DELETE with multiple conditions */
 	SQL_execute("DELETE FROM Cats WHERE id >= 5 AND id < 10 AND name != 'Minnie';");
@@ -99,9 +99,9 @@ main(
 	SQL_execute("UPDATE Cats SET age = 90, id = id+1, name = 'Chichi' WHERE age < 5;");
 	SQL_execute("UPDATE Cats SET age = 90, id = id+1, name = 'Chichi' WHERE id >= 5 AND id < 10 AND name != 'Minnie';");
 
-	iinq_prepared_sql p4 = SQL_prepare("INSERT INTO Cats VALUES (3, 'Buttons', 2);");
+	iinq_prepared_sql p4 = SQL_prepare("INSERT INTO Cats VALUES ('3', 'Buttons', 2);");
 
-	iinq_prepared_sql p5 = SQL_prepare("INSERT INTO Cats VALUES (4, 'Mr. Whiskers', 4);");
+	iinq_prepared_sql p5 = SQL_prepare("INSERT INTO Cats VALUES ('4', 'Mr. Whiskers', 4);");
 
 	SQL_execute("UPDATE Cats SET age = age + 5 WHERE age > 2;");
 

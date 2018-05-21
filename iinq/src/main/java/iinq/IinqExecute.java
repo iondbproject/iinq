@@ -116,6 +116,7 @@ public class IinqExecute {
 	private static boolean select_written = false;
 	private static boolean create_written = false;
 	private static boolean drop_written = false;
+	private static boolean prepared_written = false;
 
 	/* Variables for INSERT supported prepared statements on multiple tables */
 	private static ArrayList<String> table_names = new ArrayList<>();
@@ -1479,10 +1480,10 @@ public class IinqExecute {
 			}
 			case PRIMARY_KEY_SIZE: {
 				switch (table.getPrimaryKey().getFields().get(0).getDataType()) {
-					case 1: // CHAR
-					case 12: // VARCHAR
+					case Types.CHAR:
+					case Types.VARCHAR:
 						return String.format("sizeof(char) * %d", table.getField(table.getPrimaryKey().getFieldList()).getColumnSize());
-					case 4: // int
+					case Types.INTEGER:
 						return "sizeof(int)";
 				}
 			}
@@ -1993,7 +1994,7 @@ public class IinqExecute {
 		String param_header = "";
 
 		/* INSERT statement is a prepared statement */
-		if (prep && !param_written) {
+		if (prep && !prepared_written) {
 			written_table = table_name;
 
 			out.write("void setParam(iinq_prepared_sql p, int field_num, void *val) {\n");
@@ -2006,6 +2007,7 @@ public class IinqExecute {
 			out.write("\t\tmemcpy(data, val, sizeof(val));\n\t}\n}\n\n");
 
 			param_header = "void setParam(iinq_prepared_sql p, int field_num, void *val);\n";
+			prepared_written = true;
 		}
 
 		if (!param_written) {
@@ -2015,7 +2017,7 @@ public class IinqExecute {
 
 			function_headers.add("void execute(iinq_prepared_sql p);\n");
 
-			if (key_type.equals("0") || key_type.equals("1")) {
+			if (Integer.parseInt(key_type) == Types.INTEGER) {
 				out.write("\t\tiinq_execute(\"" + table_name + "\", IONIZE(*(int *) p.key, int), p.value, iinq_insert_t);\n");
 			} else {
 				out.write("\t\tiinq_execute(\"" + table_name + "\", p.key, p.value, iinq_insert_t);\n");
@@ -2082,10 +2084,10 @@ public class IinqExecute {
 
 						contents += "\tif (*(int *) p.table == " + table_id + ") {\n";
 
-						if (key_type.equals("0") || key_type.equals("1")) {
-							contents += "\t\tiinq_execute(\"" + table_name + ".inq\", IONIZE(*(int *) p.key, int), p.value, iinq_insert_t);\n";
+						if (Integer.parseInt(key_type) == Types.INTEGER) {
+							contents += "\t\tiinq_execute(\"" + table_name + "\", IONIZE(*(int *) p.key, int), p.value, iinq_insert_t);\n";
 						} else {
-							contents += "\t\tiinq_execute(\"" + table_name + ".inq\", p.key, p.value, iinq_insert_t);\n";
+							contents += "\t\tiinq_execute(\"" + table_name + "\", p.key, p.value, iinq_insert_t);\n";
 						}
 						contents += "\t}\n";
 					}
