@@ -1071,7 +1071,21 @@ public class IinqExecute {
 		out.write("\t\tvalue = ion_record.value;\n\n");
 
 		String data_type;
-		for (int j = 0; j < Integer.parseInt(get_schema_value(table_name, schema_keyword.NUMBER_OF_FIELDS)); j++) {
+
+		/* TODO: allow other columns to be the key */
+		/* Print out key */
+		data_type = ion_get_value_size(metadata.getTable("IinqDB", table_name), metadata.getTable("IinqDB", table_name).getSourceFieldsByPosition().get(0).getColumnName());
+		if (data_type.contains("char")) {
+			out.write("\n\t\tprintf(\"%s\t\", (char *) ion_record.key);\n");
+		}
+
+		/* Implement for all data types - for now assume int if not char or varchar */
+		else {
+			out.write("\n\t\tprintf(\"%i\t\", NEUTRALIZE(ion_record.key, int));\n");
+		}
+
+		/* Print out remaining columns */
+		for (int j = 1, n = Integer.parseInt(get_schema_value(table_name, schema_keyword.NUMBER_OF_FIELDS)); j < n; j++) {
 			data_type = ion_get_value_size(metadata.getTable("IinqDB", table_name), metadata.getTable("IinqDB", table_name).getSourceFieldsByPosition().get(j).getColumnName());
 
 			if (data_type.contains("char")) {
@@ -1099,6 +1113,8 @@ public class IinqExecute {
 		out.write("\tcursor->destroy(&cursor);\n");
 		out.write("\tfree(ion_record.key);\n");
 		out.write("\tfree(ion_record.value);\n}\n\n");
+
+		function_headers.add("void print_table_" + table_name + "(ion_dictionary_t *dictionary);\n");
 	}
 
 	private static void
@@ -1276,7 +1292,8 @@ public class IinqExecute {
 				int implicit_count = 0;
 
 				if (update != null) {
-					contents += "\tupdate(" + update.table_id + ", \"" + update.table_name + "\", " + update.ion_key + ", "
+					contents += "\tupdate(" + update.table_id + ", \"" + update.table_name + "\", print_table_"
+							+ update.table_name + ", " + update.ion_key + ", "
 							+ update.key_size + ", " + update.value_size + ", " + update.num_wheres * 3 + ", "
 							+ update.num_updates * 4 + ", " + (update.num_wheres * 3 + update.num_updates * 4);
 
