@@ -31,7 +31,7 @@ public class TestIinqExecute {
 
 	@Test
 	public void testFull() throws SQLException, InvalidArgumentException, RelationNotFoundException, IOException {
-		Path sourceFile = Paths.get("src/test/c/IinqTestCode.c");
+		Path sourceFile = Paths.get("src/test/c/IinqFullTestCode.c");
 		Path destFile = Paths.get(user_file);
 
 		Files.copy(sourceFile, destFile, REPLACE_EXISTING);

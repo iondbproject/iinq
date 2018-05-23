@@ -40,6 +40,7 @@
 void
 cleanup(
 ) {
+    fdeleteall();
 	fremove("1.ffs");
 	fremove("2.ffs");
 	fremove("3.ffs");
@@ -65,14 +66,14 @@ main(
 	SQL_execute("INSERT INTO Dogs VALUES (10, 'Frenchie', 'Minnie', 1, 'Penticton');");
 	SQL_execute("INSERT INTO Dogs VALUES (40, 'Chihuahua', 'Barky', 7, 'Van');");
 	SQL_execute("INSERT INTO Dogs COLUMNS (id, type, age) VALUES (30, 'Black Lab', 5);");
-	SQL_execute("INSERT INTO Dogs COLUMNS (id, type) VALUES (30, 'Black Lab');");
+	SQL_execute("INSERT INTO Dogs COLUMNS (id, type) VALUES (20, 'Black Lab');");
 	SQL_execute("INSERT INTO Dogs COLUMNS (city, name, id) VALUES ('West Bench', 'Corky', 50);");
 
 	/* Test UPDATE statement */
 	SQL_execute("UPDATE Dogs SET id = id-1, age = age * 10 WHERE name = 'Barky';");
 
 	/* Test DELETE statement */
-	SQL_execute("DELETE FROM Dogs WHERE age < 5 AND age > 2;");
+	SQL_execute("DELETE FROM Dogs WHERE age < 8 AND age > 5;");
 
 	/* Test DROP TABLE statement */
 	SQL_execute("DROP TABLE Dogs;");
@@ -82,11 +83,20 @@ main(
 
 	/* Test prepared statements */
 	iinq_prepared_sql p1 = SQL_prepare("INSERT INTO Dogs VALUES (10, (?), 'Minnie', (?), 'Penticton');");
+	setParam(p1, 2, "Black Lab");
+	setParam(p1, 4, "5");
+	execute(p1);
 
 	/* Test that multiple tables simultaneously will not break functionality */
 	SQL_execute("CREATE TABLE Cats (id VARCHAR(2), name VARCHAR(30), age INT, primary key(id));");
 
-	iinq_prepared_sql p2 = SQL_prepare("INSERT INTO Cats VALUES ('1', ?, (?));");
+	SQL_execute("INSERT INTO Cats VALUES ('6', 'Buttons', 2);");
+	SQL_execute("INSERT INTO Cats VALUES ('4', 'Mr. Whiskers', 4);");
+
+	iinq_prepared_sql p2 = SQL_prepare("INSERT INTO Cats VALUES ('5', ?, (?));");
+	setParam(p2, 2, "Minnie");
+	setParam(p2, 3, 6);
+	execute(p2);
 
 	/* Test DELETE with multiple conditions */
 	SQL_execute("DELETE FROM Cats WHERE id >= 5 AND id < 10 AND name != 'Minnie';");
@@ -99,15 +109,11 @@ main(
 	SQL_execute("UPDATE Cats SET age = 90, id = id+1, name = 'Chichi' WHERE age < 5;");
 	SQL_execute("UPDATE Cats SET age = 90, id = id+1, name = 'Chichi' WHERE id >= 5 AND id < 10 AND name != 'Minnie';");
 
-	iinq_prepared_sql p4 = SQL_prepare("INSERT INTO Cats VALUES ('3', 'Buttons', 2);");
-
-	iinq_prepared_sql p5 = SQL_prepare("INSERT INTO Cats VALUES ('4', 'Mr. Whiskers', 4);");
-
 	SQL_execute("UPDATE Cats SET age = age + 5 WHERE age > 2;");
 
 	SQL_execute("DELETE FROM Cats WHERE age >= 10;");
 	/* Test query */
-	iinq_result_set rs1 = SQL_select("SELECT id, name FROM Cats WHERE age < 10;");
+	/*iinq_result_set rs1 = SQL_select("SELECT id, name FROM Cats WHERE age < 10;");*/
 
 	printf("sizeof value: %zu\n", (sizeof(int) * 2) + (sizeof(char) * 30));
 

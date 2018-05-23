@@ -1072,20 +1072,8 @@ public class IinqExecute {
 
 		String data_type;
 
-		/* TODO: allow other columns to be the key */
-		/* Print out key */
-		data_type = ion_get_value_size(metadata.getTable("IinqDB", table_name), metadata.getTable("IinqDB", table_name).getSourceFieldsByPosition().get(0).getColumnName());
-		if (data_type.contains("char")) {
-			out.write("\n\t\tprintf(\"%s\t\", (char *) ion_record.key);\n");
-		}
-
-		/* Implement for all data types - for now assume int if not char or varchar */
-		else {
-			out.write("\n\t\tprintf(\"%i\t\", NEUTRALIZE(ion_record.key, int));\n");
-		}
-
-		/* Print out remaining columns */
-		for (int j = 1, n = Integer.parseInt(get_schema_value(table_name, schema_keyword.NUMBER_OF_FIELDS)); j < n; j++) {
+		/* Print out columns */
+		for (int j = 0, n = Integer.parseInt(get_schema_value(table_name, schema_keyword.NUMBER_OF_FIELDS)); j < n; j++) {
 			data_type = ion_get_value_size(metadata.getTable("IinqDB", table_name), metadata.getTable("IinqDB", table_name).getSourceFieldsByPosition().get(j).getColumnName());
 
 			if (data_type.contains("char")) {
@@ -1235,38 +1223,44 @@ public class IinqExecute {
 		String ex_path = user_file;
 		BufferedReader ex_file = new BufferedReader(new FileReader(ex_path));
 
-		String contents = "";
+		StringBuilder contents = new StringBuilder();
 		String line;
 		iinq.delete_fields delete;
 		int count = 0;
 
 		while (null != (line = ex_file.readLine())) {
 			if ((line.toUpperCase()).contains("DELETE") && !line.contains("/*") && !line.contains("//")) {
-				contents += "/* " + line + " */\n";
+				contents.append("/* " + line + " */\n");
 
 				delete = delete_fields.get(count);
 
 				if (delete != null) {
-					contents += "\tdelete_record(" + delete.table_id + ", \"" + delete.table_name + "\", " + delete.ion_key + ", "
-							+ delete.key_size + ", " + delete.value_size + ", " + delete.num_wheres * 3;
+					contents.append("\tdelete_record(" + delete.table_id + ", \"" + delete.table_name + "\", "
+							+ "print_table_" + delete.table_name + ", " + delete.ion_key + ", "
+							+ delete.key_size + ", " + delete.value_size + ", " + delete.num_wheres * 3);
 
-					for (int j = 0; j < delete.num_wheres; j++) {
-						contents += ", " + delete.fields.get(j) + ", " + delete.operators.get(j) + ", ";
-						contents += delete.values.get(j);
+					if (delete.num_wheres > 0) {
+						contents.append(", IINQ_CONDITION_LIST(");
+						for (int j = 0; j < delete.num_wheres; j++) {
+							contents.append("IINQ_CONDITION(" + delete.fields.get(j) + ", " + delete.operators.get(j) + ", ");
+							contents.append(delete.values.get(j) + "), ");
+						}
+						contents.setLength(contents.length()-2);
+						contents.append(")");
 					}
 
-					contents += ");\n";
+					contents.append(");\n");
 					count++;
 				}
 			} else {
-				contents += line + '\n';
+				contents.append(line + '\n');
 			}
 		}
 
 		File ex_output_file = new File(ex_path);
 		FileOutputStream ex_out = new FileOutputStream(ex_output_file, false);
 
-		ex_out.write(contents.getBytes());
+		ex_out.write(contents.toString().getBytes());
 
 		ex_file.close();
 		ex_out.close();
@@ -1279,63 +1273,71 @@ public class IinqExecute {
 		String ex_path = user_file;
 		BufferedReader ex_file = new BufferedReader(new FileReader(ex_path));
 
-		String contents = "";
+		StringBuilder contents = new StringBuilder();
 		String line;
 		iinq.update_fields update;
 		int count = 0;
 
 		while (null != (line = ex_file.readLine())) {
 			if ((line.toUpperCase()).contains("UPDATE") && !line.contains("/*") && !line.contains("//")) {
-				contents += "/* " + line + " */\n";
+				contents.append("/* " + line + " */\n");
 
 				update = update_fields.get(count);
 				int implicit_count = 0;
 
 				if (update != null) {
-					contents += "\tupdate(" + update.table_id + ", \"" + update.table_name + "\", print_table_"
+					contents.append("\tupdate(" + update.table_id + ", \"" + update.table_name + "\", print_table_"
 							+ update.table_name + ", " + update.ion_key + ", "
 							+ update.key_size + ", " + update.value_size + ", " + update.num_wheres * 3 + ", "
-							+ update.num_updates * 4 + ", " + (update.num_wheres * 3 + update.num_updates * 4);
+							+ update.num_updates * 4 + ", " + (update.num_wheres * 3 + update.num_updates * 4));
 
-					for (int j = 0; j < update.num_wheres; j++) {
-						contents += ", " + update.where_fields.get(j) + ", " + update.where_operators.get(j) + ", ";
-						contents += update.where_values.get(j);
+					if (update.num_wheres > 0) {
+						contents.append(", IINQ_CONDITION_LIST(");
+						for (int j = 0; j < update.num_wheres; j++) {
+							contents.append("IINQ_CONDITION(" + update.where_fields.get(j) + ", " + update.where_operators.get(j) + ", ");
+							contents.append(update.where_values.get(j) + "), ");
+						}
+						contents.setLength(contents.length()-2);
+						contents.append(")");
 					}
 
+					contents.append(", IINQ_UPDATE_LIST(");
 					for (int i = 0; i < update.num_updates; i++) {
+						contents.append("IINQ_UPDATE(");
 						if (!update.implicit.get(i)) {
-							contents += ", " + update.update_fields.get(i) + ", 0, 0, ";
+							contents.append(update.update_fields.get(i) + ", 0, 0, ");
 
 							if (update.update_field_types.get(i).contains("INT")) {
-								contents += update.update_values.get(i);
+								contents.append(update.update_values.get(i));
 							} else {
-								contents += "\"" + update.update_values.get(i) + "\"";
+								contents.append("\"" + update.update_values.get(i) + "\"");
 							}
 						} else {
-							contents += ", " + update.update_fields.get(i) + ", " + update.implicit_fields.get(implicit_count) + ", "
-									+ update.update_operators.get(implicit_count) + ", ";
+							contents.append(update.update_fields.get(i) + ", " + update.implicit_fields.get(implicit_count) + ", "
+									+ update.update_operators.get(implicit_count) + ", ");
 
 							if (update.update_field_types.get(i).contains("INT")) {
-								contents += update.update_values.get(i);
+								contents.append(update.update_values.get(i));
 							} else {
-								contents += "\"" + update.update_values.get(i) + "\"";
+								contents.append("\"" + update.update_values.get(i) + "\"");
 							}
 							implicit_count++;
 						}
+						contents.append("), ");
 					}
-
-					contents += ");\n";
+					contents.setLength(contents.length()-2);
+					contents.append("));\n");
 					count++;
 				}
 			} else {
-				contents += line + '\n';
+				contents.append(line + '\n');
 			}
 		}
 
 		File ex_output_file = new File(ex_path);
 		FileOutputStream ex_out = new FileOutputStream(ex_output_file, false);
 
-		ex_out.write(contents.getBytes());
+		ex_out.write(contents.toString().getBytes());
 
 		ex_file.close();
 		ex_out.close();
@@ -1517,9 +1519,9 @@ public class IinqExecute {
 				ArrayList<SourceField> fields = table.getSourceFieldsByPosition();
 				int num_fields = table.getNumFields();
 				StringBuilder returnValue = new StringBuilder();
-				// Skip the first field which is part of the key
-				for (int i = 1; i < num_fields; i++) {
-					if (i > 1) {
+
+				for (int i = 0; i < num_fields; i++) {
+					if (i > 0) {
 						returnValue.append(" + ");
 					}
 					returnValue.append(get_field_size(fields.get(i)));
@@ -1725,7 +1727,7 @@ public class IinqExecute {
 		boolean char_present = false;
 		int char_multiplier = 0;
 
-		for (int i = 0; i < num_fields - 1; i++) {
+		for (int i = 0; i < num_fields; i++) {
 			if (table.getFieldTypeName(i).contains("CHAR")) {
 				char_multiplier += table.getFieldSize(i);
 				char_present = true;
@@ -1760,35 +1762,7 @@ public class IinqExecute {
 		File schema = new File(directory + schema_name);
 		FileOutputStream schema_out = new FileOutputStream(schema, false);
 
-		//schema_out.write(contents.getBytes());
-
 		schema_out.close();
-
-		xml_schemas.add(schema_name);
-
-		/* Create CREATE TABLE method - (Schema in .inq file) */
-		/* out.write("void create_table" + create_count + "() {\n");
-		out.write("\tprintf(\"%s" + "\\" + "n" + "\\" + "n" + "\", \"" + statement.substring(statement.indexOf("(") + 2, statement.length() - 4) + "\");\n");
-		out.newLine();
-		out.write("\tion_err_t error;");
-		out.newLine();
-		String schema_variable = create_schema_variable("createTable" + create_count, table_name);
-		out.write("\n\terror = iinq_create_table(\"" + table_name + "\", " + primary_key_type + ", " + primary_key_size + ", " + value_size + ", " + schema_variable + ");");
-		print_error(out, false, 0);
-		out.write("\t");
-		out.newLine();
-		out.write("\tiinq_table_t table;");
-		out.newLine();
-		out.write("\terror = iinq_open_table(\"" + table_name + "\", &table);");
-		print_error(out, false, 0);
-		// TODO: fix all print_table_ function calls/definitions
-		//out.write("\tprint_table_" + table_name.substring(0, table_name.length() - 4).toLowerCase() + "(&dictionary);\n");
-		out.write("\terror = iinq_close_table(&table);");
-		print_error(out, false, 0);
-
-		out.write("}\n\n");
-
-		System.out.println("schema " + schema_name);*/
 
 		/* Create CREATE TABLE method */
 		if (!create_written) {
@@ -1979,15 +1953,14 @@ public class IinqExecute {
 			out.write("\tunsigned char\t*data = p.value;\n");
 			out.write("\tp.key = malloc(" + ion_switch_key_size(Integer.parseInt(key_type)) + ");\n");
 
+			// TODO: allow composite keys
 			if (Integer.parseInt(key_type) == Types.INTEGER) {
 				out.write("\t*(int *) p.key = value_" + (Integer.parseInt(key_field_num)) + ";\n\n");
 			} else {
 				out.write("\tmemcpy(p.key, value_" + (Integer.parseInt(key_field_num)) + ", " + key_type + ");\n\n");
 			}
 
-			// TODO: allow for fields other than the first to be the key
-			// Skip first field (key)
-			for (int i = 1; i < fields.length; i++) {
+			for (int i = 0; i < fields.length; i++) {
 				field_value = get_schema_value(table_name, schema_keyword.FIELD_TYPE, i);
 				String value_size = ion_get_value_size(table, table.getSourceFieldsByPosition().get(i).getColumnName());
 
