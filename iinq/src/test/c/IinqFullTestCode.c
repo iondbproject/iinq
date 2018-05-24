@@ -112,6 +112,7 @@ main(
 	SQL_execute("UPDATE Cats SET age = age + 5 WHERE age > 2;");
 
 	SQL_execute("DELETE FROM Cats WHERE age >= 10;");
+
 	/* Test query */
 	/*iinq_result_set rs1 = SQL_select("SELECT id, name FROM Cats WHERE age < 10;");*/
 
