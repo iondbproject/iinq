@@ -73,7 +73,7 @@ main(
 	SQL_execute("UPDATE Dogs SET id = id-1, age = age * 10 WHERE name = 'Barky';");
 
 	/* Test DELETE statement */
-	SQL_execute("DELETE FROM Dogs WHERE age < 8 AND age > 5;");
+	SQL_execute("DELETE FROM Dogs WHERE id < 50 AND age >= 5;");
 
 	/* Test DROP TABLE statement */
 	SQL_execute("DROP TABLE Dogs;");

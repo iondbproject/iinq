@@ -414,20 +414,15 @@ public class IinqExecute {
 
 		out.write("\tcursor->destroy(&cursor);\n\n");
 
-		out.write("\tint update_fields[num_update];\n");
-		out.write("\tint implicit_fields[num_update];\n");
-		out.write("\tiinq_math_operator_t operators[num_update];\n");
-		out.write("\tvoid *field_values[num_update];\n");
 		out.write("\tint i;\n\n");
+
+		out.write("\tiinq_update_params_t updates[num_update];");
 
 		out.write("\tfor (i = 0; i < num_wheres; i++) {\n");
 		out.write("\t\tva_arg(valist, void *);\n\t}\n\n");
 
 		out.write("\tfor (i = 0; i < num_update; i++) {\n");
-		out.write("\t\tupdate_fields[i]     = va_arg(valist, int);\n");
-		out.write("\t\timplicit_fields[i]   = va_arg(valist, int);\n");
-		out.write("\t\toperators[i]         = va_arg(valist, iinq_math_operator_t);\n");
-		out.write("\t\tfield_values[i]      = va_arg(valist, void *);\n\t}\n\n");
+		out.write("\t\tupdates[i] = va_arg(valist, iinq_update_params_t);\n\t}\n\n");
 
 		out.write("\tva_end(valist);\n\n");
 		out.write("\tion_predicate_t predicate_temp;\n");
@@ -438,32 +433,33 @@ public class IinqExecute {
 		out.write("\twhile ((status = iinq_next_record(cursor_temp, &ion_record)) == cs_cursor_initialized || status == cs_cursor_active) {\n");
 		out.write("\t\tfor (i = 0; i < num_update; i++) {\n");
 		out.write("\t\t\tunsigned char *value;\n");
-		out.write("\t\t\tif (implicit_fields[i] != 0) {\n");
+		out.write("\t\t\tif (updates[i].implicit_field != 0) {\n");
 		out.write("\t\t\t\tint new_value;\n");
-		out.write("\t\t\t\tvalue = ion_record.value + calculateOffset(table_id, implicit_fields[i] - 1);\n\n");
+		out.write("\t\t\t\tvalue = ion_record.value + calculateOffset(table_id, updates[i].implicit_field - 1);\n\n");
 
-		out.write("\t\t\t\tswitch (operators[i]) {\n");
+		out.write("\t\t\t\tswitch (updates[i].operator) {\n");
 		out.write("\t\t\t\t\tcase iinq_add :\n");
-		out.write("\t\t\t\t\t\tnew_value = (NEUTRALIZE(value, int) + (int) field_values[i]);\n");
+		out.write("\t\t\t\t\t\tnew_value = (NEUTRALIZE(value, int) + (int) updates[i].field_value);\n");
 		out.write("\t\t\t\t\t\tbreak;\n");
 		out.write("\t\t\t\t\tcase iinq_subtract :\n");
-		out.write("\t\t\t\t\t\tnew_value = (NEUTRALIZE(value, int) - (int) field_values[i]);\n");
+		out.write("\t\t\t\t\t\tnew_value = (NEUTRALIZE(value, int) - (int) updates[i].field_value);\n");
 		out.write("\t\t\t\t\t\tbreak;\n");
 		out.write("\t\t\t\t\tcase iinq_multiply :\n");
-		out.write("\t\t\t\t\t\tnew_value = (NEUTRALIZE(value, int) * (int) field_values[i]);\n");
+		out.write("\t\t\t\t\t\tnew_value = (NEUTRALIZE(value, int) * (int) updates[i].field_value);\n");
 		out.write("\t\t\t\t\t\tbreak;\n");
 		out.write("\t\t\t\t\tcase iinq_divide :\n");
-		out.write("\t\t\t\t\t\tnew_value = (NEUTRALIZE(value, int) / (int) field_values[i]);\n");
+		out.write("\t\t\t\t\t\tnew_value = (NEUTRALIZE(value, int) / (int) updates[i].field_value);\n");
 		out.write("\t\t\t\t\t\tbreak;\n\t\t\t\t}\n");
-		out.write("\t\t\t\tvalue = ion_record.value + calculateOffset(table_id, update_fields[i] - 1);\n");
+		out.write("\t\t\t\tvalue = ion_record.value + calculateOffset(table_id, updates[i].update_field - 1);\n");
 		out.write("\t\t\t\t*(int *) value = new_value;\n\t\t\t}\n");
 
 		out.write("\t\t\telse {\n");
-		out.write("\t\t\t\tvalue = ion_record.value + calculateOffset(table_id, update_fields[i] - 1);\n\n");
-		out.write("\t\t\t\tif (getFieldType(table_id, update_fields[i]) == iinq_int) {\n");
-		out.write("\t\t\t\t\t*(int *) value = (int) field_values[i];\n\t\t\t\t}\n");
+		out.write("\t\t\t\tvalue = ion_record.value + calculateOffset(table_id, updates[i].update_field - 1);\n");
+		out.write("\t\t\t\tif (getFieldType(table_id, updates[i].update_field) == iinq_int) {\n");
+		out.write("\t\t\t\t\t*(int *) value = (int) updates[i].field_value;\n\t\t\t\t}\n");
 		out.write("\t\t\t\telse {\n");
-		out.write("\t\t\t\t\tmemcpy(value, field_values[i], calculateOffset(table_id, update_fields[i]) - calculateOffset(table_id, update_fields[i - 1]));\n\t\t\t\t}\n\t\t\t}\n\t\t}\n\n");
+		// TODO: why is this line dependent on the previous update?
+		out.write("\t\t\t\t\tmemcpy(value, updates[i].field_value, calculateOffset(table_id, updates[i].update_field) - calculateOffset(table_id, updates[i - 1].update_field));\n\t\t\t\t}\n\t\t\t}\n\t\t}\n\n");
 		out.write("\t\terror = dictionary_update(&dictionary, ion_record.key, ion_record.value).error;\n\n");
 		out.write("\t\tif (err_ok != error) {\n");
 		out.write("\t\t\tprintf(\"Error occurred. Error code: %i" + "\\" + "n" + "\", error);\n");
@@ -637,7 +633,7 @@ public class IinqExecute {
 		out.write("\t}\n\n");
 		out.write("\tfor (i = 0; i < *(int *) select->num_fields; i++) {\n");
 		out.write("\t\tint field = *(int *) (select->fields + sizeof(int)*i);\n\n");
-		out.write("\t\tif (getFieldType(select->table_id, field) == iinq_char) {\n");
+		out.write("\t\tif (getFieldType(select->table_id, field) == iinq_null_terminated_string) {\n");
 		out.write("\t\t\tcount++;\n\t\t}\n\n");
 		out.write("\t\tif (count == field_num) {\n");
 		out.write("\t\t\treturn (char *) (select->value + calculateOffset(select->table_id, field-1));\n");
@@ -1229,7 +1225,7 @@ public class IinqExecute {
 		int count = 0;
 
 		while (null != (line = ex_file.readLine())) {
-			if ((line.toUpperCase()).contains("DELETE") && line.contains("SQL_Execute") && !line.contains("/*") && !line.contains("//")) {
+			if ((line.toUpperCase()).contains("DELETE") && line.contains("SQL_execute") && !line.contains("/*") && !line.contains("//")) {
 				contents.append("/* " + line + " */\n");
 
 				delete = delete_fields.get(count);
@@ -1928,7 +1924,7 @@ public class IinqExecute {
 
 			if (field_value.contains("CHAR")) {
 				field_types.add("char");
-				iinq_field_types.add("iinq_char");
+				iinq_field_types.add("iinq_null_terminated_string");
 
 				if (new_table) {
 					out.write("char *value_" + (j + 1));
@@ -2523,7 +2519,7 @@ public class IinqExecute {
 			String field_type = get_schema_value(table_name, schema_keyword.FIELD_TYPE, n);
 
 			if (field_type.contains("CHAR")) {
-				iinq_field_types.add("iinq_char");
+				iinq_field_types.add("iinq_null_terminated_string");
 			} else {
 				iinq_field_types.add("iinq_int");
 			}
