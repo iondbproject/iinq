@@ -35,6 +35,8 @@
 
 package iinq;
 
+import iinq.metadata.IinqTable;
+
 public class create_fields {
     public String table_name;
     public String key_type;
@@ -46,6 +48,10 @@ public class create_fields {
         key_type = type_k;
         key_size = size_k;
         value_size = size_v;
+    }
+
+    public create_fields(IinqTable table) {
+        this(table.getTableName(), table.getIonKeyType(), table.generateIonKeySize(), table.generateIonValueSize());
     }
 }
 

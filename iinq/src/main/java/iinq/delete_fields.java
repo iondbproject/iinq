@@ -61,4 +61,7 @@ public class delete_fields {
         value_size = size_v;
         ion_key = key_i;
     }
+
+	public static class PrepareFunction {
+	}
 }

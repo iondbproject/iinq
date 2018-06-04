@@ -1,18 +1,25 @@
-package iinq;
+package iinq.functions;
 
-public class IinqFunction {
+public abstract class IinqFunction {
 	private String name;
+	private String header;
 	private String definition;
 
-	public IinqFunction(String name, String definition) {
+	public IinqFunction() {
+
+	}
+
+	public IinqFunction(String name, String header, String definition) {
 		setName(name);
+		setHeader(header);
 		setDefinition(definition);
 	}
 
 	@Override
 	public String toString() {
 		return String.format("Name: %s, " +
-				"Definition: %s", this.name, this.definition);
+				"Header: %s, " +
+				"Definition: %s", this.name, this.header, this.definition);
 	}
 
 	public String getName() {
@@ -23,6 +30,14 @@ public class IinqFunction {
 		this.name = name;
 	}
 
+	public String getHeader() {
+		return header;
+	}
+
+	public void setHeader(String header) {
+		this.header = header;
+	}
+
 	public String getDefinition() {
 		return definition;
 	}
@@ -30,6 +45,5 @@ public class IinqFunction {
 	public void setDefinition(String definition) {
 		this.definition = definition;
 	}
-
 
 }

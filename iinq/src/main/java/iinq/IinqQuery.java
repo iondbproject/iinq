@@ -1,16 +1,13 @@
 package iinq;
 
-import com.sun.xml.internal.bind.v2.TODO;
+import iinq.functions.PredicateFunction;
 import unity.annotation.SourceField;
 import unity.annotation.SourceTable;
-import unity.engine.Attribute;
 import unity.generic.query.WebQuery;
 
 import java.io.*;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
-import java.util.jar.Attributes;
 
 
 /**
@@ -174,7 +171,7 @@ public class IinqQuery extends WebQuery {
 		StringBuilder definition = new StringBuilder(String.format("ion_boolean_t\n" +
 				// Next line is the function name and parameter list
 				"%s(iinq_iterator_t *it) {\n", name));
-
+		String header = "ion_boolean_t\n%s(iinq_iterator_t *it);";
 		definition.append("\tif (!(");
 		Object filter = this.parameters.get("filter");
 		if (filter instanceof ArrayList) {
@@ -197,7 +194,7 @@ public class IinqQuery extends WebQuery {
 				"}\n\n");
 
 
-		return new PredicateFunction(name, definition.toString());
+		return new PredicateFunction(name, header, definition.toString());
 	}
 
 	/**

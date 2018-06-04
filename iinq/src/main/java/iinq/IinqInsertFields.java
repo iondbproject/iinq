@@ -1,6 +1,6 @@
 /******************************************************************************/
 /**
- @file		    insert_fields.java
+ @file		    IinqInsertFields.java
  @author		Dana Klamut, Kai Neubauer
  @copyright	    Copyright 2018
  The University of British Columbia,
@@ -38,7 +38,7 @@ package iinq;
 import java.util.ArrayList;
 import java.util.Collections;
 
-public class insert_fields {
+public class IinqInsertFields {
 	class FieldNode implements Comparable<FieldNode> {
 		int field_num;
 		String field;
@@ -56,11 +56,9 @@ public class insert_fields {
 		}
 	}
 	public ArrayList<FieldNode> fields;
-    public String table;
     public int total_fields;
 
-    public insert_fields(String name, ArrayList<String> vals, ArrayList<String> types, int[] field_nums, int total_fields) {
-        table = name;
+    public IinqInsertFields(ArrayList<String> vals, ArrayList<String> types, int[] field_nums, int total_fields) {
         fields = new ArrayList<>();
         for (int i = 0; i < field_nums.length; i++) {
         	fields.add(new FieldNode(vals.get(i), types.get(i), field_nums[i]));

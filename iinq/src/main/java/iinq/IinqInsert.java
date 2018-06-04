@@ -1,6 +1,6 @@
 /******************************************************************************/
 /**
- @file		    insert.java
+ @file		    IinqInsert.java
  @author		Dana Klamut
  @copyright	    Copyright 2018
  The University of British Columbia,
@@ -37,27 +37,26 @@ package iinq;
 
 import java.util.ArrayList;
 
-public class insert {
+public class IinqInsert {
     public String name;
     public String[] fields;
+    public IinqInsertFields insertFields;
     public ArrayList<Integer> int_fields;
     public ArrayList<Integer> string_fields;
     public int count;
     public String sql;
-    public String value;
     public boolean[] prep_fields;
     public String key_type;
     public String key_field_num;
     public int id;
 
-    public insert(
+    public IinqInsert(
         String table_name,
         String[] field_array,
+        IinqInsertFields insert_fields,
         ArrayList<Integer> int_cols,
         ArrayList<Integer> string_cols,
         int num_count,
-        String sql_statement,
-        String value_insert,
         boolean[] prep_fields_array,
         String table_key_type,
         String table_key_field_num,
@@ -65,11 +64,10 @@ public class insert {
     ) {
         name = table_name;
         fields = field_array;
+        insertFields = insert_fields;
         int_fields = int_cols;
         string_fields = string_cols;
         count = num_count;
-        sql = sql_statement;
-        value = value_insert;
         prep_fields = prep_fields_array;
         key_type = table_key_type;
         key_field_num = table_key_field_num;

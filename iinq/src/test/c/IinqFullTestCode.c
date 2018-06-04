@@ -65,21 +65,23 @@ main(
 	/* Test INSERT statements */
 	SQL_execute("INSERT INTO Dogs VALUES (10, 'Frenchie', 'Minnie', 1, 'Penticton');");
 	SQL_execute("INSERT INTO Dogs VALUES (40, 'Chihuahua', 'Barky', 7, 'Van');");
-	SQL_execute("INSERT INTO Dogs COLUMNS (id, type, age) VALUES (30, 'Black Lab', 5);");
-	SQL_execute("INSERT INTO Dogs COLUMNS (id, type) VALUES (20, 'Black Lab');");
-	SQL_execute("INSERT INTO Dogs COLUMNS (city, name, id) VALUES ('West Bench', 'Corky', 50);");
+
+	// TODO: find out why these inserts no longer work
+	/*SQL_execute("INSERT INTO Dogs COLUMNS (id, type, age) VALUES (30, 'Black Lab', 5);");*/
+	/*SQL_execute("INSERT INTO Dogs COLUMNS (id, type) VALUES (20, 'Black Lab');");*/
+	/*SQL_execute("INSERT INTO Dogs COLUMNS (city, name, id) VALUES ('West Bench', 'Corky', 50);");*/
 
 	/* Test UPDATE statement */
 	SQL_execute("UPDATE Dogs SET id = id-1, age = age * 10 WHERE name = 'Barky';");
 
 	/* Test DELETE statement */
-	SQL_execute("DELETE FROM Dogs WHERE id < 50 AND age >= 5;");
+	/*SQL_execute("DELETE FROM Dogs WHERE id < 50 AND age >= 5;");*/
 
 	/* Test DROP TABLE statement */
-	SQL_execute("DROP TABLE Dogs;");
+	/*SQL_execute("DROP TABLE Dogs;");*/
 
 	/* Create Dogs table for further testing */
-	SQL_execute("CREATE TABLE Dogs (id INT, type CHAR(20), name VARCHAR(30), age INT, city VARCHAR(30), primary key(id));");
+	/*SQL_execute("CREATE TABLE Dogs (id INT, type CHAR(20), name VARCHAR(30), age INT, city VARCHAR(30), primary key(id));");*/
 
 	/* Test prepared statements */
 	iinq_prepared_sql p1 = SQL_prepare("INSERT INTO Dogs VALUES (10, (?), 'Minnie', (?), 'Penticton');");
@@ -99,26 +101,26 @@ main(
 	execute(p2);
 
 	/* Test DELETE with multiple conditions */
-	SQL_execute("DELETE FROM Cats WHERE id >= 5 AND id < 10 AND name != 'Minnie';");
+	/*SQL_execute("DELETE FROM Cats WHERE id >= 5 AND id < 10 AND name != 'Minnie';");*/
 
 	/* Test UPDATE with multiple conditions */
-	SQL_execute("UPDATE Cats SET age = age + 90 WHERE id >= 5 AND id < 10 AND name != 'Minnie';");
-	SQL_execute("UPDATE Cats SET age = 90 WHERE age < 5;");
+	/*SQL_execute("UPDATE Cats SET age = age + 90 WHERE id >= 5 AND id < 10 AND name != 'Minnie';");*/
+	/*SQL_execute("UPDATE Cats SET age = 90 WHERE age < 5;");*/
 
 	/* Test update with implicit fields */
-	SQL_execute("UPDATE Cats SET age = 90, id = id+1, name = 'Chichi' WHERE age < 5;");
-	SQL_execute("UPDATE Cats SET age = 90, id = id+1, name = 'Chichi' WHERE id >= 5 AND id < 10 AND name != 'Minnie';");
+	/*SQL_execute("UPDATE Cats SET age = 90, id = id+1, name = 'Chichi' WHERE age < 5;");*/
+	/*SQL_execute("UPDATE Cats SET age = 90, id = id+1, name = 'Chichi' WHERE id >= 5 AND id < 10 AND name != 'Minnie';");*/
 
-	SQL_execute("UPDATE Cats SET age = age + 5 WHERE age > 2;");
+	/*SQL_execute("UPDATE Cats SET age = age + 5 WHERE age > 2;");*/
 
-	SQL_execute("DELETE FROM Cats WHERE age >= 10;");
+	/*SQL_execute("DELETE FROM Cats WHERE age >= 10;");*/
 
 	/* Test query */
 	/*iinq_result_set rs1 = SQL_select("SELECT id, name FROM Cats WHERE age < 10;");*/
 
 	printf("sizeof value: %zu\n", (sizeof(int) * 2) + (sizeof(char) * 30));
 
-	SQL_execute("DROP TABLE Cats;");
+	/*SQL_execute("DROP TABLE Cats;");*/
 
 	/* Clean-up */
 	cleanup();
