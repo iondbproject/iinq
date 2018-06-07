@@ -2,6 +2,7 @@ package iinq.metadata;
 
 import com.sun.javaws.exceptions.InvalidArgumentException;
 import iinq.functions.SchemaKeyword;
+import unity.annotation.AnnotatedSourceDatabase;
 import unity.annotation.AnnotatedSourceTable;
 import unity.annotation.SourceField;
 
@@ -13,9 +14,21 @@ public class IinqTable extends AnnotatedSourceTable {
 	private boolean printFunctionWritten = false;
 	private int tableId = -1;
 	private boolean insertWritten;
+	private AnnotatedSourceTable annotatedSourceTable;
 
 	public IinqTable(AnnotatedSourceTable table) {
 		super(table.getCatalogName(), table.getSchemaName(), table.getTableName(), table.getComment(), table.getSourceFields(), table.getPrimaryKey());
+		annotatedSourceTable = table;
+		// change field parent tables back to the AnnotatedSourceTable to prevent validation from breaking
+		ArrayList<SourceField> fieldList = getSourceFieldList();
+		Iterator<SourceField> it = fieldList.iterator();
+		while (it.hasNext()) {
+			it.next().setParentTable(table);
+		}
+	}
+
+	public AnnotatedSourceTable getAnnotatedSourceTable() {
+		return annotatedSourceTable;
 	}
 
 	public IinqTable() {
@@ -164,7 +177,7 @@ public class IinqTable extends AnnotatedSourceTable {
 	}
 
 	public String getFieldName(int i) {
-		return this.getSourceFieldsByPosition().get(i).getColumnName();
+		return this.getSourceFieldsByPosition().get(i-1).getColumnName();
 	}
 
 	public String getFieldTypeName(int i) {

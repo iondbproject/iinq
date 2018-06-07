@@ -101,8 +101,8 @@ public class IinqWhere {
 			where_values[i] = conditionFields[i].substring(pos + len).trim();
 
 			for (int j = 0; j < num_fields; j++) {
-				String field_type = table.getSchemaValue(FIELD_TYPE, j);
-				field_sizes[j] = ion_get_value_size(table.getTableName(), table.getSchemaValue(FIELD_NAME, j));
+				String field_type = table.getSchemaValue(FIELD_TYPE, j+1);
+				field_sizes[j] = table.getIonFieldSize(j+1);
 
 				if (field_type.contains("CHAR")) {
 					iinq_field_types[i*num_conditions + j] = "iinq_char";
@@ -110,7 +110,7 @@ public class IinqWhere {
 					iinq_field_types[i*num_conditions + j] = "iinq_int";
 				}
 
-				if (where_field_names[i].equalsIgnoreCase(table.getSchemaValue(FIELD_NAME, j))) {
+				if (where_field_names[i].equalsIgnoreCase(table.getSchemaValue(FIELD_NAME, j+1))) {
 					where_field_nums[i] = j + 1;
 					where_field_types[i] = field_type;
 				}

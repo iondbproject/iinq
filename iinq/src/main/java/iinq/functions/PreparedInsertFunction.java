@@ -36,7 +36,7 @@ public class PreparedInsertFunction extends IinqFunction {
 
 	public void processInsert(ExecuteFunction executeFunction) throws SQLException, InvalidArgumentException {
 		LQInsertNode insertNode = (LQInsertNode) globalUpdate.getPlan().getLogicalQueryTree().getRoot();
-		IinqTable table = (IinqTable) iinqDatabase.getTable(insertNode.getSourceTable().getTable().getTableName());
+		IinqTable table = (IinqTable) iinqDatabase.getIinqTable(insertNode.getSourceTable().getTable().getTableName());
 
 		setName("insert_"+ table.getTableName());
 		generatePreparedFunction(executeFunction);
@@ -65,7 +65,7 @@ public class PreparedInsertFunction extends IinqFunction {
 		StringBuilder definition = new StringBuilder();
 
 		LQInsertNode insertNode = (LQInsertNode) globalUpdate.getPlan().getLogicalQueryTree().getRoot();
-		IinqTable table = (IinqTable) iinqDatabase.getTable(insertNode.getSourceTable().getTable().getTableName());
+		IinqTable table = (IinqTable) iinqDatabase.getIinqTable(insertNode.getSourceTable().getTable().getTableName());
 		String table_name = table.getTableName().toLowerCase();
 
 		this.setName("insert_" + table_name);

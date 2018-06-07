@@ -105,7 +105,7 @@ public class IinqExecute {
 	private static ArrayList<String> function_headers = new ArrayList<>();
 	private static ArrayList<tableInfo> calculateInfo = new ArrayList<>();
 	private static ArrayList<delete_fields> delete_fields = new ArrayList<>();
-	private static ArrayList<update_fields> update_fields = new ArrayList<>();
+	private static ArrayList<IinqUpdate> IinqUpdate = new ArrayList<>();
 	private static ArrayList<select_fields> select_fields = new ArrayList<>();
 	private static ArrayList<create_fields> create_fields = new ArrayList<>();
 	private static ArrayList<String> drop_tables = new ArrayList<>();
@@ -1168,14 +1168,14 @@ public class IinqExecute {
 
 		StringBuilder contents = new StringBuilder();
 		String line;
-		iinq.update_fields update;
+		IinqUpdate update;
 		int count = 0;
 
 		while (null != (line = ex_file.readLine())) {
 			if ((line.toUpperCase()).contains("UPDATE") && !line.contains("/*") && !line.contains("//")) {
 				contents.append("/* " + line + " */\n");
 
-				update = update_fields.get(count);
+				update = IinqUpdate.get(count);
 				int implicit_count = 0;
 
 				if (update != null) {
@@ -1645,15 +1645,12 @@ public class IinqExecute {
 			field_size_function += "\tswitch (*(int *) table) {\n";
 
 			for (int i = 0, n = iinqDatabase.getTableCount(); i < n; i++) {
-				IinqTable table = iinqDatabase.getTableFromId(i);
+				IinqTable table = iinqDatabase.getIinqTableFromId(i);
 				int table_id = table.getTableId();
 				int num_fields = table.getNumFields();
 
 				out.write("\t\tcase " + table_id + " : {\n");
 				out.write("\t\t\tswitch (field_num) {\n");
-
-				field_size_function += "\t\tcase " + table_id + " : {\n";
-				field_size_function += "\t\t\tswitch (field_num) {\n";
 
 				int int_count;
 				boolean char_present = false;
@@ -1677,11 +1674,8 @@ public class IinqExecute {
 						}
 					}
 
-					out.write("\t\t\t\tcase " + (j + 1) + " :\n");
+					out.write("\t\t\t\tcase " + j + " :\n");
 					out.write("\t\t\t\t\treturn ");
-
-					field_size_function += "\t\t\t\tcase " + (j + 1) + " :\n";
-					field_size_function += "\t\t\t\t\treturn " + table.getIonFieldType(i) + ";\n";
 
 					if (int_count > 0) {
 						if (int_count > 1) {
@@ -1703,15 +1697,10 @@ public class IinqExecute {
 				}
 				out.write("\t\t\t\tdefault:\n\t\t\t\t\treturn 0;\n");
 				out.write("\t\t\t}\n\t\t}\n");
-				field_size_function += "\t\t\t\tdefault:\n\t\t\t\t\treturn iinq_int;\n";
-				field_size_function += "\t\t\t}\n\t\t}\n";
 			}
 
 			out.write("\t\tdefault:\n\t\t\treturn 0;\n");
 			out.write("\t}\n}\n\n");
-
-			field_size_function += "\t\tdefault:\n\t\t\treturn iinq_int;\n";
-			field_size_function += "\t}\n}\n\n";
 
 			out.write(field_size_function);
 		}
@@ -1724,20 +1713,7 @@ public class IinqExecute {
 		sql = sql.substring(sql.toUpperCase().indexOf("UPDATE"), sql.indexOf(";"));
 		sql = StringFunc.verifyTerminator(sql);
 
-		GlobalParser kingParser;
-		GlobalUpdate gu;
-		if (null != metadata) {
-			kingParser = new GlobalParser(false, true);
-			gu = kingParser.parseUpdate(sql, metadata);
-		} else {
-			throw new SQLException("Metadata is required for updating tables.");
-		}
-
-		LQUpdateNode updateNode = (LQUpdateNode) gu.getPlan().getLogicalQueryTree().getRoot();
-		String table_name = updateNode.getTable().getLocalName().toLowerCase();
-
-		boolean table_found = false;
-		int table_id = 0;
+		iinqDatabase.executeUpdateStatement(sql);
 
 		/* Check if that table name already has an ID */
 /*		for (int i = 0; i < table_names.size(); i++) {
@@ -1756,147 +1732,37 @@ public class IinqExecute {
 			new_table = true;
 		}*/
 
-		SourceTable table = metadata.getTable("IinqDB", table_name);
-		IinqTable iinqTable = tables.get(table_name);
-		if (null == iinqTable) {
-			throw new SQLException("Update attempted on non-existent table: " + table_name);
-		}
-
-
 		/* Create print table method if it doesn't already exist */
-		if (!tables.get(table_name).isPrintFunctionWritten()) {
+/*		if (!tables.get(table_name).isPrintFunctionWritten()) {
 			print_table(out, table_name);
 			tables.get(table_name).setPrintFunctionWritten(true);
-		}
+		}*/
 
-		if (!update_written) {
+/*		if (!update_written) {
 			write_update_method(out);
-		}
+		}*/
 
-		update_written = true;
+/*		update_written = true;*/
 
-		LQCondNode conditionNode = updateNode.getCondition();
-		ArrayList<String> conditions = null;
-		int num_conditions = 0;
-		if (conditionNode != null) {
-			LQSelNode selNode = new LQSelNode();
-			selNode.setCondition(conditionNode);
-			// TODO: Is there a better way to do this?
-			IinqBuilder builder = new IinqBuilder(kingParser.parse("SELECT * FROM " + table_name + " WHERE " + conditionNode.generateSQL() + ";", metadata).getLogicalQueryTree().getRoot());
-			IinqQuery query = builder.toQuery();
-			Object filters = query.getParameterObject("filter");
-			if (filters instanceof ArrayList) {
-				conditions = (ArrayList) filters;
-				num_conditions = conditions.size();
-			} else if (filters instanceof String) {
-				num_conditions = 1;
-				conditions = new ArrayList<>();
-				conditions.add((String) filters);
-			}
-		}
 
-		String[] conditionFields = new String[num_conditions];
 
-		for (int i = 0; i < num_conditions; i++) {
-			conditionFields[i] = conditions.get(i);
-		}
 
-		/* Get fields to update */
-		String update;
 
-		/* Calculate number of fields to update in statement */
-		int num_fields = updateNode.getNumFields();
 
-		IinqWhere where = new IinqWhere(num_conditions);
-		where.generateWhere(conditionFields, iinqTable);
 
-		ArrayList<Integer> update_field_nums = new ArrayList<>();
-		ArrayList<Boolean> implicit = new ArrayList<>();
-		ArrayList<Integer> implicit_fields = new ArrayList<>();
-		ArrayList<String> update_operators = new ArrayList<>();
-		ArrayList<String> update_values = new ArrayList<>();
-		ArrayList<String> update_field_types = new ArrayList<>();
-		ArrayList<String> field_sizes = new ArrayList<>();
 
-		String[] fields = new String[updateNode.getNumFields()];
-		LQExprNode[] fieldValues = new LQExprNode[updateNode.getNumFields()];
-		for (int i = 0; i < fields.length; i++) {
-			LQExprNode node = ((LQExprNode) updateNode.getField(i));
-			fields[i] = node.getContent().toString();
-			fieldValues[i] = (LQExprNode) updateNode.getValue(i);
-		}
 
-		String set_string;
-		String update_field;
-		String implicit_field = "";
-		boolean is_implicit;
-		String update_value = null;
-		int implicit_count = 0;
 
-		for (int j = 0; j < num_fields; j++) {
-			is_implicit = false;
-			update_field = fields[j].trim();
-			update_value = fieldValues[j].getContent().toString();
-
-			/* Check if update value contains an operator */
-			if (fieldValues[j].getContent().equals("+")) {
-				update_operators.add("iinq_add");
-				implicit_field = fieldValues[j].getChild(0).getContent().toString();
-				update_value = fieldValues[j].getChild(1).getContent().toString();
-				is_implicit = true;
-			} else if (fieldValues[j].getContent().equals("-")) {
-				update_operators.add("iinq_subtract");
-				implicit_field = fieldValues[j].getChild(0).getContent().toString();
-				update_value = fieldValues[j].getChild(1).getContent().toString();
-				is_implicit = true;
-			} else if (fieldValues[j].getContent().equals("*")) {
-				update_operators.add("iinq_multiply");
-				implicit_field = fieldValues[j].getChild(0).getContent().toString();
-				update_value = fieldValues[j].getChild(1).getContent().toString();
-				is_implicit = true;
-			} else if (fieldValues[j].getContent().equals("/")) {
-				update_operators.add("iinq_divide");
-				implicit_field = fieldValues[j].getChild(0).getContent().toString();
-				update_value = fieldValues[j].getChild(1).getContent().toString();
-				is_implicit = true;
-			}
-
-			update_values.add(update_value);
-			implicit.add(is_implicit);
-
-			if (is_implicit) {
-				implicit_count++;
-			}
-
-			for (int n = 0; n < Integer.parseInt(iinqDatabase.getSchemaValue(table_name, NUMBER_OF_FIELDS)); n++) {
-				String field_type = iinqDatabase.getSchemaValue(table_name, FIELD_TYPE, n);
-				field_sizes.add(ion_get_value_size(table, table.getSourceFieldsByPosition().get(n).getColumnName()));
-
-				if (update_field.equalsIgnoreCase(iinqDatabase.getSchemaValue(table_name, FIELD_NAME, n))) {
-					update_field_nums.add(n + 1);
-					update_field_types.add(field_type);
-				}
-				if (implicit_field.equalsIgnoreCase(iinqDatabase.getSchemaValue(table_name, FIELD_NAME, n))) {
-					implicit_fields.add(n + 1);
-				}
-			}
-		}
-
-		if (new_table) {
+/*		if (new_table) {
 			tableInfo table_info = new tableInfo(table_id, Integer.parseInt(iinqDatabase.getSchemaValue(table_name, NUMBER_OF_FIELDS)), new ArrayList<String>(Arrays.asList(where.getIinq_field_types())), field_sizes);
 
 			calculateInfo.add(table_info);
 			//tables_count++;
-		}
+		}*/
 
-		String key_size = iinqDatabase.getSchemaValue(table_name, PRIMARY_KEY_SIZE);
-		String value_size = iinqDatabase.getSchemaValue(table_name, VALUE_SIZE);
-		String ion_key = iinqDatabase.getSchemaValue(table_name, ION_KEY_TYPE);
 
-		// TODO revise update_fields to use IinqWhere object
-		update_fields.add(new update_fields(table_name, table_id, num_conditions, num_fields, new ArrayList<Integer>(Arrays.asList(where.getWhere_field_nums())), new ArrayList<String>(Arrays.asList(where.getWhere_operators())),
-				new ArrayList<String>(Arrays.asList(where.getWhere_values())), new ArrayList<String>(Arrays.asList(where.getWhere_field_types())), key_size, value_size, ion_key, update_field_nums, implicit, implicit_fields, update_operators,
-				update_values, update_field_types, implicit_count));
+
+
 	}
 
 	private static void

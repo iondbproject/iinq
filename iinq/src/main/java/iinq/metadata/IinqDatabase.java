@@ -13,6 +13,7 @@ import unity.jdbc.UnityConnection;
 import unity.jdbc.UnityPreparedStatement;
 import unity.jdbc.UnityStatement;
 
+import javax.management.relation.RelationNotFoundException;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
@@ -34,7 +35,9 @@ public class IinqDatabase {
 	protected boolean deleteWritten;
 	protected boolean preparedStatements;
 	protected ArrayList<PreparedInsertFunction> inserts = new ArrayList<>();
+	protected ArrayList<IinqUpdate> updates = new ArrayList<>();
 	protected HashMap<Integer, String> tableIds = new HashMap<>();
+	protected HashMap<String, IinqTable> iinqTables = new HashMap<>();
 
 	public IinqDatabase(String directory, String databaseName) throws ClassNotFoundException, SQLException {
 		this.schema = new IinqSchema();
@@ -53,13 +56,17 @@ public class IinqDatabase {
 		preparedStatements = false;
 	}
 
+	public void addIinqTable(IinqTable table) {
+		iinqTables.put(table.getTableName().toLowerCase(), table);
+	}
+
 	public static String getFullSchemaFileName(String directory, String databaseName) {
 		return directory + File.separator + databaseName + ".xml";
 	}
 
 	public String
 	getSchemaValue(String table_name, SchemaKeyword keyword, int field_num) throws InvalidArgumentException {
-		IinqTable table = this.getTable(table_name);
+		IinqTable table = this.getIinqTable(table_name);
 		return table.getSchemaValue(keyword, field_num);
 	}
 
@@ -91,24 +98,17 @@ public class IinqDatabase {
 		return insert;
 	}
 
+	public void executeUpdateStatement(String sql) throws SQLException, RelationNotFoundException, IOException, InvalidArgumentException {
+		IinqUpdate update = executor.executeUpdateStatement(sql);
+		updates.add(update);
+	}
+
 	public PreparedInsertFunction getInsert(int i) {
 		return inserts.get(i);
 	}
 
 	public int getNumInserts() {
 		return inserts.size();
-	}
-
-	public void refreshIinqTables() {
-		SourceDatabase db = this.schema.getAnnotatedDatabases().get(0);
-		HashMap<String, SourceTable> tables = db.getSourceTables();
-		this.tableCount = 0;
-		for (Map.Entry<String, SourceTable> e : tables.entrySet()) {
-			IinqTable iinqTable = new IinqTable((AnnotatedSourceTable) e.getValue());
-			iinqTable.setTableId(this.tableCount++);
-			tables.put(iinqTable.getTableName(), iinqTable);
-		}
-		db.setSourceTables(tables);
 	}
 
 	public void updateSource() throws SQLException {
@@ -138,8 +138,8 @@ public class IinqDatabase {
 		this.updateSchemaFile();
 	}
 
-	public IinqTable getTable(String tableName) {
-		return (IinqTable) this.schema.getTable(this.databaseName, tableName);
+	public IinqTable getIinqTable(String tableName) {
+		return this.iinqTables.get(tableName.toLowerCase());
 	}
 
 	public String getFullUnityUrl() {
@@ -215,7 +215,7 @@ public class IinqDatabase {
 		return tableCount;
 	}
 
-	public IinqTable getTableFromId(int id) {
-		return (IinqTable) schema.getTable(databaseName, tableIds.get(id));
+	public IinqTable getIinqTableFromId(int id) {
+		return getIinqTable(tableIds.get(id));
 	}
 }
