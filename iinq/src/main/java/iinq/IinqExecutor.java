@@ -6,7 +6,6 @@ import iinq.functions.PreparedInsertFunction;
 import iinq.metadata.IinqDatabase;
 import iinq.metadata.IinqTable;
 import unity.annotation.AnnotatedSourceDatabase;
-import unity.annotation.SourceTable;
 import unity.parser.GlobalParser;
 import unity.query.*;
 import unity.util.StringFunc;
@@ -17,7 +16,6 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 
 import static iinq.functions.SchemaKeyword.*;
 import static iinq.functions.SchemaKeyword.ION_KEY_TYPE;
@@ -208,5 +206,78 @@ public class IinqExecutor {
 
 	public ExecuteFunction getExFunc() {
 		return exFunc;
+	}
+
+	public delete_fields executeDeleteStatement(String sql) throws SQLException, InvalidArgumentException, IOException, RelationNotFoundException {
+		// Use UnityJDBC to parse the drop table statement (metadata is required to verify table existence)
+		GlobalParser kingParser;
+		GlobalUpdate gu;
+		if (null != iinqDatabase.getSchema()) {
+			kingParser = new GlobalParser(false, true);
+			gu = kingParser.parseUpdate(sql, iinqDatabase.getSchema());
+		} else {
+			throw new SQLException("Metadata is required for dropping tables.");
+		}
+		LQDeleteNode delete = (LQDeleteNode) gu.getPlan().getLogicalQueryTree().getRoot();
+		String table_name = delete.getSourceTable().getTable().getTableName().toLowerCase();
+
+		// TODO: update this after writing new buildCondition method for IinqBuilder
+		LQCondNode conditionNode = delete.getCondition();
+		ArrayList<String> conditions = null;
+		int num_conditions = 0;
+		if (conditionNode != null) {
+			LQSelNode selNode = new LQSelNode();
+			selNode.setCondition(conditionNode);
+			IinqBuilder builder = new IinqBuilder(kingParser.parse("SELECT * FROM " + table_name + " WHERE " + conditionNode.generateSQL() + ";", iinqDatabase.getSchema()).getLogicalQueryTree().getRoot());
+			IinqQuery query = builder.toQuery();
+			Object filters = query.getParameterObject("filter");
+			if (filters instanceof ArrayList) {
+				conditions = (ArrayList) filters;
+				num_conditions = conditions.size();
+			} else if (filters instanceof String) {
+				num_conditions = 1;
+				conditions = new ArrayList<>();
+				conditions.add((String) filters);
+			}
+		}
+
+		IinqTable iinqTable = iinqDatabase.getIinqTable(table_name);
+		if (null == iinqTable) {
+			throw new SQLException("Delete attempted on non-existent table: " + table_name);
+		}
+
+		/* Create print table method if it doesn't already exist */
+/*		if (!iinqTable.isPrintFunctionWritten()) {
+			print_table(out, table_name);
+			iinqTable.setPrintFunctionWritten(true);
+		}*/
+
+		/* Write function to file */
+		String key_size = iinqTable.getSchemaValue(PRIMARY_KEY_SIZE);
+		String value_size = iinqTable.getSchemaValue(VALUE_SIZE);
+
+		String[] conditionFields = new String[num_conditions];
+
+		for (int i = 0; i < num_conditions; i++) {
+			conditionFields[i] = conditions.get(i);
+		}
+
+		IinqWhere iinqWhere = new IinqWhere(num_conditions);
+		iinqWhere.generateWhere(conditionFields, iinqTable);
+
+/*		if (new_table) {
+			// TODO: update tableInfo constructor to take IinqWhere object a a parameter
+			tableInfo table_info = new tableInfo(table_id, Integer.parseInt(iinqDatabase.getSchemaValue(table_name, NUMBER_OF_FIELDS)), new ArrayList(Arrays.asList(iinqWhere.getIinq_field_types())), new ArrayList(Arrays.asList(iinqWhere.getField_sizes())));
+
+			calculateInfo.add(table_info);
+			//tables_count++;
+		}*/
+
+		String ion_key = iinqTable.getSchemaValue(ION_KEY_TYPE);
+
+		// TODO: update delete_fields to take an IinqWhere object as a parameter
+		return new delete_fields(table_name, iinqTable.getTableId(), num_conditions, new ArrayList<Integer>(Arrays.asList(iinqWhere.getWhere_field_nums())), new ArrayList<String>(Arrays.asList(iinqWhere.getWhere_operators())), new ArrayList<String>(Arrays.asList(iinqWhere.getWhere_values())), new ArrayList<String>(Arrays.asList(iinqWhere.getWhere_field_types())), key_size, value_size, ion_key);
+
+
 	}
 }

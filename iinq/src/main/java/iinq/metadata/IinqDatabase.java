@@ -2,8 +2,10 @@ package iinq.metadata;
 
 import com.sun.javaws.exceptions.InvalidArgumentException;
 import iinq.*;
+import iinq.functions.IinqFunction;
 import iinq.functions.PreparedInsertFunction;
 import iinq.functions.SchemaKeyword;
+import iinq.functions.UpdateFunction;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
@@ -36,6 +38,7 @@ public class IinqDatabase {
 	protected boolean preparedStatements;
 	protected ArrayList<PreparedInsertFunction> inserts = new ArrayList<>();
 	protected ArrayList<IinqUpdate> updates = new ArrayList<>();
+	protected ArrayList<IinqFunction> functions = new ArrayList<>();
 	protected HashMap<Integer, String> tableIds = new HashMap<>();
 	protected HashMap<String, IinqTable> iinqTables = new HashMap<>();
 
@@ -93,6 +96,7 @@ public class IinqDatabase {
 	public PreparedInsertFunction executeInsertStatement(String sql) throws SQLException, InvalidArgumentException {
 		PreparedInsertFunction insert =  executor.executeInsertStatement(sql);
 		inserts.add(insert);
+		functions.add(insert);
 		if (insert.isPreparedStatement())
 			preparedStatements = true;
 		return insert;
@@ -101,6 +105,18 @@ public class IinqDatabase {
 	public void executeUpdateStatement(String sql) throws SQLException, RelationNotFoundException, IOException, InvalidArgumentException {
 		IinqUpdate update = executor.executeUpdateStatement(sql);
 		updates.add(update);
+		if (!updateWritten) {
+			functions.add(new UpdateFunction());
+			updateWritten = true;
+		}
+	}
+
+	public void executeDeleteStatement(String sql) throws SQLException, InvalidArgumentException, RelationNotFoundException, IOException {
+		executor.executeDeleteStatement(sql);
+		if (!deleteWritten) {
+			functions.add(new DeleteFunction());
+			deleteWritten = true;
+		}
 	}
 
 	public PreparedInsertFunction getInsert(int i) {
@@ -217,5 +233,31 @@ public class IinqDatabase {
 
 	public IinqTable getIinqTableFromId(int id) {
 		return getIinqTable(tableIds.get(id));
+	}
+
+	public String getFunctionHeaders() {
+		Iterator<IinqFunction> it = functions.iterator();
+		StringBuilder headers = new StringBuilder(300);
+		String header;
+		while (it.hasNext()) {
+			header = it.next().getHeader();
+			if (header != null) {
+				headers.append(header);
+			}
+		}
+		return headers.toString();
+	}
+
+	public String getFunctionDefinitions() {
+		Iterator<IinqFunction> it = functions.iterator();
+		StringBuilder definitions = new StringBuilder(2000);
+		String definition;
+		while (it.hasNext()) {
+			definition = it.next().getDefinition();
+			if (definition != null) {
+				definitions.append(definition);
+			}
+		}
+		return definitions.toString();
 	}
 }

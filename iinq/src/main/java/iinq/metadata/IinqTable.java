@@ -13,7 +13,7 @@ public class IinqTable extends AnnotatedSourceTable {
 	private boolean createTableStatementSet = false;
 	private boolean printFunctionWritten = false;
 	private int tableId = -1;
-	private boolean insertWritten;
+	private boolean insertWritten = false;
 	private AnnotatedSourceTable annotatedSourceTable;
 
 	public IinqTable(AnnotatedSourceTable table) {
@@ -33,6 +33,14 @@ public class IinqTable extends AnnotatedSourceTable {
 
 	public IinqTable() {
 
+	}
+
+	public boolean isInsertWritten() {
+		return insertWritten;
+	}
+
+	public void setInsertWritten(boolean insertWritten) {
+		this.insertWritten = insertWritten;
 	}
 
 	public String getIonFieldSize(int fieldNum) {
