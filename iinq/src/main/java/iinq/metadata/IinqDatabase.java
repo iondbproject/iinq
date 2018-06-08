@@ -281,4 +281,16 @@ public class IinqDatabase {
 		schema.removeIinqIdentifiers(table);
 		iinqTables.remove(table.getTableName());
 	}
+
+	public ArrayList<delete_fields> getDeletes() {
+		return deletes;
+	}
+
+	public ArrayList<IinqUpdate> getUpdates() {
+		return updates;
+	}
+
+	public ArrayList<String> getDroppedTables() {
+		return droppedTables;
+	}
 }

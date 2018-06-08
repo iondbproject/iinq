@@ -916,7 +916,7 @@ public class IinqExecute {
 			if ((line.toUpperCase()).contains("DELETE") && line.contains("SQL_execute") && !line.contains("/*") && !line.contains("//")) {
 				contents.append("/* " + line + " */\n");
 
-				delete = delete_fields.get(count);
+				delete = iinqDatabase.getDeletes().get(count);
 
 				if (delete != null) {
 					contents.append("\tdelete_record(" + delete.table_id + ", \"" + delete.table_name + "\", "
@@ -966,7 +966,7 @@ public class IinqExecute {
 			if ((line.toUpperCase()).contains("UPDATE") && !line.contains("/*") && !line.contains("//")) {
 				contents.append("/* " + line + " */\n");
 
-				update = IinqUpdate.get(count);
+				update = iinqDatabase.getUpdates().get(count);
 				int implicit_count = 0;
 
 				if (update != null) {
@@ -1141,7 +1141,7 @@ public class IinqExecute {
 			if ((line.toUpperCase()).contains("DROP TABLE") && !line.contains("/*") && !line.contains("//")) {
 				contents += "/* " + line + " */\n";
 
-				table = drop_tables.get(count);
+				table = iinqDatabase.getDroppedTables().get(count);
 
 				if (table != null) {
 					contents += "\tdrop_table(\"" + table + "\");\n";

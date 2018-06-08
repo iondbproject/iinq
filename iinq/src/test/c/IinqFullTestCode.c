@@ -115,7 +115,7 @@ main(
 	SQL_execute("DELETE FROM Cats WHERE age >= 10;");
 
 	/* Test query */
-	iinq_result_set rs1 = SQL_select("SELECT id, name FROM Cats WHERE age < 10;");
+	/*iinq_result_set rs1 = SQL_select("SELECT id, name FROM Cats WHERE age < 10;");*/
 
 	printf("sizeof value: %zu\n", (sizeof(int) * 2) + (sizeof(char) * 30));
 
