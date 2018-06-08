@@ -805,12 +805,13 @@ public class IinqExecute {
 
 		print_top_header(header);
 
-		for (int i = 0; i < function_headers.size(); i++) {
+		/*for (int i = 0; i < function_headers.size(); i++) {
 			contents += function_headers.get(i);
-		}
+		}*/
 
-		contents += iinqDatabase.getInsertHeaders();
-		contents += iinqDatabase.getExecutionHeader();
+		contents += iinqDatabase.getFunctionHeaders();
+		/*contents += iinqDatabase.getInsertHeaders();
+		contents += iinqDatabase.getExecutionHeader();*/
 
 		contents += "\n#if defined(__cplusplus)\n" + "}\n" + "#endif\n" + "\n" + "#endif\n";
 
@@ -1315,14 +1316,6 @@ public class IinqExecute {
 		// Create the table using HSQLDB to avoid string parsing
 		IinqTable table = iinqDatabase.executeCreateTable(sql);
 
-		/* Create CREATE TABLE method */
-		if (!create_written) {
-			IinqFunction function = new CreateTableFunction();
-			out.write(function.getDefinition());
-
-			function_headers.add(function.getHeader());
-		}
-
 		create_written = true;
 
 		create_fields.add(new create_fields(table));
@@ -1422,7 +1415,7 @@ public class IinqExecute {
 	private static void
 	calculate_functions(BufferedWriter out) throws IOException {
 		if (iinqDatabase.getTableCount() > 0) {
-			String field_size_function = "";
+			/*String field_size_function = "";
 			out.write("size_t calculateOffset(const unsigned char *table, int field_num) {\n\n");
 			field_size_function += "iinq_field_t getFieldType(const unsigned char *table, int field_num) {\n\n";
 
@@ -1493,7 +1486,9 @@ public class IinqExecute {
 			out.write("\t\tdefault:\n\t\t\treturn 0;\n");
 			out.write("\t}\n}\n\n");
 
-			out.write(field_size_function);
+			out.write(field_size_function);*/
+			iinqDatabase.generateCalculatedDefinitions();
+			out.write(iinqDatabase.getFunctionDefinitions());
 		}
 	}
 

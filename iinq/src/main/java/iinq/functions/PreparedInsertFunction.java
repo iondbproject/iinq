@@ -183,10 +183,6 @@ public class PreparedInsertFunction extends IinqFunction {
 
 		String param_header = "";
 
-		if (!executeFunction.containsCallData(table)) {
-			executeFunction.addCallData(table);
-		}
-
 		setDefinition(definition.toString());
 		setHeader(header.toString());
 

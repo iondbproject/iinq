@@ -6,7 +6,9 @@ public abstract class IinqFunction {
 	private String definition;
 
 	public IinqFunction() {
-
+		setName(null);
+		setHeader(null);
+		setDefinition(null);
 	}
 
 	public IinqFunction(String name, String header, String definition) {

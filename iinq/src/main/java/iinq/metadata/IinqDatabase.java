@@ -43,6 +43,7 @@ public class IinqDatabase {
 	protected ArrayList<String> droppedTables = new ArrayList<>();
 	protected HashMap<Integer, String> tableIds = new HashMap<>();
 	protected HashMap<String, IinqTable> iinqTables = new HashMap<>();
+	protected CalculatedFunctions calculatedFunctions = null;
 
 	public IinqDatabase(String directory, String databaseName) throws ClassNotFoundException, SQLException {
 		this.schema = new IinqSchema();
@@ -58,6 +59,10 @@ public class IinqDatabase {
 		this.schema.addDatabase(db);
 		this.unityConnection = new UnityConnection(this.schema, new Properties());
 		this.executor = new IinqExecutor(this);
+	}
+
+	public void generateCalculatedDefinitions() {
+		calculatedFunctions.generateDefinitions();
 	}
 
 	public void addIinqTable(IinqTable table) {
@@ -89,6 +94,11 @@ public class IinqDatabase {
 			functions.add(new CreateTableFunction());
 			createWritten = true;
 		}
+		if (calculatedFunctions == null) {
+			calculatedFunctions = new CalculatedFunctions();
+			functions.addAll(calculatedFunctions.getFunctions());
+		}
+		calculatedFunctions.addTable(table);
 		return table;
 	}
 
@@ -292,5 +302,9 @@ public class IinqDatabase {
 
 	public ArrayList<String> getDroppedTables() {
 		return droppedTables;
+	}
+
+	public void generateDefinitions() {
+
 	}
 }

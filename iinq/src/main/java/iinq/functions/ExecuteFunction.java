@@ -7,7 +7,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 
-public class ExecuteFunction extends IinqFunction {
+public class ExecuteFunction extends IinqFunction implements CalculatedFunction {
 	private HashMap<Integer, executeCallData> tableIdToFunctionCall = new HashMap<>();
 
 	private class executeCallData {
@@ -29,15 +29,16 @@ public class ExecuteFunction extends IinqFunction {
 		return this;
 	}
 
-	public boolean containsCallData(IinqTable table) {
+	public boolean containsTable(IinqTable table) {
 		return tableIdToFunctionCall.containsKey(table.getTableId());
 	}
 
-	public void addCallData(IinqTable iinqTable) {
-		addCallData(iinqTable.getTableId(), iinqTable.getTableName(), iinqTable.getIonKeyType());
+	public void addTable(IinqTable iinqTable) {
+		if (!containsTable(iinqTable))
+			addCallData(iinqTable.getTableId(), iinqTable.getTableName(), iinqTable.getIonKeyType());
 	}
 
-	public void addCallData(int tableId, String tableName, String keyCast) {
+	private void addCallData(int tableId, String tableName, String keyCast) {
 		tableIdToFunctionCall.put(tableId, new executeCallData(tableName, keyCast));
 	}
 

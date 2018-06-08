@@ -197,7 +197,7 @@ public class IinqTable extends AnnotatedSourceTable {
 	}
 
 	public String getIonFieldType(int i) {
-		switch (this.getSourceFieldsByPosition().get(i).getDataType()) {
+		switch (this.getSourceFieldsByPosition().get(i-1).getDataType()) {
 			case Types.INTEGER:
 				return "iinq_int";
 			case Types.VARCHAR:
