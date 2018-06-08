@@ -1765,54 +1765,7 @@ public class IinqExecute {
 		sql = sql.substring(0, sql.indexOf(";"));
 		sql = StringFunc.verifyTerminator(sql);
 
-		// Use UnityJDBC to parse the drop table statement (metadata is required to verify table existence)
-		GlobalParser kingParser;
-		GlobalUpdate gu;
-		if (null != metadata) {
-			kingParser = new GlobalParser(false, true);
-			gu = kingParser.parseUpdate(sql, metadata);
-		} else {
-			throw new SQLException("Metadata is required for dropping tables.");
-		}
-
-
-		String table_name = ((LQDropNode) gu.getPlan().getLogicalQueryTree().getRoot()).getName().toLowerCase();
-		IinqTable table = tables.get(table_name);
-		if (table == null) {
-			throw new SQLException("Attempt to drop non-existent table: " + table_name);
-		}
-
-		/* Delete from XML schema file */
-		drop_table_from_database(directory, "iinq_database.xml", table_name);
-
-		/* Refresh UnityJDBC */
-		conUnity.close();
-		getUnityConnection(urlUnity);
-
-		/* Delete IinqTable reference */
-		tables.remove(table_name);
-
-		/* Drop table from in-memory database */
-		Statement stmt = conJava.createStatement();
-		stmt.execute(sql);
-
-		/* Write function to file */
-		if (!drop_written) {
-			out.write("void drop_table(char *table_name) {\n\n");
-			out.write("\tion_err_t error;\n\n");
-			out.write("\terror = iinq_drop(table_name);");
-			print_error(out);
-
-			out.write("\tprintf(\"Table %s has been deleted." + "\\" + "n" + "\", table_name);");
-
-			out.write("\n}\n\n");
-
-			function_headers.add("void drop_table(char *table_name);\n");
-		}
-
-		drop_written = true;
-
-		drop_tables.add(table_name);
+		iinqDatabase.executeDropTable(sql);
 	}
 
 	public static void drop_table_from_database(String path, String filename, String table_name) throws Exception {

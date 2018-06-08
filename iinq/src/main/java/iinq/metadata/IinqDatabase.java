@@ -2,10 +2,7 @@ package iinq.metadata;
 
 import com.sun.javaws.exceptions.InvalidArgumentException;
 import iinq.*;
-import iinq.functions.IinqFunction;
-import iinq.functions.PreparedInsertFunction;
-import iinq.functions.SchemaKeyword;
-import iinq.functions.UpdateFunction;
+import iinq.functions.*;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
@@ -23,6 +20,7 @@ import javax.xml.transform.TransformerFactory;
 import java.io.*;
 import java.sql.*;
 import java.util.*;
+import java.util.concurrent.LinkedBlockingDeque;
 
 public class IinqDatabase {
 	protected IinqSchema schema;
@@ -32,13 +30,17 @@ public class IinqDatabase {
 	protected String directory;
 	protected int tableCount = 0;
 	protected IinqExecutor executor;
-	protected boolean createWritten;
-	protected boolean updateWritten;
-	protected boolean deleteWritten;
-	protected boolean preparedStatements;
+	protected boolean createWritten = false;
+	protected boolean updateWritten = false;
+	protected boolean deleteWritten = false;
+	protected boolean dropWritten = false;
+	protected boolean preparedStatements = false;
 	protected ArrayList<PreparedInsertFunction> inserts = new ArrayList<>();
 	protected ArrayList<IinqUpdate> updates = new ArrayList<>();
+	protected ArrayList<delete_fields> deletes = new ArrayList<>();
 	protected ArrayList<IinqFunction> functions = new ArrayList<>();
+	// TODO: change to table ids after removing table names
+	protected ArrayList<String> droppedTables = new ArrayList<>();
 	protected HashMap<Integer, String> tableIds = new HashMap<>();
 	protected HashMap<String, IinqTable> iinqTables = new HashMap<>();
 
@@ -56,7 +58,6 @@ public class IinqDatabase {
 		this.schema.addDatabase(db);
 		this.unityConnection = new UnityConnection(this.schema, new Properties());
 		this.executor = new IinqExecutor(this);
-		preparedStatements = false;
 	}
 
 	public void addIinqTable(IinqTable table) {
@@ -82,7 +83,13 @@ public class IinqDatabase {
 	}
 
 	public IinqTable executeCreateTable(String sql) throws SQLException, IOException {
-		return executor.executeCreateTable(sql);
+		IinqTable table = executor.executeCreateTable(sql);
+		iinqTables.put(table.getTableName().toLowerCase(), table);
+		if (!createWritten) {
+			functions.add(new CreateTableFunction());
+			createWritten = true;
+		}
+		return table;
 	}
 
 	public IinqSchema getSchema() {
@@ -112,10 +119,19 @@ public class IinqDatabase {
 	}
 
 	public void executeDeleteStatement(String sql) throws SQLException, InvalidArgumentException, RelationNotFoundException, IOException {
-		executor.executeDeleteStatement(sql);
+		deletes.add(executor.executeDeleteStatement(sql));
 		if (!deleteWritten) {
 			functions.add(new DeleteFunction());
 			deleteWritten = true;
+		}
+	}
+
+	public void executeDropTable(String sql) throws SQLException {
+		String droppedTable = executor.executeDropTable(sql);
+		droppedTables.add(droppedTable);
+		if (!dropWritten) {
+			functions.add(new DropTableFunction());
+			dropWritten = true;
 		}
 	}
 
@@ -259,5 +275,10 @@ public class IinqDatabase {
 			}
 		}
 		return definitions.toString();
+	}
+
+	public void removeIinqTable(IinqTable table) {
+		schema.removeIinqIdentifiers(table);
+		iinqTables.remove(table.getTableName());
 	}
 }

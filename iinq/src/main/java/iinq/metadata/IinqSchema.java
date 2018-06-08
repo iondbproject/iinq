@@ -28,4 +28,8 @@ public class IinqSchema extends GlobalSchema {
 		}
 		return table;
 	}
+
+	public void removeIinqIdentifiers(IinqTable table) {
+		iinqTableIdentifiers.removeAll(generateTableIdentifiers(table));
+	}
 }

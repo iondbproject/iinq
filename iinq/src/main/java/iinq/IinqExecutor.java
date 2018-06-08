@@ -40,7 +40,6 @@ public class IinqExecutor {
 		iinqDatabase.updateSourceTables();
 		IinqTable iinqTable = iinqDatabase.getNewlyCreatedIinqTable();
 		iinqTable.setCreateTableStatement(sql);
-		iinqDatabase.addIinqTable(iinqTable);
 
 		db.updateSchemaFile();
 
@@ -277,7 +276,33 @@ public class IinqExecutor {
 
 		// TODO: update delete_fields to take an IinqWhere object as a parameter
 		return new delete_fields(table_name, iinqTable.getTableId(), num_conditions, new ArrayList<Integer>(Arrays.asList(iinqWhere.getWhere_field_nums())), new ArrayList<String>(Arrays.asList(iinqWhere.getWhere_operators())), new ArrayList<String>(Arrays.asList(iinqWhere.getWhere_values())), new ArrayList<String>(Arrays.asList(iinqWhere.getWhere_field_types())), key_size, value_size, ion_key);
+	}
 
+	public String executeDropTable(String sql) throws SQLException {
+		// Use UnityJDBC to parse the drop table statement (metadata is required to verify table existence)
+		GlobalParser kingParser;
+		GlobalUpdate gu;
+		if (null != iinqDatabase.getSchema()) {
+			kingParser = new GlobalParser(false, true);
+			gu = kingParser.parseUpdate(sql, iinqDatabase.getSchema());
+		} else {
+			throw new SQLException("Metadata is required for dropping tables.");
+		}
 
+		String table_name = ((LQDropNode) gu.getPlan().getLogicalQueryTree().getRoot()).getName().toLowerCase();
+		IinqTable table = iinqDatabase.getIinqTable(table_name);
+		if (table == null) {
+			throw new SQLException("Attempt to drop non-existent table: " + table_name);
+		}
+
+		/* Drop table from in-memory database */
+		Statement stmt = iinqDatabase.createJavaStatement();
+		stmt.execute(sql);
+		stmt.close();
+
+		iinqDatabase.getSchema().removeTable(iinqDatabase.getDatabaseName(), table_name);
+		iinqDatabase.removeIinqTable(table);
+
+		return table_name;
 	}
 }
