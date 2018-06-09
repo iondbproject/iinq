@@ -15,7 +15,7 @@
  this list of conditions and the following disclaimer in the documentation
  and/or other materials provided with the distribution.
 
- @par 3.Neither the name of the copyright holder nor the names of its contributors
+ @par 3.Neither the table_id of the copyright holder nor the names of its contributors
  may be used to endorse or promote products derived from this software without
  specific prior written permission.
 
@@ -38,7 +38,6 @@ package iinq;
 import java.util.ArrayList;
 
 public class delete_fields {
-    public String table_name;
     public int table_id;
     public int num_wheres;
     public ArrayList<Integer> fields;
@@ -49,8 +48,7 @@ public class delete_fields {
     public String value_size;
     public String ion_key;
 
-    public delete_fields(String name, int id, int num, ArrayList<Integer> cols, ArrayList<String> ops, ArrayList<String> vals, ArrayList<String> types, String size_k, String size_v, String key_i) {
-        table_name = name;
+    public delete_fields(int id, int num, ArrayList<Integer> cols, ArrayList<String> ops, ArrayList<String> vals, ArrayList<String> types, String size_k, String size_v, String key_i) {
         table_id = id;
         num_wheres = num;
         fields = cols;

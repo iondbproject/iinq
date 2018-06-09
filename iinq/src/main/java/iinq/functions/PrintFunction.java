@@ -7,22 +7,17 @@ import unity.annotation.GlobalSchema;
 import static iinq.functions.SchemaKeyword.*;
 
 public class PrintFunction extends IinqFunction {
-	public PrintFunction(String table_name, GlobalSchema metadata) {
-		super("print_table_" + table_name,
-				"void print_table_" + table_name + "(ion_dictionary_t * dictionary);\n", null);
-
-	}
 
 	public PrintFunction(IinqTable table) throws InvalidArgumentException {
-		super("print_table_" + table.getTableName(),
-				"void print_table_" + table.getTableName() + "(ion_dictionary_t * dictionary);\n",
+		super("print_table_" + table.getTableId(),
+				"void print_table_" + table.getTableId() + "(ion_dictionary_t * dictionary);\n",
 				null);
 		buildDefinition(table);
 	}
 
 	public String buildDefinition(IinqTable table) throws InvalidArgumentException {
 		StringBuilder def = new StringBuilder();
-		def.append("void print_table_" + table.getTableName() + "(ion_dictionary_t *dictionary) {\n");
+		def.append("void print_table_" + table.getTableId() + "(ion_dictionary_t *dictionary) {\n");
 		def.append("\n\tion_predicate_t predicate;\n");
 		def.append("\tdictionary_build_predicate(&predicate, predicate_all_records);\n\n");
 		def.append("\tion_dict_cursor_t *cursor = NULL;\n");

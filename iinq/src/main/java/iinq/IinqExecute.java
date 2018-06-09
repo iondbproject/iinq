@@ -16,7 +16,7 @@
  this list of conditions and the following disclaimer in the documentation
  and/or other materials provided with the distribution.
 
- @par 3.Neither the name of the copyright holder nor the names of its contributors
+ @par 3.Neither the table_id of the copyright holder nor the names of its contributors
  may be used to endorse or promote products derived from this software without
  specific prior written permission.
 
@@ -263,7 +263,7 @@ public class IinqExecute {
 	}
 
 	private static void write_select_method(BufferedWriter out) throws IOException {
-		out.write("iinq_result_set iinq_select(int id, char *name, ion_key_type_t key_type, size_t key_size, size_t value_size, int num_wheres, int num_fields, ...) {\n\n");
+		out.write("iinq_result_set iinq_select(int id, char *table_id, ion_key_type_t key_type, size_t key_size, size_t value_size, int num_wheres, int num_fields, ...) {\n\n");
 		out.write("\tint i;\n");
 		out.write("\tva_list valist, where_list;\n");
 		out.write("\tva_start(valist, num);\n");
@@ -273,7 +273,7 @@ public class IinqExecute {
 		out.write("\t*(int *) table_id = id;\n\n");
 
 		out.write("\tchar *table_name = malloc(sizeof(char)*ION_MAX_FILENAME_LENGTH);\n");
-		out.write("\tstrcpy(table_name, name);\n\n");
+		out.write("\tstrcpy(table_name, table_id);\n\n");
 
 		out.write("\tion_err_t                  error;\n");
 		out.write("\tion_dictionary_t           dictionary;\n");
@@ -437,7 +437,7 @@ public class IinqExecute {
 		out.write("\t\t\treturn NEUTRALIZE(select->value + calculateOffset(select->table_id, field-1), int);\n");
 		out.write("\t\t}\n\t}\n\n\treturn 0;\n}\n\n");
 
-		function_headers.add("iinq_result_set iinq_select(int id, char *name, ion_key_type_t key_type, size_t key_size, size_t value_size, int num_wheres, int num_fields, ...);\n");
+		function_headers.add("iinq_result_set iinq_select(int id, char *table_id, ion_key_type_t key_type, size_t key_size, size_t value_size, int num_wheres, int num_fields, ...);\n");
 		function_headers.add("ion_boolean_t next(iinq_result_set *select);\n");
 		function_headers.add("char* getString(iinq_result_set *select, int field_num);\n");
 		function_headers.add("int getInt(iinq_result_set *select, int field_num);\n");
@@ -854,7 +854,7 @@ public class IinqExecute {
 					contents += "\t" + temp;
 					if (!prep)
 						contents += "execute(";
-					contents += "insert_" + iinqDatabase.getInsert(count).getInsertParameters().name + "(";
+					contents += "insert_" + iinqDatabase.getInsert(count).getInsertParameters().table_id + "(";
 					int field_count = 1;
 					for (int j = 0; j < insert.fields.size(); j++) {
 						if (insert.fields.get(j) != null) {
@@ -920,8 +920,8 @@ public class IinqExecute {
 				delete = iinqDatabase.getDeletes().get(count);
 
 				if (delete != null) {
-					contents.append("\tdelete_record(" + delete.table_id + ", \"" + delete.table_name + "\", "
-							+ "print_table_" + delete.table_name + ", " + delete.ion_key + ", "
+					contents.append("\tdelete_record(" + delete.table_id + ", "
+							+ "print_table_" + delete.table_id + ", " + delete.ion_key + ", "
 							+ delete.key_size + ", " + delete.value_size + ", " + delete.num_wheres);
 
 					if (delete.num_wheres > 0) {
@@ -971,8 +971,8 @@ public class IinqExecute {
 				int implicit_count = 0;
 
 				if (update != null) {
-					contents.append("\tupdate(" + update.table_id + ", \"" + update.table_name + "\", print_table_"
-							+ update.table_name + ", " + update.ion_key + ", "
+					contents.append("\tupdate(" + update.table_id + ", print_table_"
+							+ update.table_id + ", " + update.ion_key + ", "
 							+ update.key_size + ", " + update.value_size + ", " + update.num_wheres + ", "
 							+ update.num_updates);
 
@@ -1107,7 +1107,7 @@ public class IinqExecute {
 				create = create_fields.get(count);
 
 				if (create != null) {
-					contents += "\tcreate_table(\"" + create.table_name + "\", " + create.key_type + ", " + create.key_size + ", "
+					contents += "\tcreate_table(" + create.table_id + ", " + create.key_type + ", " + create.key_size + ", "
 							+ create.value_size + ");\n";
 
 					count++;
@@ -1357,30 +1357,20 @@ public class IinqExecute {
 				String key_type;
 
 				for (int i = 0; i < inserts.size(); i++) {
-					table_name = inserts.get(i).name;
-
-					written = table_name.equals(written_table);
-
-					if (!written) {
-						for (int k = 0; k < execute_written.size(); k++) {
-							if (table_name.equals(execute_written.get(k))) {
-								written = true;
-							}
-						}
-					}
+					table_id = inserts.get(i).table_id;
+					written = iinqDatabase.getIinqTableFromId(table_id).isInsertWritten();
 
 					if (!written) {
-						execute_written.add(table_name);
-						table_id = inserts.get(i).id;
+						iinqDatabase.getIinqTableFromId(table_id).setInsertWritten(true);
+						table_id = inserts.get(i).table_id;
 						key_type = inserts.get(i).key_type;
-						table_name = inserts.get(i).name;
 
 						contents += "\tif (*(int *) p.table == " + table_id + ") {\n";
 
 						if (Integer.parseInt(key_type) == Types.INTEGER) {
-							contents += "\t\tiinq_execute(\"" + table_name + "\", IONIZE(*(int *) p.key, int), p.value, iinq_insert_t);\n";
+							contents += "\t\tiinq_execute(" + table_id + ", IONIZE(*(int *) p.key, int), p.value, iinq_insert_t);\n";
 						} else {
-							contents += "\t\tiinq_execute(\"" + table_name + "\", p.key, p.value, iinq_insert_t);\n";
+							contents += "\t\tiinq_execute(" + table_id + ", p.key, p.value, iinq_insert_t);\n";
 						}
 						contents += "\t}\n";
 					}
@@ -1501,7 +1491,7 @@ public class IinqExecute {
 
 		iinqDatabase.executeUpdateStatement(sql);
 
-		/* Check if that table name already has an ID */
+		/* Check if that table table_id already has an ID */
 /*		for (int i = 0; i < table_names.size(); i++) {
 			if (table_names.get(i).equalsIgnoreCase(table_name)) {
 				table_id = i;
@@ -1584,7 +1574,7 @@ public class IinqExecute {
 		boolean table_found = false;
 		int table_id = 0;
 
-		/* Check if that table name already has an ID */
+		/* Check if that table table_id already has an ID */
 /*		for (int i = 0; i < table_names.size(); i++) {
 			if (table_names.get(i).equals(table_name)) {
 				table_id = i;

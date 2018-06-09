@@ -15,7 +15,7 @@
  this list of conditions and the following disclaimer in the documentation
  and/or other materials provided with the distribution.
 
- @par 3.Neither the name of the copyright holder nor the names of its contributors
+ @par 3.Neither the table_id of the copyright holder nor the names of its contributors
  may be used to endorse or promote products derived from this software without
  specific prior written permission.
 
@@ -38,7 +38,6 @@ package iinq;
 import java.util.ArrayList;
 
 public class IinqUpdate {
-    public String table_name;
     public int table_id;
     public int num_wheres;
     public int num_updates;
@@ -57,11 +56,10 @@ public class IinqUpdate {
     public ArrayList<String> update_field_types;
     public int implicit_count;
 
-    public IinqUpdate(String name, int id, int num_w, int num_u, ArrayList<Integer> cols, ArrayList<String> ops,
+    public IinqUpdate(int id, int num_w, int num_u, ArrayList<Integer> cols, ArrayList<String> ops,
                       ArrayList<String> vals, ArrayList<String> types_w, String size_k, String size_v, String key_i,
                       ArrayList<Integer> fields_u, ArrayList<Boolean> bool_i, ArrayList<Integer> fields_i, ArrayList<String> ops_u,
                       ArrayList<String> vals_u, ArrayList<String> types_u, int i_count) {
-        table_name = name;
         table_id = id;
         num_wheres = num_w;
         num_updates = num_u;

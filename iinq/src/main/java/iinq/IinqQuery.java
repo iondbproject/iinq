@@ -83,7 +83,7 @@ public class IinqQuery extends WebQuery {
 				// print out the line as a comment
 				out.println("/* LINE REPLACED: " + line.trim() + " */");
 
-				// get the name of the iterator to be initialized
+				// get the table_id of the iterator to be initialized
 				String iteratorName = trimmedLine.substring(trimmedLine.indexOf("(") + 1, trimmedLine.indexOf(","));
 
 				// replace the line with the appropriate init function
@@ -161,7 +161,7 @@ public class IinqQuery extends WebQuery {
 	/**
 	 * Generates the C code for a predicate definition.
 	 *
-	 * @param identifier A number added to the end of the function name to make it unique.
+	 * @param identifier A number added to the end of the function table_id to make it unique.
 	 * @return code to evaluate a predicate
 	 */
 	public PredicateFunction generatePredicateFunction(int identifier) throws RequiresSchemaException {
@@ -169,7 +169,7 @@ public class IinqQuery extends WebQuery {
 		String name = String.format("generatedPredicate%d", identifier);
 		// First line will be the return type for the predicate
 		StringBuilder definition = new StringBuilder(String.format("ion_boolean_t\n" +
-				// Next line is the function name and parameter list
+				// Next line is the function table_id and parameter list
 				"%s(iinq_iterator_t *it) {\n", name));
 		String header = "ion_boolean_t\n%s(iinq_iterator_t *it);";
 		definition.append("\tif (!(");
@@ -208,7 +208,7 @@ public class IinqQuery extends WebQuery {
 		StringBuilder code = new StringBuilder();
 		HashMap<String, Object> returnValue = new HashMap<>();
 
-		// first thing we will need is the table name for the query
+		// first thing we will need is the table table_id for the query
 		returnValue.put("table_name", this.parameters.get("source"));
 
 		// if there is a predicate, create a function definietion for it
@@ -386,20 +386,20 @@ public class IinqQuery extends WebQuery {
 	}
 
 	/**
-	 * Retrieves the name of the relation for the query.
+	 * Retrieves the table_id of the relation for the query.
 	 *
-	 * @return name of the relation
+	 * @return table_id of the relation
 	 */
 	public String getTableName() {
 		/* TODO: add support for multiple tables */
-		return this.getRelation().getProperty("name");
+		return this.getRelation().getProperty("table_id");
 	}
 
 	/**
-	 * Retrieves the SourceTable with a given name.
+	 * Retrieves the SourceTable with a given table_id.
 	 *
-	 * @param tableName name of the table to retrieve
-	 * @return SourceTable with the given name
+	 * @param tableName table_id of the table to retrieve
+	 * @return SourceTable with the given table_id
 	 */
 	public SourceTable getTable(String tableName) {
 		this.getRelation();

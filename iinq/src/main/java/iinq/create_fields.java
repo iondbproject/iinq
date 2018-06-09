@@ -15,7 +15,7 @@
  this list of conditions and the following disclaimer in the documentation
  and/or other materials provided with the distribution.
 
- @par 3.Neither the name of the copyright holder nor the names of its contributors
+ @par 3.Neither the table_id of the copyright holder nor the names of its contributors
  may be used to endorse or promote products derived from this software without
  specific prior written permission.
 
@@ -38,20 +38,20 @@ package iinq;
 import iinq.metadata.IinqTable;
 
 public class create_fields {
-    public String table_name;
+    public int table_id;
     public String key_type;
     public String key_size;
     public String value_size;
 
-    public create_fields(String name, String type_k, String size_k, String size_v) {
-        table_name = name;
-        key_type = type_k;
-        key_size = size_k;
-        value_size = size_v;
+    public create_fields(int table_id, String key_type, String key_size, String value_size) {
+        this.table_id = table_id;
+        this.key_type = key_type;
+        this.key_size = key_size;
+        this.value_size = value_size;
     }
 
     public create_fields(IinqTable table) {
-        this(table.getTableName(), table.getIonKeyType(), table.generateIonKeySize(), table.generateIonValueSize());
+        this(table.getTableId(), table.getIonKeyType(), table.generateIonKeySize(), table.generateIonValueSize());
     }
 }
 

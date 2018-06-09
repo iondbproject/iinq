@@ -2,20 +2,18 @@ package iinq.functions;
 
 import iinq.metadata.IinqTable;
 
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
 
 public class ExecuteFunction extends IinqFunction implements CalculatedFunction {
 	private HashMap<Integer, executeCallData> tableIdToFunctionCall = new HashMap<>();
 
 	private class executeCallData {
-		String tableName;
+		int tableId;
 		String keyCast;
 
-		private executeCallData(String tableName, String keyCast) {
-			this.tableName = tableName;
+		private executeCallData(int tableId, String keyCast) {
+			this.tableId = tableId;
 			this.keyCast = keyCast;
 		}
 	}
@@ -39,7 +37,7 @@ public class ExecuteFunction extends IinqFunction implements CalculatedFunction 
 	}
 
 	private void addCallData(int tableId, String tableName, String keyCast) {
-		tableIdToFunctionCall.put(tableId, new executeCallData(tableName, keyCast));
+		tableIdToFunctionCall.put(tableId, new executeCallData(tableId, keyCast));
 	}
 
 	public String generateDefinition() {
@@ -47,7 +45,7 @@ public class ExecuteFunction extends IinqFunction implements CalculatedFunction 
 				"\tswitch (*(int*) p.table) {\n");
 		for (Map.Entry<Integer, executeCallData> entry : tableIdToFunctionCall.entrySet()) {
 			def.append(String.format("\t\tcase %d: {\n", entry.getKey()));
-			def.append(String.format("\t\t\tiinq_execute(\"%s\", %s, p.value, iinq_insert_t);\n\t\t}\n", entry.getValue().tableName, entry.getValue().keyCast));
+			def.append(String.format("\t\t\tiinq_execute(%d, %s, p.value, iinq_insert_t);\n\t\t}\n", entry.getValue().tableId, entry.getValue().keyCast));
 		}
 		def.append("\t}\n" +
 				"\tfree(p.value);\n" +

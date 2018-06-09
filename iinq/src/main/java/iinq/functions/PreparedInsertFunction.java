@@ -68,7 +68,7 @@ public class PreparedInsertFunction extends IinqFunction {
 		IinqTable table = (IinqTable) iinqDatabase.getIinqTable(insertNode.getSourceTable().getTable().getTableName());
 		String table_name = table.getTableName().toLowerCase();
 
-		this.setName("insert_" + table_name);
+		this.setName("insert_" + table.getTableId());
 
 		/* Number of fields specified for the insert */
 		int count = insertNode.getInsertFields().size();
@@ -186,7 +186,7 @@ public class PreparedInsertFunction extends IinqFunction {
 		setDefinition(definition.toString());
 		setHeader(header.toString());
 
-		insertParameters = new IinqInsert(table_name, fields, new IinqInsertFields(field_values, field_types, insert_field_nums, table.getNumFields()), int_fields, string_fields, count, prep_fields, key_type, key_field_num, table.getTableId());
+		insertParameters = new IinqInsert(table.getTableId(), fields, new IinqInsertFields(field_values, field_types, insert_field_nums, table.getNumFields()), int_fields, string_fields, count, prep_fields, key_type, key_field_num);
 	}
 
 	public boolean isPreparedStatement() {

@@ -14,7 +14,7 @@
 
    <TABLE>
         <semanticTableName>OrderDB.CUSTOMER</semanticTableName>
-        <tableName>CUSTOMER</tableName>
+        <tableId>CUSTOMER</tableId>
         <schemaName></schemaName>
         <catalogName></catalogName>
         <comment></comment>
@@ -190,7 +190,7 @@
 
    <TABLE>
         <semanticTableName>OrderDB.LINEITEM</semanticTableName>
-        <tableName>LINEITEM</tableName>
+        <tableId>LINEITEM</tableId>
         <schemaName></schemaName>
         <catalogName></catalogName>
         <comment></comment>
@@ -527,7 +527,7 @@
 
    <TABLE>
         <semanticTableName>OrderDB.NATION</semanticTableName>
-        <tableName>NATION</tableName>
+        <tableId>NATION</tableId>
         <schemaName></schemaName>
         <catalogName></catalogName>
         <comment></comment>
@@ -650,7 +650,7 @@
 
    <TABLE>
         <semanticTableName>OrderDB.ORDERS</semanticTableName>
-        <tableName>ORDERS</tableName>
+        <tableId>ORDERS</tableId>
         <schemaName></schemaName>
         <catalogName></catalogName>
         <comment></comment>
@@ -833,7 +833,7 @@
 
    <TABLE>
         <semanticTableName>OrderDB.PART</semanticTableName>
-        <tableName>PART</tableName>
+        <tableId>PART</tableId>
         <schemaName></schemaName>
         <catalogName></catalogName>
         <comment></comment>
@@ -1014,7 +1014,7 @@
 
    <TABLE>
         <semanticTableName>OrderDB.PARTSUPP</semanticTableName>
-        <tableName>PARTSUPP</tableName>
+        <tableId>PARTSUPP</tableId>
         <schemaName></schemaName>
         <catalogName></catalogName>
         <comment></comment>
@@ -1163,7 +1163,7 @@
 
    <TABLE>
         <semanticTableName>OrderDB.REGION</semanticTableName>
-        <tableName>REGION</tableName>
+        <tableId>REGION</tableId>
         <schemaName></schemaName>
         <catalogName></catalogName>
         <comment></comment>
@@ -1239,7 +1239,7 @@
 
    <TABLE>
         <semanticTableName>OrderDB.SUPPLIER</semanticTableName>
-        <tableName>SUPPLIER</tableName>
+        <tableId>SUPPLIER</tableId>
         <schemaName></schemaName>
         <catalogName></catalogName>
         <comment></comment>

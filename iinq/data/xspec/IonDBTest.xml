@@ -14,7 +14,7 @@
 
    <TABLE>
         <semanticTableName>IonDB.test1</semanticTableName>
-        <tableName>test1</tableName>
+        <tableId>test1</tableId>
         <schemaName></schemaName>
         <catalogName></catalogName>
         <comment></comment>
@@ -101,7 +101,7 @@
 
    <TABLE>
         <semanticTableName>IonDB.test2</semanticTableName>
-        <tableName>test2</tableName>
+        <tableId>test2</tableId>
         <schemaName></schemaName>
         <catalogName></catalogName>
         <comment></comment>
@@ -186,7 +186,7 @@
 	
 	   <TABLE>
         <semanticTableName>IonDB.int_table</semanticTableName>
-        <tableName>int_table</tableName>
+        <tableId>int_table</tableId>
         <schemaName></schemaName>
         <catalogName></catalogName>
         <comment></comment>

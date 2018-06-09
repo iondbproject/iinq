@@ -3,19 +3,17 @@ package iinq.functions;
 public class UpdateFunction extends IinqFunction {
 	public UpdateFunction() {
 		super("update",
-				"void update(int id, char *name, iinq_print_table_t print_function, ion_key_type_t key_type, size_t key_size, size_t value_size, int num_wheres, int num_update, ...);\n",
-				"void update(int id, char *name, iinq_print_table_t print_function, ion_key_type_t key_type, size_t key_size, size_t value_size, int num_wheres, int num_update, ...) {\n\n" +
+				"void update(int id, iinq_print_table_t print_function, ion_key_type_t key_type, size_t key_size, size_t value_size, int num_wheres, int num_update, ...);\n",
+				"void update(int id, iinq_print_table_t print_function, ion_key_type_t key_type, size_t key_size, size_t value_size, int num_wheres, int num_update, ...) {\n\n" +
 				"\tva_list valist;\n" +
 				"\tva_start(valist, num_update);\n\n" +
 				"\tunsigned char *table_id = malloc(sizeof(int));\n" +
 				"\t*(int *) table_id = id;\n\n" +
-				"\tchar *table_name = malloc(sizeof(char)*ION_MAX_FILENAME_LENGTH);\n" +
-				"\tstrcpy(table_name, name);\n\n" +
 				"\tion_err_t                  error;\n" +
 				"\tion_dictionary_t           dictionary;\n" +
 				"\tion_dictionary_handler_t   handler;\n\n" +
 				"\tdictionary.handler = &handler;\n\n" +
-				"\terror              = iinq_open_source(table_name, &dictionary, &handler);\n\n" +
+				"\terror              = iinq_open_source(id, &dictionary, &handler);\n\n" +
 				"\tif (err_ok != error) {\n" +
 				"\t\tprintf(\"Error occurred. Error code: %i" + "\\" + "n" + "\", error);\n" +
 				"\t}\n\n" +
@@ -90,18 +88,14 @@ public class UpdateFunction extends IinqFunction {
 				"\t\t\tprintf(\"Error occurred. Error code: %i" + "\\" + "n" + "\", error);\n" +
 				"\t\t}\n\t}\n\n" +
 				"\tcursor_temp->destroy(&cursor_temp);\n" +
-				"\tprint_function(&dictionary);\n\n" +
+				"\tif (NULL != print_function)" +
+				"\t\tprint_function(&dictionary);\n\n" +
 				"\terror = dictionary_delete_dictionary(&dictionary_temp);\n\n" +
-				"\tif (err_ok != error) {\n" +
-				"\t\tprintf(\"Error occurred. Error code: %i" + "\\" + "n" + "\", error);\n" +
-				"\t}\n\n" +
+				CommonCode.error_check() +
 				"\terror = ion_close_dictionary(&dictionary);\n\n" +
-				"\tif (err_ok != error) {\n" +
-				"\t\tprintf(\"Error occurred. Error code: %i" + "\\" + "n" + "\", error);\n" +
-				"\t}\n\n" +
+				CommonCode.error_check() +
 				"\tfremove(\"UPD.inq\");\n" +
 				"\tfree(table_id);\n" +
-				"\tfree(table_name);\n" +
 				"\tfree(ion_record.key);\n" +
 				"\tfree(ion_record.value);\n" +
 				"}\n\n");

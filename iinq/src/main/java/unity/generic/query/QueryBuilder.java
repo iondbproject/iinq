@@ -172,7 +172,7 @@ public abstract class QueryBuilder
 			String[] components = StringFunc.divideId(field.toString());
 			String name = components[0];
 			if (components.length > 1)
-				name = components[components.length-1];		// Get only field name
+				name = components[components.length-1];		// Get only field table_id
 			
 			if (name.equals("*"))
 			{
@@ -208,7 +208,7 @@ public abstract class QueryBuilder
         }
         Relation r = new Relation(attr);
         query.setTableRelation(r);
-        r.setProperty("name", this.table.getTableName());
+        r.setProperty("table_id", this.table.getTableName());
         query.setRelation(r);
         
         // Set output relation of input to projection node (most likely table)
@@ -218,18 +218,18 @@ public abstract class QueryBuilder
 	
 	
 	/**
-	 * Retrieves base field name to use in query rather than an alias in the field reference.
+	 * Retrieves base field table_id to use in query rather than an alias in the field reference.
 	 * 
 	 * @param obj
 	 *     object that may be a GQFieldRef 
 	 * @return 
-	 *     correct field name for querying
+	 *     correct field table_id for querying
 	 */
 	@SuppressWarnings("null")
 	protected String getFieldName(Object obj)
 	{	    
         if (obj != null && obj instanceof GQFieldRef)
-        {   // Retrieve base name for field not the GQFieldRef
+        {   // Retrieve base table_id for field not the GQFieldRef
             SourceField sf = ((GQFieldRef) obj).getField();
             return sf.getColumnName();
         }

@@ -179,7 +179,7 @@ public class IinqExecutor {
 		String ion_key = table.getSchemaValue(ION_KEY_TYPE);
 
 		// TODO revise IinqUpdate to use IinqWhere object
-		return new IinqUpdate(table_name, table_id, num_conditions, num_fields, new ArrayList<Integer>(Arrays.asList(where.getWhere_field_nums())), new ArrayList<String>(Arrays.asList(where.getWhere_operators())),
+		return new IinqUpdate(table_id, num_conditions, num_fields, new ArrayList<Integer>(Arrays.asList(where.getWhere_field_nums())), new ArrayList<String>(Arrays.asList(where.getWhere_operators())),
 				new ArrayList<String>(Arrays.asList(where.getWhere_values())), new ArrayList<String>(Arrays.asList(where.getWhere_field_types())), key_size, value_size, ion_key, update_field_nums, implicit, implicit_fields, update_operators,
 				update_values, update_field_types, implicit_count);
 	}
@@ -275,7 +275,7 @@ public class IinqExecutor {
 		String ion_key = iinqTable.getSchemaValue(ION_KEY_TYPE);
 
 		// TODO: update delete_fields to take an IinqWhere object as a parameter
-		return new delete_fields(table_name, iinqTable.getTableId(), num_conditions, new ArrayList<Integer>(Arrays.asList(iinqWhere.getWhere_field_nums())), new ArrayList<String>(Arrays.asList(iinqWhere.getWhere_operators())), new ArrayList<String>(Arrays.asList(iinqWhere.getWhere_values())), new ArrayList<String>(Arrays.asList(iinqWhere.getWhere_field_types())), key_size, value_size, ion_key);
+		return new delete_fields(iinqTable.getTableId(), num_conditions, new ArrayList<Integer>(Arrays.asList(iinqWhere.getWhere_field_nums())), new ArrayList<String>(Arrays.asList(iinqWhere.getWhere_operators())), new ArrayList<String>(Arrays.asList(iinqWhere.getWhere_values())), new ArrayList<String>(Arrays.asList(iinqWhere.getWhere_field_types())), key_size, value_size, ion_key);
 	}
 
 	public String executeDropTable(String sql) throws SQLException {

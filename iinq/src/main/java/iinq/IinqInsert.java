@@ -15,7 +15,7 @@
  this list of conditions and the following disclaimer in the documentation
  and/or other materials provided with the distribution.
 
- @par 3.Neither the name of the copyright holder nor the names of its contributors
+ @par 3.Neither the table_id of the copyright holder nor the names of its contributors
  may be used to endorse or promote products derived from this software without
  specific prior written permission.
 
@@ -38,7 +38,7 @@ package iinq;
 import java.util.ArrayList;
 
 public class IinqInsert {
-    public String name;
+    public int table_id;
     public String[] fields;
     public IinqInsertFields insertFields;
     public ArrayList<Integer> int_fields;
@@ -48,10 +48,9 @@ public class IinqInsert {
     public boolean[] prep_fields;
     public String key_type;
     public String key_field_num;
-    public int id;
 
     public IinqInsert(
-        String table_name,
+        int table_id,
         String[] field_array,
         IinqInsertFields insert_fields,
         ArrayList<Integer> int_cols,
@@ -59,10 +58,9 @@ public class IinqInsert {
         int num_count,
         boolean[] prep_fields_array,
         String table_key_type,
-        String table_key_field_num,
-        int table_id
+        String table_key_field_num
     ) {
-        name = table_name;
+        this.table_id = table_id;
         fields = field_array;
         insertFields = insert_fields;
         int_fields = int_cols;
@@ -71,6 +69,5 @@ public class IinqInsert {
         prep_fields = prep_fields_array;
         key_type = table_key_type;
         key_field_num = table_key_field_num;
-        id = table_id;
     }
 }
