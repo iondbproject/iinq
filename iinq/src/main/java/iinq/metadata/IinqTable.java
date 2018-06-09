@@ -260,7 +260,7 @@ public class IinqTable extends AnnotatedSourceTable {
 	}
 
 	public void setCreateTableStatement(String sql) {
-		this.setComment(sql);
+		getAnnotatedSourceTable().setComment(sql);
 		createTableStatementSet = true;
 	}
 }
