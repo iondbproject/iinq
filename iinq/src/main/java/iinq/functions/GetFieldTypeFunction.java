@@ -46,6 +46,8 @@ public class GetFieldTypeFunction extends IinqFunction implements CalculatedFunc
 		def.append("\t\tdefault:\n\t\t\treturn 0;\n");
 		def.append("\t}\n}\n\n");
 
+		setDefinition(def.toString());
+
 		return def.toString();
 	}
 }

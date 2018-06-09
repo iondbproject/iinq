@@ -57,7 +57,7 @@ public class IinqExecutor {
 		}
 
 		LQUpdateNode updateNode = (LQUpdateNode) gu.getPlan().getLogicalQueryTree().getRoot();
-		String table_name = updateNode.getTable().getTable().getTableName();
+		String table_name = updateNode.getTable().getTable().getTableName().toLowerCase();
 
 		boolean table_found = false;
 		int table_id = 0;

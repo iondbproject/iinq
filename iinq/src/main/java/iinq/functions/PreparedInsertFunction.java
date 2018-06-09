@@ -186,7 +186,7 @@ public class PreparedInsertFunction extends IinqFunction {
 		setDefinition(definition.toString());
 		setHeader(header.toString());
 
-		insertParameters = new IinqInsert(table_name, fields, new IinqInsertFields(field_values, field_types, insert_field_nums, count), int_fields, string_fields, count, prep_fields, key_type, key_field_num, table.getTableId());
+		insertParameters = new IinqInsert(table_name, fields, new IinqInsertFields(field_values, field_types, insert_field_nums, table.getNumFields()), int_fields, string_fields, count, prep_fields, key_type, key_field_num, table.getTableId());
 	}
 
 	public boolean isPreparedStatement() {

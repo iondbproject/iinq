@@ -3,32 +3,38 @@ package iinq.functions;
 import iinq.metadata.IinqTable;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Iterator;
+import java.util.Map;
 
 public class CalculatedFunctions {
-	private ArrayList<IinqFunction> functions = new ArrayList<>();
+	private HashMap<String, IinqFunction> functions = new HashMap<>();
 
 	public CalculatedFunctions() {
-		functions.add(new GetFieldTypeFunction());
-		functions.add(new CalculateOffsetFunction());
-		functions.add(new ExecuteFunction());
+		IinqFunction function;
+		function = new GetFieldTypeFunction();
+		functions.put(function.getName(), function);
+		function = new CalculateOffsetFunction();
+		functions.put(function.getName(), function);
+		function = new ExecuteFunction();
+		functions.put(function.getName(), function);
 	}
 
 	public void addTable(IinqTable table) {
-		Iterator<IinqFunction> it = functions.iterator();
+		Iterator<Map.Entry<String, IinqFunction>> it = functions.entrySet().iterator();
 		while (it.hasNext()) {
-			((CalculatedFunction) it.next()).addTable(table);
+			((CalculatedFunction) it.next().getValue()).addTable(table);
 		}
 	}
 
 	public void generateDefinitions() {
-		Iterator<IinqFunction> it = functions.iterator();
+		Iterator<Map.Entry<String, IinqFunction>> it = functions.entrySet().iterator();
 		while (it.hasNext()) {
-			((CalculatedFunction) it.next()).generateDefinition();
+			((CalculatedFunction) it.next().getValue()).generateDefinition();
 		}
 	}
 
-	public ArrayList<IinqFunction> getFunctions() {
+	public HashMap<String, IinqFunction> getFunctions() {
 		return functions;
 	}
 }

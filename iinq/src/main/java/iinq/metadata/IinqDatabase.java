@@ -20,7 +20,6 @@ import javax.xml.transform.TransformerFactory;
 import java.io.*;
 import java.sql.*;
 import java.util.*;
-import java.util.concurrent.LinkedBlockingDeque;
 
 public class IinqDatabase {
 	protected IinqSchema schema;
@@ -38,7 +37,7 @@ public class IinqDatabase {
 	protected ArrayList<PreparedInsertFunction> inserts = new ArrayList<>();
 	protected ArrayList<IinqUpdate> updates = new ArrayList<>();
 	protected ArrayList<delete_fields> deletes = new ArrayList<>();
-	protected ArrayList<IinqFunction> functions = new ArrayList<>();
+	protected HashMap<String, IinqFunction> functions = new HashMap<>();
 	// TODO: change to table ids after removing table names
 	protected ArrayList<String> droppedTables = new ArrayList<>();
 	protected HashMap<Integer, String> tableIds = new HashMap<>();
@@ -87,17 +86,23 @@ public class IinqDatabase {
 		return getFullSchemaFileName(getDirectory(), getDatabaseName());
 	}
 
-	public IinqTable executeCreateTable(String sql) throws SQLException, IOException {
+	public IinqTable executeCreateTable(String sql) throws SQLException, IOException, InvalidArgumentException {
+		IinqFunction func;
 		IinqTable table = executor.executeCreateTable(sql);
 		iinqTables.put(table.getTableName().toLowerCase(), table);
 		if (!createWritten) {
-			functions.add(new CreateTableFunction());
+			func = new CreateTableFunction();
+			functions.put(func.getName(), func);
 			createWritten = true;
 		}
 		if (calculatedFunctions == null) {
 			calculatedFunctions = new CalculatedFunctions();
-			functions.addAll(calculatedFunctions.getFunctions());
+			functions.putAll(calculatedFunctions.getFunctions());
 		}
+
+		func = new PrintFunction(table);
+		functions.put(func.getName(), func);
+
 		calculatedFunctions.addTable(table);
 		return table;
 	}
@@ -113,9 +118,13 @@ public class IinqDatabase {
 	public PreparedInsertFunction executeInsertStatement(String sql) throws SQLException, InvalidArgumentException {
 		PreparedInsertFunction insert =  executor.executeInsertStatement(sql);
 		inserts.add(insert);
-		functions.add(insert);
-		if (insert.isPreparedStatement())
+		if (!insert.isDuplicate())
+			functions.put(insert.getName(), insert);
+		if (!containsPreparedStatements() && insert.isPreparedStatement()) {
 			preparedStatements = true;
+			IinqFunction func = new SetPreparedParametersFunction();
+			functions.put(func.getName(), func);
+		}
 		return insert;
 	}
 
@@ -123,7 +132,8 @@ public class IinqDatabase {
 		IinqUpdate update = executor.executeUpdateStatement(sql);
 		updates.add(update);
 		if (!updateWritten) {
-			functions.add(new UpdateFunction());
+			IinqFunction func = new UpdateFunction();
+			functions.put(func.getName(), func);
 			updateWritten = true;
 		}
 	}
@@ -131,7 +141,8 @@ public class IinqDatabase {
 	public void executeDeleteStatement(String sql) throws SQLException, InvalidArgumentException, RelationNotFoundException, IOException {
 		deletes.add(executor.executeDeleteStatement(sql));
 		if (!deleteWritten) {
-			functions.add(new DeleteFunction());
+			IinqFunction func = new DeleteFunction();
+			functions.put(func.getName(), func);
 			deleteWritten = true;
 		}
 	}
@@ -140,7 +151,8 @@ public class IinqDatabase {
 		String droppedTable = executor.executeDropTable(sql);
 		droppedTables.add(droppedTable);
 		if (!dropWritten) {
-			functions.add(new DropTableFunction());
+			IinqFunction func = new DropTableFunction();
+			functions.put(func.getName(), func);
 			dropWritten = true;
 		}
 	}
@@ -161,7 +173,7 @@ public class IinqDatabase {
 		this.schema.updateSchemaFile(databaseName);
 	}
 
-	public void reloadTablesFromXML() throws SQLException, IOException, ParserConfigurationException, SAXException {
+	public void reloadTablesFromXML() throws SQLException, IOException, ParserConfigurationException, SAXException, InvalidArgumentException {
 		//this.schema.parseSourcesFile(new BufferedReader(new FileReader(new File(getFullSchemaFileName()))), getFullUnityUrl(), new Properties());
 		//this.schema.parseSources(getFullSchemaFileName(), new Properties());
 		Statement stmt = javaConnection.createStatement();
@@ -262,11 +274,11 @@ public class IinqDatabase {
 	}
 
 	public String getFunctionHeaders() {
-		Iterator<IinqFunction> it = functions.iterator();
+		Iterator<Map.Entry<String, IinqFunction>> it = functions.entrySet().iterator();
 		StringBuilder headers = new StringBuilder(300);
 		String header;
 		while (it.hasNext()) {
-			header = it.next().getHeader();
+			header = it.next().getValue().getHeader();
 			if (header != null) {
 				headers.append(header);
 			}
@@ -275,11 +287,11 @@ public class IinqDatabase {
 	}
 
 	public String getFunctionDefinitions() {
-		Iterator<IinqFunction> it = functions.iterator();
+		Iterator<Map.Entry<String, IinqFunction>> it = functions.entrySet().iterator();
 		StringBuilder definitions = new StringBuilder(2000);
 		String definition;
 		while (it.hasNext()) {
-			definition = it.next().getDefinition();
+			definition = it.next().getValue().getDefinition();
 			if (definition != null) {
 				definitions.append(definition);
 			}
@@ -289,7 +301,7 @@ public class IinqDatabase {
 
 	public void removeIinqTable(IinqTable table) {
 		schema.removeIinqIdentifiers(table);
-		iinqTables.remove(table.getTableName());
+		iinqTables.remove(table.getTableName().toLowerCase());
 	}
 
 	public ArrayList<delete_fields> getDeletes() {

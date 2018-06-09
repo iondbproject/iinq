@@ -8,14 +8,14 @@ import static iinq.functions.SchemaKeyword.*;
 
 public class PrintFunction extends IinqFunction {
 	public PrintFunction(String table_name, GlobalSchema metadata) {
-		super("print_" + table_name,
-				"void print_" + table_name + "(ion_dictionary_t * dictionary);", null);
+		super("print_table_" + table_name,
+				"void print_table_" + table_name + "(ion_dictionary_t * dictionary);\n", null);
 
 	}
 
 	public PrintFunction(IinqTable table) throws InvalidArgumentException {
-		super("print_" + table.getTableName(),
-				"void print_" + table.getTableName() + "(ion_dictionary_t * dictionary);",
+		super("print_table_" + table.getTableName(),
+				"void print_table_" + table.getTableName() + "(ion_dictionary_t * dictionary);\n",
 				null);
 		buildDefinition(table);
 	}
@@ -32,8 +32,8 @@ public class PrintFunction extends IinqFunction {
 		def.append("\tion_record.value	= malloc(" + table.getSchemaValue(VALUE_SIZE) + ");\n\n");
 		def.append("\tprintf(\"Table: " + table.getTableName() + "\\" + "n" + "\");\n");
 
-		for (int j = 0; j < Integer.parseInt(table.getSchemaValue(NUMBER_OF_FIELDS)); j++) {
-			def.append("\tprintf(\"" + table.getSchemaValue(FIELD_NAME, j) + "\t\");\n");
+		for (int j = 1, n = table.getNumFields(); j <= n; j++) {
+			def.append("\tprintf(\"" + table.getFieldName(j) + "\t\");\n");
 		}
 
 		def.append("\tprintf(\"" + "\\" + "n" + "***************************************" + "\\" + "n" + "\");\n\n");
@@ -48,13 +48,13 @@ public class PrintFunction extends IinqFunction {
 		String data_type;
 
 		/* Print out columns */
-		for (int j = 0, n = Integer.parseInt(table.getSchemaValue(NUMBER_OF_FIELDS)); j < n; j++) {
-			data_type = table.getFieldTypeName(j);
+		for (int j = 1, n = table.getNumFields(); j <= n; j++) {
+			data_type = table.getIonFieldSize(j);
 
 			if (data_type.contains("char")) {
 				def.append("\n\t\tprintf(\"%s\t\", (char *) value);\n");
 
-				if (j < (Integer.parseInt(table.getSchemaValue(NUMBER_OF_FIELDS)) - 1)) {
+				if (j < (table.getNumFields())) {
 					def.append("\t\tvalue += " + data_type + ";\n");
 				}
 			}
@@ -63,7 +63,7 @@ public class PrintFunction extends IinqFunction {
 			else {
 				def.append("\n\t\tprintf(\"%i\t\", NEUTRALIZE(value, int));\n");
 
-				if (j < (Integer.parseInt(table.getSchemaValue(NUMBER_OF_FIELDS)) - 1)) {
+				if (j < (table.getNumFields())) {
 					def.append("\t\tvalue += " + data_type + ";\n");
 				}
 			}

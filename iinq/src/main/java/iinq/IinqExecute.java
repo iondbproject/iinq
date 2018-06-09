@@ -444,7 +444,7 @@ public class IinqExecute {
 
 	}
 
-	private static void reload_tables() throws SQLException, ParserConfigurationException, IOException, SAXException {
+	private static void reload_tables() throws SQLException, ParserConfigurationException, IOException, SAXException, InvalidArgumentException {
 		iinqDatabase.reloadTablesFromXML();
 	}
 
@@ -1389,19 +1389,19 @@ public class IinqExecute {
 			contents += line + '\n';
 		}
 
-		if (iinqDatabase.containsPreparedStatements()) {
+		/*if (iinqDatabase.containsPreparedStatements()) {
 			SetPreparedParametersFunction func = new SetPreparedParametersFunction();
 			function_headers.add(func.getHeader());
 			contents += func.getDefinition();
 		}
-		contents += iinqDatabase.getExecutionDefinition();
+		contents += iinqDatabase.getExecutionDefinition();*/
 
-		for (int i = 0, n = iinqDatabase.getNumInserts(); i < n; i++) {
+/*		for (int i = 0, n = iinqDatabase.getNumInserts(); i < n; i++) {
 			PreparedInsertFunction insert = iinqDatabase.getInsert(i);
 			if (!insert.isDuplicate()) {
 				contents += insert.getDefinition();
 			}
-		}
+		}*/
 
 		File ex_output_file = new File(path);
 		FileOutputStream out = new FileOutputStream(ex_output_file, false);

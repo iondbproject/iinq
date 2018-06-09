@@ -10,7 +10,7 @@ public class CalculateOffsetFunction extends IinqFunction implements CalculatedF
 	private ArrayList<String> tableOffsets = new ArrayList<>();
 
 	public CalculateOffsetFunction() {
-		super("calucateOffset",
+		super("calculateOffset",
 		"size_t calculateOffset(const unsigned char *table, int field_num);\n",
 				null);
 	}
@@ -44,6 +44,8 @@ public class CalculateOffsetFunction extends IinqFunction implements CalculatedF
 		}
 		def.append("\t\tdefault:\n\t\t\treturn 0;\n");
 		def.append("\t}\n}\n\n");
+
+		setDefinition(def.toString());
 
 		return def.toString();
 	}

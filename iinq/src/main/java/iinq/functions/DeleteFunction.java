@@ -1,4 +1,4 @@
-package iinq.metadata;
+package iinq.functions;
 
 import iinq.functions.CommonCode;
 import iinq.functions.IinqFunction;
@@ -72,6 +72,7 @@ public class DeleteFunction extends IinqFunction {
 						"\tfree(table_name);\n" +
 						"\tfree(ion_record.key);\n" +
 						"\tfree(ion_record.value);\n" +
+						"\t}\n" +
 						"}\n\n");
 	}
 }

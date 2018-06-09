@@ -177,7 +177,7 @@ public class IinqTable extends AnnotatedSourceTable {
 	}
 
 	public String getTableName() {
-		return tableName;
+		return super.getTableName().toLowerCase();
 	}
 
 	public void setTableName(String tableName) {
@@ -189,7 +189,7 @@ public class IinqTable extends AnnotatedSourceTable {
 	}
 
 	public String getFieldTypeName(int i) {
-		return this.getSourceFieldsByPosition().get(i).getDataTypeName();
+		return this.getSourceFieldsByPosition().get(i-1).getDataTypeName();
 	}
 
 	public int getFieldSize(int i) {
