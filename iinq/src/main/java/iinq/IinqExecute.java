@@ -1135,18 +1135,19 @@ public class IinqExecute {
 
 		String contents = "";
 		String line;
-		String table;
+		int table_id;
 		int count = 0;
 
 		while (null != (line = ex_file.readLine())) {
 			if ((line.toUpperCase()).contains("DROP TABLE") && !line.contains("/*") && !line.contains("//")) {
 				contents += "/* " + line + " */\n";
 
-				table = iinqDatabase.getDroppedTables().get(count);
-
-				if (table != null) {
-					contents += "\tdrop_table(\"" + table + "\");\n";
-
+				try {
+					table_id = iinqDatabase.getDroppedTables().get(count);
+					contents += "\tdrop_table(" + table_id + ");\n";
+				} catch (NullPointerException e) {
+					e.printStackTrace();
+				} finally {
 					count++;
 				}
 			} else {

@@ -278,7 +278,7 @@ public class IinqExecutor {
 		return new delete_fields(iinqTable.getTableId(), num_conditions, new ArrayList<Integer>(Arrays.asList(iinqWhere.getWhere_field_nums())), new ArrayList<String>(Arrays.asList(iinqWhere.getWhere_operators())), new ArrayList<String>(Arrays.asList(iinqWhere.getWhere_values())), new ArrayList<String>(Arrays.asList(iinqWhere.getWhere_field_types())), key_size, value_size, ion_key);
 	}
 
-	public String executeDropTable(String sql) throws SQLException {
+	public int executeDropTable(String sql) throws SQLException {
 		// Use UnityJDBC to parse the drop table statement (metadata is required to verify table existence)
 		GlobalParser kingParser;
 		GlobalUpdate gu;
@@ -303,6 +303,6 @@ public class IinqExecutor {
 		iinqDatabase.getSchema().removeTable(iinqDatabase.getDatabaseName(), table_name);
 		iinqDatabase.removeIinqTable(table);
 
-		return table_name;
+		return table.getTableId();
 	}
 }

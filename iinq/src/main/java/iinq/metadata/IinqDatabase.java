@@ -39,7 +39,7 @@ public class IinqDatabase {
 	protected ArrayList<delete_fields> deletes = new ArrayList<>();
 	protected HashMap<String, IinqFunction> functions = new HashMap<>();
 	// TODO: change to table ids after removing table names
-	protected ArrayList<String> droppedTables = new ArrayList<>();
+	protected ArrayList<Integer> droppedTables = new ArrayList<>();
 	protected HashMap<Integer, String> tableIds = new HashMap<>();
 	protected HashMap<String, IinqTable> iinqTables = new HashMap<>();
 	protected CalculatedFunctions calculatedFunctions = null;
@@ -148,7 +148,7 @@ public class IinqDatabase {
 	}
 
 	public void executeDropTable(String sql) throws SQLException {
-		String droppedTable = executor.executeDropTable(sql);
+		int droppedTable = executor.executeDropTable(sql);
 		droppedTables.add(droppedTable);
 		if (!dropWritten) {
 			IinqFunction func = new DropTableFunction();
@@ -312,7 +312,7 @@ public class IinqDatabase {
 		return updates;
 	}
 
-	public ArrayList<String> getDroppedTables() {
+	public ArrayList<Integer> getDroppedTables() {
 		return droppedTables;
 	}
 
