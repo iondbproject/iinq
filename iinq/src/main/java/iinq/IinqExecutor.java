@@ -108,7 +108,7 @@ public class IinqExecutor {
 		ArrayList<Integer> implicit_fields = new ArrayList<>();
 		ArrayList<String> update_operators = new ArrayList<>();
 		ArrayList<String> update_values = new ArrayList<>();
-		ArrayList<String> update_field_types = new ArrayList<>();
+		ArrayList<Integer> update_field_types = new ArrayList<>();
 		ArrayList<String> field_sizes = new ArrayList<>();
 
 		String[] fields = new String[updateNode.getNumFields()];
@@ -161,15 +161,15 @@ public class IinqExecutor {
 			}
 
 			for (int n = 1, m = table.getNumFields(); n <= m; n++) {
-				String field_type = iinqDatabase.getSchemaValue(table_name, FIELD_TYPE, n);
+				int field_type = table.getFieldType(n);
 				field_sizes.add(table.getIonFieldSize(n));
 
-				if (update_field.equalsIgnoreCase(iinqDatabase.getSchemaValue(table_name, FIELD_NAME, n))) {
-					update_field_nums.add(n + 1);
+				if (update_field.equalsIgnoreCase(table.getFieldName(n))) {
+					update_field_nums.add(n);
 					update_field_types.add(field_type);
 				}
-				if (implicit_field.equalsIgnoreCase(iinqDatabase.getSchemaValue(table_name, FIELD_NAME, n))) {
-					implicit_fields.add(n + 1);
+				if (implicit_field.equalsIgnoreCase(table.getFieldName(n))) {
+					implicit_fields.add(n);
 				}
 			}
 		}

@@ -44,10 +44,10 @@ cleanup(
 	fremove("1.ffs");
 	fremove("2.ffs");
 	fremove("3.ffs");
-	fremove("6.ffs");
-	fremove("SEL.inq");
-	fremove("DEL.inq");
-	fremove("UPD.inq");
+	fremove("0.inq");
+	fremove("1.inq");
+	fremove("2.inq");
+	fremove("255.inq");
 	fremove("ion_mt.tbl");
 }
 

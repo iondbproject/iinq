@@ -33,7 +33,7 @@ public class ExecuteFunction extends IinqFunction implements CalculatedFunction 
 
 	public void addTable(IinqTable iinqTable) {
 		if (!containsTable(iinqTable))
-			addCallData(iinqTable.getTableId(), iinqTable.getTableName(), iinqTable.getIonKeyType());
+			addCallData(iinqTable.getTableId(), iinqTable.getTableName(), iinqTable.getIonKeyCast());
 	}
 
 	private void addCallData(int tableId, String tableName, String keyCast) {
@@ -45,7 +45,8 @@ public class ExecuteFunction extends IinqFunction implements CalculatedFunction 
 				"\tswitch (*(int*) p.table) {\n");
 		for (Map.Entry<Integer, executeCallData> entry : tableIdToFunctionCall.entrySet()) {
 			def.append(String.format("\t\tcase %d: {\n", entry.getKey()));
-			def.append(String.format("\t\t\tiinq_execute(%d, %s, p.value, iinq_insert_t);\n\t\t}\n", entry.getValue().tableId, entry.getValue().keyCast));
+			def.append(String.format("\t\t\tiinq_execute(%d, %s, p.value, iinq_insert_t);\n", entry.getValue().tableId, entry.getValue().keyCast));
+			def.append("\t\t\tbreak;\n\t\t}\n");
 		}
 		def.append("\t}\n" +
 				"\tfree(p.value);\n" +

@@ -15,7 +15,7 @@ public class DeleteFunction extends IinqFunction {
 						"\tion_dictionary_t           dictionary;\n" +
 						"\tion_dictionary_handler_t   handler;\n\n" +
 						"\tdictionary.handler = &handler;\n\n" +
-						"\terror              = iinq_open_source(&table_id, &dictionary, &handler);\n\n" +
+						"\terror              = iinq_open_source(table_id, &dictionary, &handler);\n\n" +
 						CommonCode.error_check() +
 						"\tion_predicate_t predicate;\n" +
 						"\tdictionary_build_predicate(&predicate, predicate_all_records);\n\n" +

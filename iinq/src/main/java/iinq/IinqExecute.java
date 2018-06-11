@@ -992,7 +992,7 @@ public class IinqExecute {
 						if (!update.implicit.get(i)) {
 							contents.append(update.update_fields.get(i) + ", 0, 0, ");
 
-							if (update.update_field_types.get(i).contains("INT")) {
+							if (update.update_field_types.get(i) == Types.INTEGER) {
 								contents.append(update.update_values.get(i));
 							} else {
 								contents.append("\"" + update.update_values.get(i) + "\"");
@@ -1001,7 +1001,7 @@ public class IinqExecute {
 							contents.append(update.update_fields.get(i) + ", " + update.implicit_fields.get(implicit_count) + ", "
 									+ update.update_operators.get(implicit_count) + ", ");
 
-							if (update.update_field_types.get(i).contains("INT")) {
+							if (update.update_field_types.get(i) == Types.INTEGER) {
 								contents.append(update.update_values.get(i));
 							} else {
 								contents.append("\"" + update.update_values.get(i) + "\"");

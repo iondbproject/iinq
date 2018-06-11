@@ -3,17 +3,15 @@ package iinq.functions;
 public class UpdateFunction extends IinqFunction {
 	public UpdateFunction() {
 		super("update",
-				"void update(int id, iinq_print_table_t print_function, ion_key_type_t key_type, size_t key_size, size_t value_size, int num_wheres, int num_update, ...);\n",
-				"void update(int id, iinq_print_table_t print_function, ion_key_type_t key_type, size_t key_size, size_t value_size, int num_wheres, int num_update, ...) {\n\n" +
+				"void update(iinq_table_id table_id, iinq_print_table_t print_function, ion_key_type_t key_type, size_t key_size, size_t value_size, int num_wheres, int num_update, ...);\n",
+				"void update(iinq_table_id table_id, iinq_print_table_t print_function, ion_key_type_t key_type, size_t key_size, size_t value_size, int num_wheres, int num_update, ...) {\n\n" +
 				"\tva_list valist;\n" +
 				"\tva_start(valist, num_update);\n\n" +
-				"\tunsigned char *table_id = malloc(sizeof(int));\n" +
-				"\t*(int *) table_id = id;\n\n" +
 				"\tion_err_t                  error;\n" +
 				"\tion_dictionary_t           dictionary;\n" +
 				"\tion_dictionary_handler_t   handler;\n\n" +
 				"\tdictionary.handler = &handler;\n\n" +
-				"\terror              = iinq_open_source(id, &dictionary, &handler);\n\n" +
+				"\terror              = iinq_open_source(table_id, &dictionary, &handler);\n\n" +
 				"\tif (err_ok != error) {\n" +
 				"\t\tprintf(\"Error occurred. Error code: %i" + "\\" + "n" + "\", error);\n" +
 				"\t}\n\n" +
@@ -25,14 +23,14 @@ public class UpdateFunction extends IinqFunction {
 				"\tion_record.key     = malloc(key_size);\n" +
 				"\tion_record.value   = malloc(value_size);\n\n" +
 				"\tion_cursor_status_t status;\n\n" +
-				"\terror = iinq_create_source(\"UPD\", key_type, (ion_key_size_t) key_size, (ion_value_size_t) value_size);\n\n" +
+				"\terror = iinq_create_source(255, key_type, (ion_key_size_t) key_size, (ion_value_size_t) value_size);\n\n" +
 				"\tif (err_ok != error) {\n" +
 				"\t\tprintf(\"Error occurred. Error code: %i" + "\\" + "n" + "\", error);\n" +
 				"\t}\n\n" +
 				"\tion_dictionary_t           dictionary_temp;\n" +
 				"\tion_dictionary_handler_t   handler_temp;\n\n" +
 				"\tdictionary_temp.handler = &handler_temp;\n\n" +
-				"\terror              = iinq_open_source(\"UPD\", &dictionary_temp, &handler_temp);\n\n" +
+				"\terror              = iinq_open_source(255, &dictionary_temp, &handler_temp);\n\n" +
 				"\tif (err_ok != error) {\n" +
 				"\t\tprintf(\"Error occurred. Error code: %i" + "\\" + "n" + "\", error);\n" +
 				"\t}\n\n" +
@@ -46,7 +44,7 @@ public class UpdateFunction extends IinqFunction {
 				"\t\t}\n\t}\n\n" +
 				"\tcursor->destroy(&cursor);\n\n" +
 				"\tint i;\n\n" +
-				"\tiinq_update_params_t updates[num_update];" +
+				"\tiinq_update_params_t updates[num_update];\n" +
 				"\tfor (i = 0; i < num_wheres; i++) {\n" +
 				"\t\tva_arg(valist, void *);\n\t}\n\n" +
 				"\tfor (i = 0; i < num_update; i++) {\n" +
@@ -69,6 +67,7 @@ public class UpdateFunction extends IinqFunction {
 				"\t\t\t\t\tcase iinq_subtract :\n" +
 				"\t\t\t\t\t\tnew_value = (NEUTRALIZE(value, int) - (int) updates[i].field_value);\n" +
 				"\t\t\t\t\t\tbreak;\n" +
+				"\t\t\t\t\tcase iinq_multiply :\n" +
 				"\t\t\t\t\t\tnew_value = (NEUTRALIZE(value, int) * (int) updates[i].field_value);\n" +
 				"\t\t\t\t\t\tbreak;\n" +
 				"\t\t\t\t\tcase iinq_divide :\n" +
@@ -90,12 +89,11 @@ public class UpdateFunction extends IinqFunction {
 				"\tcursor_temp->destroy(&cursor_temp);\n" +
 				"\tif (NULL != print_function)" +
 				"\t\tprint_function(&dictionary);\n\n" +
-				"\terror = dictionary_delete_dictionary(&dictionary_temp);\n\n" +
-				CommonCode.error_check() +
-				"\terror = ion_close_dictionary(&dictionary);\n\n" +
-				CommonCode.error_check() +
-				"\tfremove(\"UPD.inq\");\n" +
-				"\tfree(table_id);\n" +
+/*			"\terror = dictionary_delete_dictionary(&dictionary_temp);\n\n" +
+			CommonCode.error_check() +
+			"\terror = ion_close_dictionary(&dictionary);\n\n" +
+			CommonCode.error_check() +*/
+				"\tiinq_drop(255);\n" +
 				"\tfree(ion_record.key);\n" +
 				"\tfree(ion_record.value);\n" +
 				"}\n\n");

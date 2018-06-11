@@ -263,4 +263,13 @@ public class IinqTable extends AnnotatedSourceTable {
 		getAnnotatedSourceTable().setComment(sql);
 		createTableStatementSet = true;
 	}
+
+	public String getIonKeyCast() {
+		switch (getKeyDataType()) {
+			case Types.INTEGER:
+				return "IONIZE(*(int *) p.key, int)";
+			default:
+				return "p.key";
+		}
+	}
 }

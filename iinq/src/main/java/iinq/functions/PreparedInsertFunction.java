@@ -86,7 +86,7 @@ public class PreparedInsertFunction extends IinqFunction {
 		preparedStatement = stmt.getParameters().size() > 0;
 
 		String[] fields = new String[count];
-		String field_value;
+		String field_type;
 
 		String key_type = table.getSchemaValue(PRIMARY_KEY_TYPE);
 		String key_field_num = table.getSchemaValue(PRIMARY_KEY_FIELD);
@@ -107,13 +107,13 @@ public class PreparedInsertFunction extends IinqFunction {
 			GQFieldRef fieldNode = (GQFieldRef) insertNode.getInsertFields().get(j);
 			fields[j] = ((LQExprNode) insertNode.getInsertValues().get(j)).getContent().toString();
 
-			field_value = fieldNode.getField().getDataTypeName();
+			field_type = fieldNode.getField().getDataTypeName();
 			field_sizes.add(table.getIonFieldSize(fieldNode.getName()));
 
 			/* To be added in function call */
 			field_values.add(fields[j]);
 
-			if (field_value.contains("CHAR")) {
+			if (field_type.contains("CHAR")) {
 				string_fields.add(j + 1);
 			} else {
 				int_fields.add(j + 1);
@@ -123,7 +123,7 @@ public class PreparedInsertFunction extends IinqFunction {
 				header.append(", ");
 			}
 
-			if (field_value.contains("CHAR")) {
+			if (field_type.contains("CHAR")) {
 				field_types.add("char");
 				iinq_field_types.add("iinq_null_terminated_string");
 
@@ -159,10 +159,10 @@ public class PreparedInsertFunction extends IinqFunction {
 		}
 
 		for (int i = 0; i < fields.length; i++) {
-			field_value = table.getSchemaValue(FIELD_TYPE, i+1);
+			field_type = table.getFieldTypeName(i+1);
 			String value_size = table.getSchemaValue(FIELD_SIZE, i+1);
 
-			if (field_value.contains("CHAR")) {
+			if (field_type.contains("CHAR")) {
 				definition.append("\tif (value_" + (i + 1) + " != NULL)\n");
 				definition.append("\t\tmemcpy(data, value_" + (i + 1) + ", " + value_size + ");\n");
 				definition.append("\telse\n");

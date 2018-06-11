@@ -11,23 +11,20 @@ public class GetFieldTypeFunction extends IinqFunction implements CalculatedFunc
 	public GetFieldTypeFunction() {
 		super(
 				"getFieldType",
-				"iinq_field_t getFieldType(const unsigned char *table, int field_num);\n",
+				"iinq_field_t getFieldType(iinq_table_id table_id, int field_num);\n",
 				null
 		);
 	}
 
 	public void addTable(IinqTable table) {
 		StringBuilder fieldTypes = new StringBuilder();
-		StringBuilder total = new StringBuilder();
 		fieldTypes.append("\t\tcase " + table.getTableId() + " : {\n");
 		fieldTypes.append("\t\t\tswitch (field_num) {\n");
 		for (int i = 1, n = table.getNumFields(); i <= n; i++) {
 			fieldTypes.append("\t\t\t\tcase " + i + " :\n");
 			fieldTypes.append("\t\t\t\t\treturn ");
-			total.append(table.getIonFieldType(i));
-			fieldTypes.append(total.toString());
+			fieldTypes.append(table.getIonFieldType(i));
 			fieldTypes.append(";\n");
-			total.append(" + ");
 		}
 		fieldTypes.append("\t\t\t\tdefault:\n\t\t\t\t\treturn 0;\n");
 		fieldTypes.append("\t\t\t}\n\t\t}\n");
@@ -37,8 +34,8 @@ public class GetFieldTypeFunction extends IinqFunction implements CalculatedFunc
 
 	public String generateDefinition() {
 		StringBuilder def = new StringBuilder();
-		def.append("iinq_field_t getFieldType(const unsigned char *table, int field_num) {\n\n");
-		def.append("\tswitch (*(int *) table) {\n");
+		def.append("iinq_field_t getFieldType(iinq_table_id table, int field_num) {\n\n");
+		def.append("\tswitch (table) {\n");
 		Iterator<String> it = tableFieldTypes.iterator();
 		while (it.hasNext()) {
 			def.append(it.next());
