@@ -87,7 +87,7 @@ public class UpdateFunction extends IinqFunction {
 				"\t\t\tprintf(\"Error occurred. Error code: %i" + "\\" + "n" + "\", error);\n" +
 				"\t\t}\n\t}\n\n" +
 				"\tcursor_temp->destroy(&cursor_temp);\n" +
-				"\tif (NULL != print_function)" +
+				"\tif (NULL != print_function)\n" +
 				"\t\tprint_function(&dictionary);\n\n" +
 /*			"\terror = dictionary_delete_dictionary(&dictionary_temp);\n\n" +
 			CommonCode.error_check() +

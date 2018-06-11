@@ -3,6 +3,8 @@ package iinq.metadata;
 import com.sun.javaws.exceptions.InvalidArgumentException;
 import iinq.*;
 import iinq.functions.*;
+import iinq.functions.SelectFunctions.SelectFunction;
+import iinq.functions.SelectFunctions.SelectFunctions;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
@@ -33,13 +35,14 @@ public class IinqDatabase {
 	protected boolean updateWritten = false;
 	protected boolean deleteWritten = false;
 	protected boolean dropWritten = false;
+	protected boolean selectWritten = false;
 	protected boolean preparedStatements = false;
 	protected ArrayList<PreparedInsertFunction> inserts = new ArrayList<>();
 	protected ArrayList<IinqUpdate> updates = new ArrayList<>();
 	protected ArrayList<delete_fields> deletes = new ArrayList<>();
+	protected ArrayList<IinqSelect> selects = new ArrayList<>();
 	protected HashMap<String, IinqFunction> functions = new HashMap<>();
-	// TODO: change to table ids after removing table names
-	protected ArrayList<Integer> droppedTables = new ArrayList<>();
+	protected ArrayList<Integer> droppedTableIds = new ArrayList<>();
 	protected HashMap<Integer, String> tableIds = new HashMap<>();
 	protected HashMap<String, IinqTable> iinqTables = new HashMap<>();
 	protected CalculatedFunctions calculatedFunctions = null;
@@ -149,7 +152,7 @@ public class IinqDatabase {
 
 	public void executeDropTable(String sql) throws SQLException {
 		int droppedTable = executor.executeDropTable(sql);
-		droppedTables.add(droppedTable);
+		droppedTableIds.add(droppedTable);
 		if (!dropWritten) {
 			IinqFunction func = new DropTableFunction();
 			functions.put(func.getName(), func);
@@ -312,11 +315,22 @@ public class IinqDatabase {
 		return updates;
 	}
 
-	public ArrayList<Integer> getDroppedTables() {
-		return droppedTables;
+	public ArrayList<Integer> getDroppedTableIds() {
+		return droppedTableIds;
 	}
 
-	public void generateDefinitions() {
+	public void executeQuery(String sql, String return_val) throws SQLException, RelationNotFoundException, IOException, InvalidArgumentException {
+		IinqSelect select = executor.executeQuery(sql);
+		select.return_value = return_val;
+		selects.add(select);
+		if (!selectWritten) {
+			SelectFunctions selectFunctions = new SelectFunctions();
+			functions.putAll(selectFunctions.getFunctions());
+			selectWritten = true;
+		}
+	}
 
+	public IinqSelect getSelect(int i) {
+		return selects.get(i);
 	}
 }

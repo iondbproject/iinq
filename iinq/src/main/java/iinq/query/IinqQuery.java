@@ -1,11 +1,18 @@
-package iinq;
+package iinq.query;
 
+import com.sun.javaws.exceptions.InvalidArgumentException;
+import iinq.IinqWhere;
 import iinq.functions.PredicateFunction;
+import iinq.metadata.IinqDatabase;
+import iinq.metadata.IinqTable;
+import iinq.query.RequiresSchemaException;
 import unity.annotation.SourceField;
 import unity.annotation.SourceTable;
 import unity.generic.query.WebQuery;
 
+import javax.management.relation.RelationNotFoundException;
 import java.io.*;
+import java.sql.SQLFeatureNotSupportedException;
 import java.util.ArrayList;
 import java.util.HashMap;
 
@@ -16,6 +23,7 @@ import java.util.HashMap;
 public class IinqQuery extends WebQuery {
 	// Enables comments with in code output
 	private static final boolean DEBUG = true;
+	private IinqDatabase database;
 	private HashMap<String, Object> queryCode;
 
 	/**
@@ -153,9 +161,11 @@ public class IinqQuery extends WebQuery {
 	 * Constructs an IINQ query.
 	 *
 	 * @param url query URL
+	 * @param database
 	 */
-	public IinqQuery(String url) {
+	public IinqQuery(String url, IinqDatabase database) {
 		super(url);
+		this.database = database;
 	}
 
 	/**
@@ -202,7 +212,7 @@ public class IinqQuery extends WebQuery {
 	 *
 	 * @return code to execute query
 	 */
-	public HashMap<String, Object> generateCode() {
+	public HashMap<String, Object> generateCode() throws InvalidArgumentException, RelationNotFoundException, SQLFeatureNotSupportedException, IOException {
 		/* Currently follows similar structure to MATERIALIZED_QUERY macro		 */
 		String tableName = getTableName();
 		StringBuilder code = new StringBuilder();
@@ -211,12 +221,22 @@ public class IinqQuery extends WebQuery {
 		// first thing we will need is the table table_id for the query
 		returnValue.put("table_name", this.parameters.get("source"));
 
-		// if there is a predicate, create a function definietion for it
+		// if there is a predicate, create a function definition for it
 		if (this.parameters.containsKey("filter")) {
-			try {
+			/*try {
 				returnValue.put("predicate", generatePredicateFunction(0));
 			} catch (RequiresSchemaException e) {
 				e.printStackTrace();
+			}*/
+			Object filter = this.parameters.get("filter");
+			if (filter instanceof ArrayList) {
+				if (((ArrayList) filter).get(0) instanceof String) {
+					ArrayList<String> filterList = (ArrayList<String>) filter;
+					IinqWhere where = new IinqWhere(filterList.size());
+					IinqTable table = database.getIinqTable(tableName);
+					where.generateWhere(filterList.toArray(new String[filterList.size()]),table);
+					returnValue.put("where", where);
+				}
 			}
 		}
 

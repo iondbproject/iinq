@@ -1,9 +1,10 @@
-package iinq;
+package iinq.query;
 
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Date;
 
+import iinq.metadata.IinqDatabase;
 import unity.annotation.SourceField;
 import unity.engine.Attribute;
 import unity.engine.Relation;
@@ -28,17 +29,20 @@ import unity.util.StringFunc;
  * Convert a SQL query into C code.
  */
 @SuppressWarnings("nls")
-public class IinqBuilder extends QueryBuilder 
-{          
+public class IinqBuilder extends QueryBuilder
+{
+	IinqDatabase database;
+
 	/**
 	 * Constructor that takes a logical query tree as input.
 	 * 	
 	 * @param startNode
 	 * 		root node of logical query tree
 	 */
-	public IinqBuilder(LQNode startNode) 
+	public IinqBuilder(LQNode startNode, IinqDatabase database)
 	{
 	    super("", startNode);	     //$NON-NLS-1$
+		this.database = database;
 	}
 	
 	/**
@@ -52,7 +56,7 @@ public class IinqBuilder extends QueryBuilder
 	public IinqQuery toQuery() throws SQLException
 	{
 		LQNode currentNode = this.startNode;
-		IinqQuery query = new IinqQuery(""); //$NON-NLS-1$
+		IinqQuery query = new IinqQuery("", database); //$NON-NLS-1$
 	
 	    // Traverse tree to build query
 		processNode(query, currentNode);
@@ -241,7 +245,8 @@ public class IinqBuilder extends QueryBuilder
         
         LQCondNode condition = node.getCondition();     
        
-        String whereFilter = this.buildCondition(condition, query);
+        ArrayList<String> whereFilter = new ArrayList<>();
+        whereFilter.add(this.buildCondition(condition, query));
         
         Object currentWhereFilter = query.getParameterObject("filter");
         if (currentWhereFilter == null)
@@ -249,14 +254,14 @@ public class IinqBuilder extends QueryBuilder
         else
         {
             if (currentWhereFilter instanceof ArrayList)
-                ((ArrayList) currentWhereFilter).add(whereFilter);
-            else
+                ((ArrayList) currentWhereFilter).addAll(whereFilter);
+            /*else
             {
                 ArrayList<String> filters = new ArrayList<String>();
                 filters.add(currentWhereFilter.toString());
                 filters.add(whereFilter);
                 query.setParameter("filter", filters);
-            }
+            }*/
         }
 //            query.setParameter("filter", currentWhereFilter+" AND "+whereFilter);     // Add another filter using AND if a filter already exists
             // query.setParameter("filter", currentWhereFilter+" "+whereFilter);     // Default is AND.  Parsing seems to cause problems so leave it out.

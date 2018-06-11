@@ -53,8 +53,6 @@ import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
 import unity.annotation.*;
 import unity.jdbc.UnityConnection;
-import unity.parser.GlobalParser;
-import unity.query.*;
 import unity.util.StringFunc;
 
 import javax.management.relation.RelationNotFoundException;
@@ -106,7 +104,7 @@ public class IinqExecute {
 	private static ArrayList<tableInfo> calculateInfo = new ArrayList<>();
 	private static ArrayList<delete_fields> delete_fields = new ArrayList<>();
 	private static ArrayList<IinqUpdate> IinqUpdate = new ArrayList<>();
-	private static ArrayList<select_fields> select_fields = new ArrayList<>();
+	private static ArrayList<IinqSelect> IinqSelect = new ArrayList<>();
 	private static ArrayList<create_fields> create_fields = new ArrayList<>();
 	private static ArrayList<String> drop_tables = new ArrayList<>();
 
@@ -1037,18 +1035,18 @@ public class IinqExecute {
 
 		StringBuilder contents = new StringBuilder();
 		String line;
-		iinq.select_fields select;
+		IinqSelect select;
 		int count = 0;
 
 		while (null != (line = ex_file.readLine())) {
 			if ((line.toUpperCase()).contains("SELECT") && !line.contains("/*") && !line.contains("//")) {
 				contents.append("/* " + line + " */\n");
 
-				select = select_fields.get(count);
+				select = iinqDatabase.getSelect(count);
 
 				if (select != null) {
-					contents.append("\t" + select.return_value + " = iinq_select(" + select.table_id + ", \"" + select.table_name + "\", " + select.key_type + ", " + select.key_size + ", "
-							+ select.value_size + ", " + select.num_wheres + ", " + select.num_fields + ", ");
+					contents.append("\t" + select.return_value + " = iinq_select(" + select.table_id + ", " + select.key_type + ", " + select.key_size + ", "
+							+ select.value_size + ", " + select.num_wheres + ", " + select.num_fields);
 
 					if (select.num_wheres > 0) {
 						contents.append(", IINQ_CONDITION_LIST(");
@@ -1143,7 +1141,7 @@ public class IinqExecute {
 				contents += "/* " + line + " */\n";
 
 				try {
-					table_id = iinqDatabase.getDroppedTables().get(count);
+					table_id = iinqDatabase.getDroppedTableIds().get(count);
 					contents += "\tdrop_table(" + table_id + ");\n";
 				} catch (NullPointerException e) {
 					e.printStackTrace();
@@ -1552,184 +1550,9 @@ public class IinqExecute {
 		sql = sql.substring(sql.toUpperCase().indexOf("SELECT"), sql.indexOf(";")).trim();
 		sql = StringFunc.verifyTerminator(sql);    // Make sure SQL is terminated by semi-colon properly
 
-		// Parse semantic query string into a parse tree
-		GlobalParser kingParser;
-		GlobalQuery gq;
-		if (null != metadata) {
-			kingParser = new GlobalParser(false, true);
-			gq = kingParser.parse(sql, metadata);
-		} else {
-			kingParser = new GlobalParser(false, false);
-			gq = kingParser.parse(sql, new GlobalSchema());
-		}
-		gq.setQueryString(sql);
+		iinqDatabase.executeQuery(sql, return_val);
 
-		// Optimize logical query tree before execution
-		Optimizer opt = new Optimizer(gq, false, null);
-		gq = opt.optimize();
 
-		IinqBuilder builder = new IinqBuilder(gq.getLogicalQueryTree().getRoot());
-		IinqQuery query = builder.toQuery();
-		String table_name = query.getTableName();
-
-		boolean table_found = false;
-		int table_id = 0;
-
-		/* Check if that table table_id already has an ID */
-/*		for (int i = 0; i < table_names.size(); i++) {
-			if (table_names.get(i).equals(table_name)) {
-				table_id = i;
-				new_table = false;
-				table_found = true;
-			}
-		}
-
-		if (!table_found) {
-			table_names.add(table_name);
-			table_id = table_id_count;
-			table_id_count++;
-			new_table = true;
-		}*/
-
-		SourceTable table = metadata.getTable("IinqDB", table_name);
-
-		/* Create print table method if it doesn't already exist */
-		if (!tables.get(table_name.toLowerCase()).isPrintFunctionWritten()) {
-			print_table(out, table_name);
-			tables.get(table_name.toLowerCase()).setPrintFunctionWritten(true);
-		}
-
-		if (!select_written) {
-			write_select_method(out);
-		}
-
-		select_written = true;
-
-		int pos = sql.toUpperCase().indexOf("WHERE");
-		String where_condition = query.getParameter("filter");
-		int num_conditions = 0;
-		int i = -1;
-
-		/* Get WHERE condition if it exists */
-		if (-1 != pos) {
-			//where_condition = sql.substring(pos + 6, sql.length() - 4);
-			i = 0;
-		}
-
-		/* Calculate number of WHERE conditions in statement */
-
-		while (-1 != i) {
-			num_conditions++;
-			i = where_condition.indexOf(",", i + 1);
-		}
-
-		String[] conditions;
-
-		conditions = get_fields(where_condition, num_conditions);
-
-		/* Get fields to select */
-		String field_list;
-		pos = sql.toUpperCase().indexOf("SELECT");
-		field_list = query.getParameter("fields");
-
-		int num_fields = 0;
-		i = 0;
-
-		/* Calculate number of fields to select in statement */
-		while (-1 != i) {
-			num_fields++;
-			i = field_list.indexOf(",", i + 1);
-		}
-
-		ArrayList<Integer> where_field = new ArrayList<>(); /* Field value that is being used to update a field. */
-		ArrayList<String> where_value = new ArrayList<>(); /* Value that is being added to another field value to update a field. */
-		ArrayList<String> where_operator = new ArrayList<>(); /* Whether values are being updated through addition or subtraction. */
-		ArrayList<String> iinq_field_types = new ArrayList<>();
-		ArrayList<String> where_field_type = new ArrayList<>();
-
-		int len = 0;
-		String field = "";
-
-		for (int j = 0; j < num_conditions; j++) {
-
-			/* Set up field, operator, and condition for each WHERE clause */
-			if (conditions[j].contains("!=")) {
-				pos = conditions[j].indexOf("!=");
-				len = 2;
-				where_operator.add("iinq_not_equal");
-			} else if (conditions[j].contains("<=")) {
-				pos = conditions[j].indexOf("<=");
-				len = 2;
-				where_operator.add("iinq_less_than_equal_to");
-			} else if (conditions[j].contains(">=")) {
-				pos = conditions[j].indexOf(">=");
-				len = 2;
-				where_operator.add("iinq_greater_than_equal_to");
-			} else if (conditions[j].contains("=")) {
-				pos = conditions[j].indexOf("=");
-				len = 1;
-				where_operator.add("iinq_equal");
-			} else if (conditions[j].contains("<")) {
-				pos = conditions[j].indexOf("<");
-				len = 1;
-				where_operator.add("iinq_less_than");
-			} else if (conditions[j].contains(">")) {
-				pos = conditions[j].indexOf(">");
-				len = 1;
-				where_operator.add("iinq_greater_than");
-			}
-
-			field = conditions[j].substring(0, pos).trim();
-			where_value.add(conditions[j].substring(pos + len).trim());
-		}
-
-		for (int n = 0; n < Integer.parseInt(iinqDatabase.getSchemaValue(table_name, NUMBER_OF_FIELDS)); n++) {
-
-			String field_type = iinqDatabase.getSchemaValue(table_name, FIELD_TYPE, n);
-
-			if (field_type.contains("CHAR")) {
-				iinq_field_types.add("iinq_null_terminated_string");
-			} else {
-				iinq_field_types.add("iinq_int");
-			}
-
-			if (field.equals(iinqDatabase.getSchemaValue(table_name, FIELD_NAME, n))) {
-				where_field.add(n + 1);
-				where_field_type.add(field_type);
-			}
-		}
-
-		ArrayList<Integer> select_field_nums = new ArrayList<>();
-		ArrayList<String> field_sizes = new ArrayList<>();
-
-		String[] fields;
-
-		fields = get_fields(field_list, num_fields);
-
-		for (int j = 0; j < num_fields; j++) {
-			for (int n = 0; n < Integer.parseInt(iinqDatabase.getSchemaValue(table_name, NUMBER_OF_FIELDS)); n++) {
-				String field_type = iinqDatabase.getSchemaValue(table_name, FIELD_TYPE, n);
-				field_sizes.add(ion_get_value_size(table, table.getSourceFieldsByPosition().get(j).getColumnName()));
-
-				if ((fields[j].trim()).equals(iinqDatabase.getSchemaValue(table_name, FIELD_NAME, n))) {
-					select_field_nums.add(n + 1);
-				}
-			}
-		}
-
-		if (new_table) {
-			tableInfo table_info = new tableInfo(table_id, Integer.parseInt(iinqDatabase.getSchemaValue(table_name, NUMBER_OF_FIELDS)), iinq_field_types, field_sizes);
-
-			calculateInfo.add(table_info);
-			//tables_count++;
-		}
-
-		String value_size = iinqDatabase.getSchemaValue(table_name, VALUE_SIZE);
-		String key_size = iinqDatabase.getSchemaValue(table_name, PRIMARY_KEY_SIZE);
-		String ion_key = iinqDatabase.getSchemaValue(table_name, ION_KEY_TYPE);
-
-		select_fields.add(new select_fields(table_name, table_id, num_conditions, num_fields, where_field, where_operator,
-				where_value, where_field_type, ion_key, key_size, value_size, select_field_nums, return_val));
 	}
 
 	private static void

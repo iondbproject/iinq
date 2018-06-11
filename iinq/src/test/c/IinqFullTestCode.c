@@ -65,7 +65,6 @@ main(
 	/* Test INSERT statements */
 	SQL_execute("INSERT INTO Dogs VALUES (10, 'Frenchie', 'Minnie', 1, 'Penticton');");
 	SQL_execute("INSERT INTO Dogs VALUES (40, 'Chihuahua', 'Barky', 7, 'Van');");
-
 	SQL_execute("INSERT INTO Dogs COLUMNS (id, type, age) VALUES (30, 'Black Lab', 5);");
 	SQL_execute("INSERT INTO Dogs COLUMNS (id, type) VALUES (20, 'Black Lab');");
 	SQL_execute("INSERT INTO Dogs COLUMNS (city, name, id) VALUES ('West Bench', 'Corky', 50);");
@@ -115,7 +114,7 @@ main(
 	SQL_execute("DELETE FROM Cats WHERE age >= 10;");
 
 	/* Test query */
-	/*iinq_result_set rs1 = SQL_select("SELECT id, name FROM Cats WHERE age < 10;");*/
+	iinq_result_set rs1 = SQL_select("SELECT id, name FROM Cats WHERE age < 10;");
 
 	printf("sizeof value: %zu\n", (sizeof(int) * 2) + (sizeof(char) * 30));
 

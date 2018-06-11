@@ -38,14 +38,11 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.fail;
 
-import java.sql.DatabaseMetaData;
-import java.sql.ResultSet;
 import java.util.HashMap;
 
-import iinq.IinqBuilder;
-import iinq.IinqQuery;
+import iinq.query.IinqBuilder;
+import iinq.query.IinqQuery;
 import unity.annotation.GlobalSchema;
-import unity.operators.ResultSetScan;
 import unity.parser.GlobalParser;
 import unity.query.GlobalQuery;
 import unity.query.Optimizer;
@@ -93,7 +90,7 @@ public class TestIinq
 	        Optimizer opt = new Optimizer(gq, false, null);
 	        gq = opt.optimize();
 	        
-	        IinqBuilder builder = new IinqBuilder(gq.getLogicalQueryTree().getRoot());
+	        IinqBuilder builder = new IinqBuilder(gq.getLogicalQueryTree().getRoot(), null);
 			IinqQuery query = builder.toQuery();
 			
 			// Validate that code is generated as expected
