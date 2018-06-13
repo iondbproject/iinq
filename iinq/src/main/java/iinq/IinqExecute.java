@@ -16,7 +16,7 @@
  this list of conditions and the following disclaimer in the documentation
  and/or other materials provided with the distribution.
 
- @par 3.Neither the table_id of the copyright holder nor the names of its contributors
+ @par 3.Neither the name of the copyright holder nor the names of its contributors
  may be used to endorse or promote products derived from this software without
  specific prior written permission.
 
@@ -389,7 +389,7 @@ public class IinqExecute {
 		out.write("\tfree(select->num_fields);\n");
 		out.write("\treturn boolean_false;\n}\n\n");
 
-		out.write("char* getString(iinq_result_set *select, int field_num) {\n");
+		out.write("char* getString(iinq_result_set *select, int fieldNum) {\n");
 		out.write("\tint i, count = 0;\n\n");
 		out.write("\tion_err_t                  error;\n");
 		out.write("\tion_dictionary_t           dictionary;\n");
@@ -405,14 +405,14 @@ public class IinqExecute {
 		out.write("\t\tprintf(\"Error occurred. Error code: %i" + "\\" + "n" + "\", error);\n");
 		out.write("\t}\n\n");
 		out.write("\tfor (i = 0; i < *(int *) select->num_fields; i++) {\n");
-		out.write("\t\tint field = *(int *) (select->fields + sizeof(int)*i);\n\n");
-		out.write("\t\tif (getFieldType(select->table_id, field) == iinq_null_terminated_string) {\n");
+		out.write("\t\tint value = *(int *) (select->fields + sizeof(int)*i);\n\n");
+		out.write("\t\tif (getFieldType(select->table_id, value) == iinq_null_terminated_string) {\n");
 		out.write("\t\t\tcount++;\n\t\t}\n\n");
-		out.write("\t\tif (count == field_num) {\n");
-		out.write("\t\t\treturn (char *) (select->value + calculateOffset(select->table_id, field-1));\n");
+		out.write("\t\tif (count == fieldNum) {\n");
+		out.write("\t\t\treturn (char *) (select->value + calculateOffset(select->table_id, value-1));\n");
 		out.write("\t\t}\n\t}\n\n\treturn \"\";\n}\n\n");
 
-		out.write("int getInt(iinq_result_set *select, int field_num) {\n");
+		out.write("int getInt(iinq_result_set *select, int fieldNum) {\n");
 		out.write("\tint i, count = 0;\n\n");
 		out.write("\tion_err_t                  error;\n");
 		out.write("\tion_dictionary_t           dictionary;\n");
@@ -428,17 +428,17 @@ public class IinqExecute {
 		out.write("\t\tprintf(\"Error occurred. Error code: %i" + "\\" + "n" + "\", error);\n");
 		out.write("\t}\n\n");
 		out.write("\tfor (i = 0; i < *(int *) select->num_fields; i++) {\n");
-		out.write("\t\tint field = *(int *) (select->fields + sizeof(int)*i);\n\n");
-		out.write("\t\tif (getFieldType(select->table_id, field) == iinq_int) {\n");
+		out.write("\t\tint value = *(int *) (select->fields + sizeof(int)*i);\n\n");
+		out.write("\t\tif (getFieldType(select->table_id, value) == iinq_int) {\n");
 		out.write("\t\t\tcount++;\n\t\t}\n\n");
-		out.write("\t\tif (count == field_num) {\n");
-		out.write("\t\t\treturn NEUTRALIZE(select->value + calculateOffset(select->table_id, field-1), int);\n");
+		out.write("\t\tif (count == fieldNum) {\n");
+		out.write("\t\t\treturn NEUTRALIZE(select->value + calculateOffset(select->table_id, value-1), int);\n");
 		out.write("\t\t}\n\t}\n\n\treturn 0;\n}\n\n");
 
 		function_headers.add("iinq_result_set iinq_select(int id, char *table_id, ion_key_type_t key_type, size_t key_size, size_t value_size, int num_wheres, int num_fields, ...);\n");
 		function_headers.add("ion_boolean_t next(iinq_result_set *select);\n");
-		function_headers.add("char* getString(iinq_result_set *select, int field_num);\n");
-		function_headers.add("int getInt(iinq_result_set *select, int field_num);\n");
+		function_headers.add("char* getString(iinq_result_set *select, int fieldNum);\n");
+		function_headers.add("int getInt(iinq_result_set *select, int fieldNum);\n");
 
 	}
 
@@ -493,27 +493,27 @@ public class IinqExecute {
 		int position = 1;
 		Iterator<IinqField> it = table.iterator();
 		while (it.hasNext()) {
-			IinqField field = it.next();
+			IinqField value = it.next();
 			Element fieldNode = xml.createElement("FIELD");
 
 			node = xml.createElement("semanticFieldName");
-			node.appendChild(xml.createTextNode(table.getTableName() + "." + field.getFieldName()));
+			node.appendChild(xml.createTextNode(table.getTableName() + "." + value.getFieldName()));
 			fieldNode.appendChild(node);
 
 			node = xml.createElement("fieldName");
-			node.appendChild(xml.createTextNode(field.getFieldName()));
+			node.appendChild(xml.createTextNode(value.getFieldName()));
 			fieldNode.appendChild(node);
 
 			node = xml.createElement("dataType");
-			node.appendChild(xml.createTextNode(Integer.toString(field.getFieldType())));
+			node.appendChild(xml.createTextNode(Integer.toString(value.getFieldType())));
 			fieldNode.appendChild(node);
 
 			node = xml.createElement("dataTypeName");
-			node.appendChild(xml.createTextNode(field.getFieldTypeName()));
+			node.appendChild(xml.createTextNode(value.getFieldTypeName()));
 			fieldNode.appendChild(node);
 
 			node = xml.createElement("fieldSize");
-			node.appendChild(xml.createTextNode(Integer.toString(field.getFieldSize())));
+			node.appendChild(xml.createTextNode(Integer.toString(value.getFieldSize())));
 			fieldNode.appendChild(node);
 
 			node = xml.createElement("decimalDigits");
@@ -550,7 +550,7 @@ public class IinqExecute {
 			node.appendChild(xml.createTextNode("0"));
 			fieldNode.appendChild(node);
 
-			// Add field to table
+			// Add value to table
 			tableNode.appendChild(fieldNode);
 
 			position++;
@@ -827,63 +827,20 @@ public class IinqExecute {
 
 		String contents = "";
 		String line;
-		IinqInsertFields insert;
 		int count = 0;
 
 		while (null != (line = ex_file.readLine())) {
 			if ((line.toUpperCase()).contains("INSERT") && !line.contains("/*") && !line.contains("//")) {
 				contents += "/* " + line + " */\n";
 
-				boolean prep = true;
 				int index = line.indexOf("SQL_prepare");
-				if (index == -1) {
-					index = line.indexOf("SQL_execute");
-					prep = false;
+				if (index != -1) {
+					contents += line.substring(0,index) + iinqDatabase.getInsert(count).getFunctionCall();
+				} else if (line.contains("SQL_execute")) {
+					contents += "\t" + CommonCode.wrapInExecuteFunction(iinqDatabase.getInsert(count).getFunctionCall());
 				}
-				String sql = line.substring(index);
-				sql = sql.substring(sql.toUpperCase().indexOf("INSERT"), sql.indexOf(";")).trim();
-				StringFunc.verifyTerminator(sql);
-				String temp = line.substring(0, index);
 
-				insert = iinqDatabase.getInsert(count).getInsertParameters().insertFields;
-
-				if (insert != null) {
-					insert.sortFields();
-					contents += "\t" + temp;
-					if (!prep)
-						contents += "execute(";
-					contents += "insert_" + iinqDatabase.getInsert(count).getInsertParameters().table_id + "(";
-					int field_count = 1;
-					for (int j = 0; j < insert.fields.size(); j++) {
-						if (insert.fields.get(j) != null) {
-							if (j > 0) {
-								contents += ", ";
-							}
-							while (insert.fields.get(j).field_num != field_count) {
-								contents += "NULL_FIELD, ";
-								field_count++;
-							}
-
-							if (prep && insert.fields.get(j).field.equals("(?)") || insert.fields.get(j).field.equals("?"))
-								contents += "PREPARED_FIELD";
-							else {
-								if (insert.fields.get(j).field_type.equals("char")) {
-									contents += insert.fields.get(j).field.replace("\'", "\"");
-								} else {
-									contents += insert.fields.get(j).field;
-								}
-							}
-						}
-						field_count++;
-					}
-					while (field_count <= insert.total_fields) {
-						contents += ", NULL_FIELD";
-						field_count++;
-					}
-				}
-				if (!prep)
-					contents += ")";
-				contents += ");\n";
+				contents += ";\n";
 				count++;
 			} else {
 				contents += line + '\n';
@@ -1328,7 +1285,7 @@ public class IinqExecute {
 		sql = StringFunc.verifyTerminator(sql);    // Make sure SQL is terminated by semi-colon properly
 
 		// Use UnityJDBC to parse the insert statement (metadata is required to verify fields)
-		PreparedInsertFunction insert =  iinqDatabase.executeInsertStatement(sql);
+		IinqInsert insert =  iinqDatabase.executeInsertStatement(sql);
 
 		/* Create print table method if it doesn't already exist */
 /*		if (!tables.get(table_name).isPrintFunctionWritten()) {
@@ -1355,25 +1312,25 @@ public class IinqExecute {
 				int table_id;
 				String key_type;
 
-				for (int i = 0; i < inserts.size(); i++) {
+				/*for (int i = 0; i < inserts.size(); i++) {
 					table_id = inserts.get(i).table_id;
 					written = iinqDatabase.getIinqTableFromId(table_id).isInsertWritten();
 
 					if (!written) {
 						iinqDatabase.getIinqTableFromId(table_id).setInsertWritten(true);
 						table_id = inserts.get(i).table_id;
-						key_type = inserts.get(i).key_type;
+						//key_type = inserts.get(i).key_type;
 
 						contents += "\tif (*(int *) p.table == " + table_id + ") {\n";
 
-						if (Integer.parseInt(key_type) == Types.INTEGER) {
+						*//*if (Integer.parseInt(key_type) == Types.INTEGER) {
 							contents += "\t\tiinq_execute(" + table_id + ", IONIZE(*(int *) p.key, int), p.value, iinq_insert_t);\n";
 						} else {
 							contents += "\t\tiinq_execute(" + table_id + ", p.key, p.value, iinq_insert_t);\n";
-						}
+						}*//*
 						contents += "\t}\n";
 					}
-				}
+				}*/
 			}
 			contents += line + '\n';
 		}
@@ -1405,13 +1362,13 @@ public class IinqExecute {
 	calculate_functions(BufferedWriter out) throws IOException {
 		if (iinqDatabase.getTableCount() > 0) {
 			/*String field_size_function = "";
-			out.write("size_t calculateOffset(const unsigned char *table, int field_num) {\n\n");
-			field_size_function += "iinq_field_t getFieldType(const unsigned char *table, int field_num) {\n\n";
+			out.write("size_t calculateOffset(const unsigned char *table, int fieldNum) {\n\n");
+			field_size_function += "iinq_field_t getFieldType(const unsigned char *table, int fieldNum) {\n\n";
 
-			String offset_header = "size_t calculateOffset(const unsigned char *table, int field_num);\n";
+			String offset_header = "size_t calculateOffset(const unsigned char *table, int fieldNum);\n";
 			function_headers.add(offset_header);
 
-			String size_header = "iinq_field_t getFieldType(const unsigned char *table, int field_num);\n";
+			String size_header = "iinq_field_t getFieldType(const unsigned char *table, int fieldNum);\n";
 			function_headers.add(size_header);
 
 			out.write("\tswitch (*(int *) table) {\n");
@@ -1423,7 +1380,7 @@ public class IinqExecute {
 				int num_fields = table.getNumFields();
 
 				out.write("\t\tcase " + table_id + " : {\n");
-				out.write("\t\t\tswitch (field_num) {\n");
+				out.write("\t\t\tswitch (fieldNum) {\n");
 
 				int int_count;
 				boolean char_present = false;

@@ -1,5 +1,6 @@
 package iinq.functions.SelectFunctions;
 
+import iinq.functions.CommonCode;
 import iinq.functions.IinqFunction;
 
 public class GetIntFunction extends IinqFunction {
@@ -12,15 +13,11 @@ public class GetIntFunction extends IinqFunction {
 						"\tion_dictionary_t           dictionary;\n" +
 						"\tion_dictionary_handler_t   handler;\n\n" +
 						"\tdictionary.handler = &handler;\n\n" +
-						"\terror              = iinq_open_source(\"SEL.inq\", &dictionary, &handler);\n\n" +
-						"\tif (err_ok != error) {\n" +
-						"\t\tprintf(\"Error occurred. Error code: %i"+"\\"+"n"+"\", error);\n" +
-						"\t}\n\n" +
+						"\tselect->status.error              = iinq_open_source(255, &dictionary, &handler);\n\n" +
+						CommonCode.errorCheckWithReturn("select->status.error", CommonCode.ReturnType.EMPTY_NUMERIC) +
 						"\tdictionary_get(&dictionary, select->count, select->value);\n\n" +
-						"\terror = ion_close_dictionary(&dictionary);\n\n" +
-						"\tif (err_ok != error) {\n" +
-						"\t\tprintf(\"Error occurred. Error code: %i"+"\\"+"n"+"\", error);\n" +
-						"\t}\n\n" +
+						"\tselect->status.error = ion_close_dictionary(&dictionary);\n\n" +
+						CommonCode.errorCheckWithReturn("select->status.error", CommonCode.ReturnType.EMPTY_NUMERIC) +
 						"\tfor (i = 0; i < *(int *) select->num_fields; i++) {\n" +
 						"\t\tint field = *(int *) (select->fields + sizeof(int)*i);\n\n" +
 						"\t\tif (getFieldType(select->table_id, field) == iinq_int) {\n" +

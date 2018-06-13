@@ -1,7 +1,7 @@
 /******************************************************************************/
 /**
  @file		    IinqInsert.java
- @author		Dana Klamut
+ @author		Dana Klamut, Kai Neubauer
  @copyright	    Copyright 2018
  The University of British Columbia,
  IonDB Project Contributors (see AUTHORS.md)
@@ -15,7 +15,7 @@
  this list of conditions and the following disclaimer in the documentation
  and/or other materials provided with the distribution.
 
- @par 3.Neither the table_id of the copyright holder nor the names of its contributors
+ @par 3.Neither the name of the copyright holder nor the names of its contributors
  may be used to endorse or promote products derived from this software without
  specific prior written permission.
 
@@ -35,39 +35,94 @@
 
 package iinq;
 
+import iinq.functions.PreparedInsertFunction;
+import iinq.metadata.IinqTable;
+import unity.annotation.SourceField;
+import unity.query.GQFieldRef;
+import unity.query.LQExprNode;
+import unity.query.LQInsertNode;
+
 import java.util.ArrayList;
+import java.util.HashMap;
 
 public class IinqInsert {
-    public int table_id;
-    public String[] fields;
-    public IinqInsertFields insertFields;
-    public ArrayList<Integer> int_fields;
-    public ArrayList<Integer> string_fields;
-    public int count;
-    public String sql;
-    public boolean[] prep_fields;
-    public String key_type;
-    public String key_field_num;
+    private PreparedInsertFunction insertFunction;
+    private int tableId;
+    private String functionArguments;
+    private boolean duplicate;
+    private boolean preparedStatement;
 
     public IinqInsert(
-        int table_id,
-        String[] field_array,
-        IinqInsertFields insert_fields,
-        ArrayList<Integer> int_cols,
-        ArrayList<Integer> string_cols,
-        int num_count,
-        boolean[] prep_fields_array,
-        String table_key_type,
-        String table_key_field_num
+            IinqTable table,
+            LQInsertNode insertNode,
+            PreparedInsertFunction insertFunction,
+            boolean preparedStatement,
+            boolean isDuplicate
     ) {
-        this.table_id = table_id;
-        fields = field_array;
-        insertFields = insert_fields;
-        int_fields = int_cols;
-        string_fields = string_cols;
-        count = num_count;
-        prep_fields = prep_fields_array;
-        key_type = table_key_type;
-        key_field_num = table_key_field_num;
+        this.tableId = table.getTableId();
+        this.insertFunction = insertFunction;
+        functionArguments = createFunctionArguments(table, insertNode, preparedStatement);
+        this.preparedStatement = preparedStatement;
+        duplicate = isDuplicate;
+    }
+
+    public boolean isDuplicate() {
+        return duplicate;
+    }
+
+    public int getTableId() {
+        return tableId;
+    }
+
+    public PreparedInsertFunction getInsertFunction() {
+        return insertFunction;
+    }
+
+    public String getFunctionArguments() {
+        return functionArguments;
+    }
+
+    public String getFunctionCall() {
+        return insertFunction.getName() + "(" + getFunctionArguments() + ")";
+    }
+
+    private String createFunctionArguments(IinqTable table, LQInsertNode insertNode, boolean preparedStatement) {
+        HashMap<Integer, String> map = new HashMap<>();
+        ArrayList<GQFieldRef> insertFields = insertNode.getInsertFields();
+        ArrayList<Object> insertValues = insertNode.getInsertValues();
+        for (int i = 0, n = insertFields.size(); i < n; i ++) {
+            InsertFieldElement arg = getArgument(insertFields.get(i), insertValues.get(i));
+            if (preparedStatement && arg.value.equals("?"))
+                arg.value = table.getNullValue(arg.fieldNum);
+            map.put(arg.fieldNum, arg.value);
+        }
+        StringBuilder arguments = new StringBuilder();
+        for (int i = 1, n = table.getNumFields(); i <= n; i++) {
+            if (map.containsKey(i)) {
+                arguments.append(map.get(i));
+            } else {
+                arguments.append(table.getNullValue(i));
+            }
+            arguments.append(", ");
+        }
+        arguments.setLength(arguments.length()-2);
+        return arguments.toString();
+    }
+
+    private InsertFieldElement getArgument(GQFieldRef insertField, Object insertValue) {
+        SourceField field = insertField.getTable().getTable().getField(insertField.getName());
+        int pos = field.getOrdinalPosition();
+        // TODO: can this be something other than an expression node?
+        Object content = ((LQExprNode) insertValue).getContent();
+        // strings need to be surrounded with quotes
+        if (content instanceof String) {
+            return new InsertFieldElement(pos, ((String) content).replace("\'", "\""));
+        } else {
+            return new InsertFieldElement(pos, content.toString());
+        }
+    }
+
+    public boolean isPreparedStatement() {
+        return preparedStatement;
     }
 }

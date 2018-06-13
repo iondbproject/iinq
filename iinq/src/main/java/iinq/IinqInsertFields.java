@@ -15,7 +15,7 @@
  this list of conditions and the following disclaimer in the documentation
  and/or other materials provided with the distribution.
 
- @par 3.Neither the table_id of the copyright holder nor the names of its contributors
+ @par 3.Neither the name of the copyright holder nor the names of its contributors
  may be used to endorse or promote products derived from this software without
  specific prior written permission.
 
@@ -39,29 +39,27 @@ import java.util.ArrayList;
 import java.util.Collections;
 
 public class IinqInsertFields {
+	public ArrayList<FieldNode> fields;
+	public int total_fields;
 	class FieldNode implements Comparable<FieldNode> {
-		int field_num;
-		String field;
-		String field_type;
+		int fieldNum;
+		String value;
 
 		@Override
 		public int compareTo(FieldNode o) {
-			return this.field_num-o.field_num;
+			return this.fieldNum -o.fieldNum;
 		}
 
-		FieldNode(String field, String field_type, int field_num) {
-			this.field_num = field_num;
-			this.field = field;
-			this.field_type = field_type;
+		FieldNode(int fieldNum, String value) {
+			this.fieldNum = fieldNum;
+			this.value = value;
 		}
 	}
-	public ArrayList<FieldNode> fields;
-    public int total_fields;
 
-    public IinqInsertFields(ArrayList<String> vals, ArrayList<String> types, int[] field_nums, int total_fields) {
+    public IinqInsertFields(ArrayList<String> vals, int[] field_nums, int total_fields) {
         fields = new ArrayList<>();
         for (int i = 0; i < field_nums.length; i++) {
-        	fields.add(new FieldNode(vals.get(i), types.get(i), field_nums[i]));
+        	fields.add(new FieldNode(field_nums[i], vals.get(i)));
 		}
 		this.total_fields = total_fields;
     }

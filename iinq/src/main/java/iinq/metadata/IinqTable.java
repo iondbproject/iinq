@@ -35,6 +35,20 @@ public class IinqTable extends AnnotatedSourceTable {
 
 	}
 
+	public static String getNullValue(AnnotatedSourceTable table, int fieldNum) {
+		switch (table.getSourceFieldsByPosition().get(fieldNum-1).getDataType()) {
+			case Types.CHAR:
+			case Types.VARCHAR:
+				return "\"\"";
+			default:
+				return "NULL";
+		}
+	}
+
+	public String getNullValue(int fieldNum) {
+		return getNullValue(this, fieldNum);
+	}
+
 	public boolean isInsertWritten() {
 		return insertWritten;
 	}

@@ -8,6 +8,7 @@ import iinq.metadata.IinqTable;
 import iinq.query.IinqBuilder;
 import iinq.query.IinqQuery;
 import unity.annotation.AnnotatedSourceDatabase;
+import unity.jdbc.UnityPreparedStatement;
 import unity.parser.GlobalParser;
 import unity.query.*;
 import unity.util.StringFunc;
@@ -187,7 +188,7 @@ public class IinqExecutor {
 				update_values, update_field_types, implicit_count);
 	}
 
-	public PreparedInsertFunction executeInsertStatement(String sql) throws SQLException, InvalidArgumentException {
+	public IinqInsert executeInsertStatement(String sql) throws SQLException, InvalidArgumentException {
 		GlobalParser kingParser;
 		GlobalUpdate gu;
 		if (null != iinqDatabase.getSchema()) {
@@ -197,9 +198,17 @@ public class IinqExecutor {
 			throw new SQLException("Metadata is required for inserts.");
 		}
 
-		PreparedInsertFunction insertFunction = new PreparedInsertFunction(gu, iinqDatabase, exFunc);
+		LQInsertNode insertNode = (LQInsertNode) gu.getPlan().getLogicalQueryTree().getRoot();
+		IinqTable table = iinqDatabase.getIinqTable(insertNode.getSourceTable().getTable().getTableName());
+		UnityPreparedStatement stmt = iinqDatabase.prepareUnityStatement(sql);
+		boolean prep = (stmt.getParameters().size() > 0);
+		stmt.close();
 
-		return insertFunction;
+		if (iinqDatabase.insertFunctionExists(table.getTableId())) {
+			return new IinqInsert(table, insertNode, iinqDatabase.getInsertFunction(table.getTableId()), prep, true);
+		} else {
+			return new IinqInsert(table, insertNode, new PreparedInsertFunction(gu, iinqDatabase), prep, false);
+		}
 	}
 
 	public String generateExecuteFunction() {
@@ -357,18 +366,18 @@ public class IinqExecutor {
 			i = field_list.indexOf(",", i + 1);
 		}
 
-		ArrayList<Integer> where_field = new ArrayList<>(); *//* Field value that is being used to update a field. *//*
-		ArrayList<String> where_value = new ArrayList<>(); *//* Value that is being added to another field value to update a field. *//*
+		ArrayList<Integer> where_field = new ArrayList<>(); *//* Field value that is being used to update a value. *//*
+		ArrayList<String> where_value = new ArrayList<>(); *//* Value that is being added to another value value to update a value. *//*
 		ArrayList<String> where_operator = new ArrayList<>(); *//* Whether values are being updated through addition or subtraction. *//*
 		ArrayList<String> iinq_field_types = new ArrayList<>();
 		ArrayList<String> where_field_type = new ArrayList<>();
 
 		int len = 0;
-		String field = "";
+		String value = "";
 
 		for (int j = 0; j < num_conditions; j++) {
 
-			*//* Set up field, operator, and condition for each WHERE clause *//*
+			*//* Set up value, operator, and condition for each WHERE clause *//*
 			if (conditions[j].contains("!=")) {
 				pos = conditions[j].indexOf("!=");
 				len = 2;
@@ -395,7 +404,7 @@ public class IinqExecutor {
 				where_operator.add("iinq_greater_than");
 			}
 
-			field = conditions[j].substring(0, pos).trim();
+			value = conditions[j].substring(0, pos).trim();
 			where_value.add(conditions[j].substring(pos + len).trim());
 		}
 
@@ -409,7 +418,7 @@ public class IinqExecutor {
 				iinq_field_types.add("iinq_int");
 			}
 
-			if (field.equals(table.getFieldName(n))) {
+			if (value.equals(table.getFieldName(n))) {
 				where_field.add(n + 1);
 				where_field_type.add(field_type);
 			}

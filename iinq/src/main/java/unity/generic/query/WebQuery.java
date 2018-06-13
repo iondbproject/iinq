@@ -164,7 +164,7 @@ public class WebQuery
 	{	
 	    // This code is connection specific?
 	    /*
-	    String tableName = this.relation.getProperty("table_id");
+	    String tableName = this.relation.getProperty("name");
 	    	    	   
 	    ArrayList<Tuple> results = ServerConnection.getRecords(this.url, tableName, this.parameters, this.tableRelation, this.prop);	   
 	    

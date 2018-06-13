@@ -3,7 +3,6 @@ package iinq.metadata;
 import com.sun.javaws.exceptions.InvalidArgumentException;
 import iinq.*;
 import iinq.functions.*;
-import iinq.functions.SelectFunctions.SelectFunction;
 import iinq.functions.SelectFunctions.SelectFunctions;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
@@ -37,7 +36,8 @@ public class IinqDatabase {
 	protected boolean dropWritten = false;
 	protected boolean selectWritten = false;
 	protected boolean preparedStatements = false;
-	protected ArrayList<PreparedInsertFunction> inserts = new ArrayList<>();
+	protected HashMap<Integer, PreparedInsertFunction> insertFunctions = new HashMap<>();
+	protected ArrayList<IinqInsert> inserts = new ArrayList<>();
 	protected ArrayList<IinqUpdate> updates = new ArrayList<>();
 	protected ArrayList<delete_fields> deletes = new ArrayList<>();
 	protected ArrayList<IinqSelect> selects = new ArrayList<>();
@@ -61,6 +61,14 @@ public class IinqDatabase {
 		this.schema.addDatabase(db);
 		this.unityConnection = new UnityConnection(this.schema, new Properties());
 		this.executor = new IinqExecutor(this);
+	}
+
+	public boolean insertFunctionExists(int tableId) {
+		return insertFunctions.containsKey(tableId);
+	}
+
+	public PreparedInsertFunction getInsertFunction(int tableId) {
+		return insertFunctions.get(tableId);
 	}
 
 	public void generateCalculatedDefinitions() {
@@ -118,16 +126,19 @@ public class IinqDatabase {
 		return this.schema.getDB(this.databaseName);
 	}
 
-	public PreparedInsertFunction executeInsertStatement(String sql) throws SQLException, InvalidArgumentException {
-		PreparedInsertFunction insert =  executor.executeInsertStatement(sql);
+	public IinqInsert executeInsertStatement(String sql) throws SQLException, InvalidArgumentException {
+		IinqInsert insert =  executor.executeInsertStatement(sql);
 		inserts.add(insert);
-		if (!insert.isDuplicate())
-			functions.put(insert.getName(), insert);
+		if (!insert.isDuplicate()) {
+			insertFunctions.put(insert.getTableId(), insert.getInsertFunction());
+			functions.put(insert.getInsertFunction().getName(), insert.getInsertFunction());
+		}
 		if (!containsPreparedStatements() && insert.isPreparedStatement()) {
 			preparedStatements = true;
 			IinqFunction func = new SetPreparedParametersFunction();
 			functions.put(func.getName(), func);
 		}
+
 		return insert;
 	}
 
@@ -160,7 +171,7 @@ public class IinqDatabase {
 		}
 	}
 
-	public PreparedInsertFunction getInsert(int i) {
+	public IinqInsert getInsert(int i) {
 		return inserts.get(i);
 	}
 
@@ -243,17 +254,6 @@ public class IinqDatabase {
 		if (unityConnection != null) {
 			unityConnection.close();
 		}
-	}
-
-	public String getInsertHeaders() throws IOException {
-		StringBuilder headers = new StringBuilder();
-		for (int i = 0, n = getNumInserts(); i < n; i++) {
-			PreparedInsertFunction insertFunction = getInsert(i);
-			if (!insertFunction.isDuplicate()) {
-				headers.append(getInsert(i).getHeader());
-			}
-		}
-		return headers.toString();
 	}
 
 	public String getExecutionHeader() {

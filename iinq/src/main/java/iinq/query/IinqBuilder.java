@@ -125,12 +125,12 @@ public class IinqBuilder extends QueryBuilder
     			String[] components = StringFunc.divideId(expr);
     			String name = components[0];
     			if (components.length > 1)
-    				name = components[components.length-1];		// Get only field table_id
+    				name = components[components.length-1];		// Get only field name
     			    			
 			    // Create attribute    			
 			    GQFieldRef fref = (GQFieldRef) field.getContent(); 
 			    SourceField sf = fref.getField();
-			    // Remove quotes from table_id
+			    // Remove quotes from name
 			    name = StringFunc.undelimitName(name, '"');
 			    attr[pos++] = new Attribute(name, sf.getDataType(), sf.getColumnSize(), fref);
     			    			
@@ -146,7 +146,7 @@ public class IinqBuilder extends QueryBuilder
 		// Otherwise attribute array is built while traversing through the expression list.
 		Relation r = new Relation(attr);
         query.setTableRelation(r);
-        r.setProperty("table_id", this.table.getTableName()); //$NON-NLS-1$
+        r.setProperty("name", this.table.getTableName()); //$NON-NLS-1$
         query.setRelation(r);
 	    
         // Set output relation of input to projection node (most likely table)
@@ -469,7 +469,7 @@ public class IinqBuilder extends QueryBuilder
             if (orderByExpr.getType() != LQTreeConstants.IDENTIFIER)
                 throw new SQLException("ORDER BY only supports sorting on one field with no expressions.");
             
-            // Gets the table_id of the field.
+            // Gets the name of the field.
             String fieldName = getFieldName(orderByExpr.getContent());     
             fieldName = StringFunc.undelimitName(fieldName, '"');
             String sqlDirection = node.getDirection(i);

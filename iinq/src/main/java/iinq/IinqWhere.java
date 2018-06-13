@@ -12,8 +12,8 @@ import static iinq.IinqExecute.ion_get_value_size;
 import static iinq.functions.SchemaKeyword.*;
 
 public class IinqWhere {
-	private String[] where_field_names; 		/* Field value that is being used to update a field. */
-	private String[] where_values; 			/* Value that is being added to another field value to update a field. */
+	private String[] where_field_names; 		/* Field value that is being used to update a value. */
+	private String[] where_values; 			/* Value that is being added to another value value to update a value. */
 	private String[] where_operators; 		/* Whether values are being updated through addition or subtraction. */
 	private String[] iinq_field_types;
 	private String[] where_field_types;
@@ -70,7 +70,7 @@ public class IinqWhere {
 		this.field_sizes		= new String[num_fields*num_conditions];
 		for (int i = 0; i < num_conditions; i++) {
 			int pos = -1, len = -1;
-			/* Set up field, operator, and condition for each WHERE clause */
+			/* Set up value, operator, and condition for each WHERE clause */
 			if (conditionFields[i].contains("!=")) {
 				pos = conditionFields[i].indexOf("!=");
 				len = 2;

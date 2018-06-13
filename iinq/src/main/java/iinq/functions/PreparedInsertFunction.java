@@ -24,43 +24,15 @@ public class PreparedInsertFunction extends IinqFunction {
 	private static boolean setParamsWritten = false;
 	private GlobalUpdate globalUpdate;
 	private IinqDatabase iinqDatabase;
-	private boolean duplicate;
 	private boolean preparedStatement;
-	private IinqInsert insertParameters;
 
-	public PreparedInsertFunction(GlobalUpdate globalUpdate, IinqDatabase iinqDatabase, ExecuteFunction executeFunction) throws SQLException, InvalidArgumentException {
+	public PreparedInsertFunction(GlobalUpdate globalUpdate, IinqDatabase iinqDatabase) throws SQLException, InvalidArgumentException {
 		this.iinqDatabase = iinqDatabase;
 		this.globalUpdate = globalUpdate;
-		processInsert(executeFunction);
+		generatePreparedFunction();
 	}
 
-	public void processInsert(ExecuteFunction executeFunction) throws SQLException, InvalidArgumentException {
-		LQInsertNode insertNode = (LQInsertNode) globalUpdate.getPlan().getLogicalQueryTree().getRoot();
-		IinqTable table = iinqDatabase.getIinqTable(insertNode.getSourceTable().getTable().getTableName());
-
-		setName("insert_"+ table.getTableName());
-		generatePreparedFunction(executeFunction);
-		// See if we need to make a completely new function
-		if (!tablesWritten.contains(table.getTableId())) {
-			duplicate = false;
-			tablesWritten.add(table.getTableId());
-		} else {
-			setHeader(null);
-			setDefinition(null);
-			duplicate = true;
-		}
-
-	}
-
-	public IinqInsert getInsertParameters() {
-		return insertParameters;
-	}
-
-	public boolean isDuplicate() {
-		return duplicate;
-	}
-
-	private void generatePreparedFunction(ExecuteFunction executeFunction) throws InvalidArgumentException, SQLException {
+	private void generatePreparedFunction() throws InvalidArgumentException, SQLException {
 		StringBuilder header = new StringBuilder();
 		StringBuilder definition = new StringBuilder();
 
@@ -91,47 +63,26 @@ public class PreparedInsertFunction extends IinqFunction {
 		String key_type = table.getSchemaValue(PRIMARY_KEY_TYPE);
 		String key_field_num = table.getSchemaValue(PRIMARY_KEY_FIELD);
 
-		ArrayList<Integer> int_fields = new ArrayList<>();
-		ArrayList<Integer> string_fields = new ArrayList<>();
-
-		ArrayList<String> field_values = new ArrayList<>();
-		ArrayList<String> field_types = new ArrayList<>();
-		ArrayList<String> iinq_field_types = new ArrayList<>();
-		ArrayList<String> field_sizes = new ArrayList<>();
-
 		header.append("iinq_prepared_sql ");
 		header.append(getName());
 		header.append("(");
 
+		// TODO: can this be combined with the other for loop?
 		for (int j = 0; j < count; j++) {
 			GQFieldRef fieldNode = (GQFieldRef) insertNode.getInsertFields().get(j);
 			fields[j] = ((LQExprNode) insertNode.getInsertValues().get(j)).getContent().toString();
 
 			field_type = fieldNode.getField().getDataTypeName();
-			field_sizes.add(table.getIonFieldSize(fieldNode.getName()));
-
-			/* To be added in function call */
-			field_values.add(fields[j]);
-
-			if (field_type.contains("CHAR")) {
-				string_fields.add(j + 1);
-			} else {
-				int_fields.add(j + 1);
-			}
 
 			if (j > 0) {
 				header.append(", ");
 			}
 
 			if (field_type.contains("CHAR")) {
-				field_types.add("char");
-				iinq_field_types.add("iinq_null_terminated_string");
 
 				header.append("char *value_" + (j + 1));
 
 			} else {
-				field_types.add("int");
-				iinq_field_types.add("iinq_int");
 
 				header.append("int value_" + (j + 1));
 			}
@@ -162,11 +113,9 @@ public class PreparedInsertFunction extends IinqFunction {
 			field_type = table.getFieldTypeName(i+1);
 			String value_size = table.getSchemaValue(FIELD_SIZE, i+1);
 
+			// TODO: add support for byte arrays
 			if (field_type.contains("CHAR")) {
-				definition.append("\tif (value_" + (i + 1) + " != NULL)\n");
-				definition.append("\t\tmemcpy(data, value_" + (i + 1) + ", " + value_size + ");\n");
-				definition.append("\telse\n");
-				definition.append("\t\t*(char*) data = NULL;\n");
+				definition.append("\tstrcpy(data, value_" + (i + 1) +");\n");
 			} else {
 				definition.append("\t*(int *) data = value_" + (i + 1) + ";\n");
 			}
@@ -179,14 +128,8 @@ public class PreparedInsertFunction extends IinqFunction {
 		definition.append("\n\treturn p;\n");
 		definition.append("}\n\n");
 
-		table_info = new tableInfo(table.getTableId(), count, iinq_field_types, field_sizes);
-
-		String param_header = "";
-
 		setDefinition(definition.toString());
 		setHeader(header.toString());
-
-		insertParameters = new IinqInsert(table.getTableId(), fields, new IinqInsertFields(field_values, field_types, insert_field_nums, table.getNumFields()), int_fields, string_fields, count, prep_fields, key_type, key_field_num);
 	}
 
 	public boolean isPreparedStatement() {
@@ -195,10 +138,5 @@ public class PreparedInsertFunction extends IinqFunction {
 
 	public static boolean isSetParamsWritten() {
 		return setParamsWritten;
-	}
-
-	public SetPreparedParametersFunction createSetParams() {
-		setParamsWritten = true;
-		return new SetPreparedParametersFunction();
 	}
 }

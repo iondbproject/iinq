@@ -14,7 +14,7 @@
 
    <TABLE>
         <semanticTableName>PartDB.CUSTOMER</semanticTableName>
-        <tableId>CUSTOMER</tableId>
+        <tableName>CUSTOMER</tableName>
         <schemaName></schemaName>
         <catalogName></catalogName>
         <comment></comment>
@@ -190,7 +190,7 @@
 
    <TABLE>
         <semanticTableName>PartDB.LINEITEM</semanticTableName>
-        <tableId>LINEITEM</tableId>
+        <tableName>LINEITEM</tableName>
         <schemaName></schemaName>
         <catalogName></catalogName>
         <comment></comment>
@@ -527,7 +527,7 @@
 
    <TABLE>
         <semanticTableName>PartDB.NATION</semanticTableName>
-        <tableId>NATION</tableId>
+        <tableName>NATION</tableName>
         <schemaName></schemaName>
         <catalogName></catalogName>
         <comment></comment>
@@ -639,7 +639,7 @@
 
    <TABLE>
         <semanticTableName>PartDB.ORDERS</semanticTableName>
-        <tableId>ORDERS</tableId>
+        <tableName>ORDERS</tableName>
         <schemaName></schemaName>
         <catalogName></catalogName>
         <comment></comment>
@@ -822,7 +822,7 @@
 
    <TABLE>
         <semanticTableName>PartDB.PART</semanticTableName>
-        <tableId>PART</tableId>
+        <tableName>PART</tableName>
         <schemaName></schemaName>
         <catalogName></catalogName>
         <comment></comment>
@@ -1003,7 +1003,7 @@
 
    <TABLE>
         <semanticTableName>PartDB.PARTSUPP</semanticTableName>
-        <tableId>PARTSUPP</tableId>
+        <tableName>PARTSUPP</tableName>
         <schemaName></schemaName>
         <catalogName></catalogName>
         <comment></comment>
@@ -1152,7 +1152,7 @@
 
    <TABLE>
         <semanticTableName>PartDB.REGION</semanticTableName>
-        <tableId>REGION</tableId>
+        <tableName>REGION</tableName>
         <schemaName></schemaName>
         <catalogName></catalogName>
         <comment></comment>
@@ -1228,7 +1228,7 @@
 
    <TABLE>
         <semanticTableName>PartDB.SUPPLIER</semanticTableName>
-        <tableId>SUPPLIER</tableId>
+        <tableName>SUPPLIER</tableName>
         <schemaName></schemaName>
         <catalogName></catalogName>
         <comment></comment>
