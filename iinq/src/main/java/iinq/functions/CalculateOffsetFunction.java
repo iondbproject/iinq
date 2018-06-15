@@ -18,12 +18,14 @@ public class CalculateOffsetFunction extends IinqFunction implements CalculatedF
 	public void addTable(IinqTable table) {
 		StringBuilder offset = new StringBuilder();
 		StringBuilder total = new StringBuilder();
-		offset.append("\t\tcase " + table.getTableId() + " : {\n");
+		offset.append("\t\tcase " + table.getTableId() + ": {\n");
 		offset.append("\t\t\tswitch (field_num) {\n");
-		for (int i = 1, n = table.getNumFields(); i <= n; i++) {
-			offset.append("\t\t\t\tcase " + i + " :\n");
+		offset.append("\t\t\t\tcase 1:\n");
+		offset.append("\t\t\t\t\treturn 0;\n");
+		for (int i = 2, n = table.getNumFields(); i <= n; i++) {
+			offset.append("\t\t\t\tcase " + i + ":\n");
 			offset.append("\t\t\t\t\treturn ");
-			total.append(table.getIonFieldSize(i));
+			total.append(table.getIonFieldSize(i-1));
 			offset.append(total.toString());
 			offset.append(";\n");
 			total.append(" + ");
