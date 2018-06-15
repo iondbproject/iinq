@@ -3,6 +3,7 @@ package iinq.metadata;
 import com.sun.javaws.exceptions.InvalidArgumentException;
 import iinq.*;
 import iinq.functions.*;
+import iinq.functions.CalculatedFunctions.CalculatedFunctions;
 import iinq.functions.SelectFunctions.SelectFunctions;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;

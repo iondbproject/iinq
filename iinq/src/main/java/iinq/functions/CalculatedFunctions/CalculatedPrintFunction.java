@@ -1,5 +1,6 @@
-package iinq.functions;
+package iinq.functions.CalculatedFunctions;
 
+import iinq.functions.IinqFunction;
 import iinq.metadata.IinqTable;
 
 import java.sql.Types;

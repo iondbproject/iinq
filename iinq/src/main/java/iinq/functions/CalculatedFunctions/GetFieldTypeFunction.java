@@ -1,5 +1,7 @@
-package iinq.functions;
+package iinq.functions.CalculatedFunctions;
 
+import iinq.functions.CalculatedFunctions.CalculatedFunction;
+import iinq.functions.IinqFunction;
 import iinq.metadata.IinqTable;
 
 import java.util.ArrayList;

@@ -1,7 +1,7 @@
 package iinq;
 
 import com.sun.javaws.exceptions.InvalidArgumentException;
-import iinq.functions.ExecuteFunction;
+import iinq.functions.CalculatedFunctions.ExecuteFunction;
 import iinq.functions.PreparedInsertFunction;
 import iinq.metadata.IinqDatabase;
 import iinq.metadata.IinqTable;
