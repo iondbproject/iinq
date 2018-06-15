@@ -44,6 +44,9 @@ cleanup(
 	fremove("1.ffs");
 	fremove("2.ffs");
 	fremove("3.ffs");
+	fremove("4.ffs");
+    fremove("5.ffs");
+    fremove("6.ffs");
 	fremove("0.inq");
 	fremove("1.inq");
 	fremove("2.inq");
@@ -59,47 +62,61 @@ main(
 	/* Clean-up */
 	cleanup();
 
-	/* Test CREATE TABLE statement */
+	/* Test CREATE TABLE statement (table_id = 0)*/
 	SQL_execute("CREATE TABLE Dogs (id INT, type CHAR(20), name VARCHAR(30), age INT, city VARCHAR(30), primary key(id));");
 
 	/* Test INSERT statements */
 	SQL_execute("INSERT INTO Dogs VALUES (10, 'Frenchie', 'Minnie', 1, 'Penticton');");
+	print_table(0);
 	SQL_execute("INSERT INTO Dogs VALUES (40, 'Chihuahua', 'Barky', 7, 'Van');");
+	print_table(0);
 	SQL_execute("INSERT INTO Dogs COLUMNS (id, type, age) VALUES (30, 'Black Lab', 5);");
+	print_table(0);
 	SQL_execute("INSERT INTO Dogs COLUMNS (id, type) VALUES (20, 'Black Lab');");
+	print_table(0);
 	SQL_execute("INSERT INTO Dogs COLUMNS (city, name, id) VALUES ('West Bench', 'Corky', 50);");
+	print_table(0);
 
 	/* Test UPDATE statement */
 	SQL_execute("UPDATE Dogs SET id = id-1, age = age * 10 WHERE name = 'Barky';");
+	print_table(0);
 
 	/* Test DELETE statement */
 	SQL_execute("DELETE FROM Dogs WHERE id < 50 AND age >= 5;");
+	print_table(0);
 
 	/* Test DROP TABLE statement */
 	SQL_execute("DROP TABLE Dogs;");
 
-	/* Create Dogs table for further testing */
-	SQL_execute("CREATE TABLE Dogs (id INT, type CHAR(20), name VARCHAR(30), age INT, city VARCHAR(30), primary key(id));");
+	/* Create Dogs table for further testing (table_id = 1)*/
+	SQL_execute("CREATE TABLE Dogs (id VARCHAR(2), type CHAR(20), name VARCHAR(30), age INT, city VARCHAR(30), primary key(id));");
 
 	/* Test prepared statements */
-	iinq_prepared_sql p1 = SQL_prepare("INSERT INTO Dogs VALUES (10, (?), 'Minnie', (?), 'Penticton');");
+	iinq_prepared_sql p1 = SQL_prepare("INSERT INTO Dogs VALUES ('10', (?), 'Minnie', (?), 'Penticton');");
 	setParam(p1, 2, "Black Lab");
 	setParam(p1, 4, "5");
 	execute(p1);
+	print_table(0);
 
-	/* Test that multiple tables simultaneously will not break functionality */
-	SQL_execute("CREATE TABLE Cats (id VARCHAR(2), name VARCHAR(30), age INT, primary key(id));");
+	/* Test that multiple tables simultaneously will not break functionality (table_id = 2)*/
+	SQL_execute("CREATE TABLE Cats (id INT, name VARCHAR(30), age INT, primary key(id));");
 
-	SQL_execute("INSERT INTO Cats VALUES ('6', 'Buttons', 2);");
-	SQL_execute("INSERT INTO Cats VALUES ('4', 'Mr. Whiskers', 4);");
+	SQL_execute("INSERT INTO Cats VALUES (6, 'Buttons', 2);");
+	print_table(0);
+	SQL_execute("INSERT INTO Cats VALUES (4, 'Mr. Whiskers', 4);");
+	print_table(0);
 
-	iinq_prepared_sql p2 = SQL_prepare("INSERT INTO Cats VALUES ('5', ?, (?));");
+	iinq_prepared_sql p2 = SQL_prepare("INSERT INTO Cats VALUES (5, ?, (?));");
 	setParam(p2, 2, "Minnie");
 	setParam(p2, 3, 6);
 	execute(p2);
+	print_table(0);
 
 	/* Test DELETE with multiple conditions */
 	SQL_execute("DELETE FROM Cats WHERE id >= 5 AND id < 10 AND name != 'Minnie';");
+
+	/* Reinsert rows that were deleted */
+    SQL_execute("INSERT INTO Cats VALUES (6, 'Buttons', 2);");
 
 	/* Test UPDATE with multiple conditions */
 	SQL_execute("UPDATE Cats SET age = age + 90 WHERE id >= 5 AND id < 10 AND name != 'Minnie';");
@@ -116,9 +133,13 @@ main(
 	/* Test query */
 	iinq_result_set rs1 = SQL_select("SELECT id, name FROM Cats WHERE age < 10;");
 
-	printf("sizeof value: %zu\n", (sizeof(int) * 2) + (sizeof(char) * 30));
+    while (next(&rs1)) {
+        printf("ID: %i,", getInt(&rs1, 1));
+        printf(" name: %s\n", getString(&rs1, 1));
+    }
 
 	SQL_execute("DROP TABLE Cats;");
+	SQL_execute("DROP TABLE Dogs;");
 
 	/* Clean-up */
 	cleanup();

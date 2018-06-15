@@ -3,8 +3,8 @@ package iinq.functions;
 public class UpdateFunction extends IinqFunction {
 	public UpdateFunction() {
 		super("update",
-				"void update(iinq_table_id table_id, iinq_print_table_t print_function, ion_key_type_t key_type, size_t key_size, size_t value_size, int num_wheres, int num_update, ...);\n",
-				"void update(iinq_table_id table_id, iinq_print_table_t print_function, ion_key_type_t key_type, size_t key_size, size_t value_size, int num_wheres, int num_update, ...) {\n\n" +
+				"void update(iinq_table_id table_id, ion_key_type_t key_type, size_t key_size, size_t value_size, int num_wheres, int num_update, ...);\n",
+				"void update(iinq_table_id table_id, ion_key_type_t key_type, size_t key_size, size_t value_size, int num_wheres, int num_update, ...) {\n\n" +
 				"\tva_list valist;\n" +
 				"\tva_start(valist, num_update);\n\n" +
 				"\tion_err_t                  error;\n" +
@@ -37,7 +37,7 @@ public class UpdateFunction extends IinqFunction {
 				"\tion_boolean_t condition_satisfied;\n\n" +
 				"\twhile ((status = iinq_next_record(cursor, &ion_record)) == cs_cursor_initialized || status == cs_cursor_active) {\n" +
 				"\t\tcondition_satisfied = where(table_id, &ion_record, num_wheres, &valist);\n\n" +
-				"\t\tif (!condition_satisfied || num_wheres == 0) {\n" +
+				"\t\tif (condition_satisfied) {\n" +
 				"\t\t\terror = dictionary_insert(&dictionary_temp, ion_record.key, ion_record.value).error;\n\n" +
 				"\t\t\tif (err_ok != error) {\n" +
 				"\t\t\t\tprintf(\"Error occurred. Error code: %i" + "\\" + "n" + "\", error);\n\t\t\t}\n" +
@@ -80,15 +80,12 @@ public class UpdateFunction extends IinqFunction {
 				"\t\t\t\tif (getFieldType(table_id, updates[i].update_field) == iinq_int) {\n" +
 				"\t\t\t\t\t*(int *) value = (int) updates[i].field_value;\n\t\t\t\t}\n" +
 				"\t\t\t\telse {\n" +
-		// TODO: why is this line dependent on the previous update?
-				"\t\t\t\t\tmemcpy(value, updates[i].field_value, calculateOffset(table_id, updates[i].update_field) - calculateOffset(table_id, updates[i - 1].update_field));\n\t\t\t\t}\n\t\t\t}\n\t\t}\n\n" +
+				"\t\t\t\t\tmemcpy(value, updates[i].field_value, calculateOffset(table_id, updates[i].update_field) - calculateOffset(table_id, updates[i].update_field - 1));\n\t\t\t\t}\n\t\t\t}\n\t\t}\n\n" +
 				"\t\terror = dictionary_update(&dictionary, ion_record.key, ion_record.value).error;\n\n" +
 				"\t\tif (err_ok != error) {\n" +
 				"\t\t\tprintf(\"Error occurred. Error code: %i" + "\\" + "n" + "\", error);\n" +
 				"\t\t}\n\t}\n\n" +
 				"\tcursor_temp->destroy(&cursor_temp);\n" +
-				"\tif (NULL != print_function)\n" +
-				"\t\tprint_function(&dictionary);\n\n" +
 /*			"\terror = dictionary_delete_dictionary(&dictionary_temp);\n\n" +
 			CommonCode.error_check() +
 			"\terror = ion_close_dictionary(&dictionary);\n\n" +

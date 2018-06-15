@@ -7,8 +7,8 @@ import iinq.functions.IinqFunction;
 public class DeleteFunction extends IinqFunction {
 	public DeleteFunction() {
 		super("delete",
-				"void delete_record(iinq_table_id table_id, iinq_print_table_t print_function, ion_key_type_t key_type, size_t key_size, size_t value_size, int num_fields, ...);\n",
-				"void delete_record(iinq_table_id table_id, iinq_print_table_t print_function, ion_key_type_t key_type, size_t key_size, size_t value_size, int num_fields, ...) {\n\n" +
+				"void delete_record(iinq_table_id table_id, ion_key_type_t key_type, size_t key_size, size_t value_size, int num_fields, ...);\n",
+				"void delete_record(iinq_table_id table_id, ion_key_type_t key_type, size_t key_size, size_t value_size, int num_fields, ...) {\n\n" +
 						"\tva_list valist;\n" +
 						"\tva_start(valist, num_fields);\n\n" +
 						"\tion_err_t                  error;\n" +
@@ -35,7 +35,7 @@ public class DeleteFunction extends IinqFunction {
 						"\tion_boolean_t condition_satisfied;\n\n" +
 						"\twhile ((status = iinq_next_record(cursor, &ion_record)) == cs_cursor_initialized || status == cs_cursor_active) {\n" +
 						"\t\tcondition_satisfied = where(table_id, &ion_record, num_fields, &valist);\n\n" +
-						"\t\tif (!condition_satisfied || num_fields == 0) {\n" +
+						"\t\tif (condition_satisfied) {\n" +
 						"\t\t\terror = dictionary_insert(&dictionary_temp, ion_record.key, IONIZE(0, int)).error;\n\n" +
 						CommonCode.error_check(2) +
 						"\t\t}\n" +
@@ -51,8 +51,6 @@ public class DeleteFunction extends IinqFunction {
 						CommonCode.error_check(1) +
 						"\t}\n\n" +
 						"\tcursor_temp->destroy(&cursor_temp);\n" +
-						"\tif (NULL != print_function)" +
-						"\t\tprint_function(&dictionary);\n\n" +
 						"\terror = ion_close_dictionary(&dictionary);\n\n" +
 						CommonCode.error_check() +
 						"\tiinq_drop(255);\n" +

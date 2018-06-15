@@ -875,8 +875,7 @@ public class IinqExecute {
 				delete = iinqDatabase.getDeletes().get(count);
 
 				if (delete != null) {
-					contents.append("\tdelete_record(" + delete.table_id + ", "
-							+ "print_table_" + delete.table_id + ", " + delete.ion_key + ", "
+					contents.append("\tdelete_record(" + delete.table_id + ", " + delete.ion_key + ", "
 							+ delete.key_size + ", " + delete.value_size + ", " + delete.num_wheres);
 
 					if (delete.num_wheres > 0) {
@@ -926,8 +925,7 @@ public class IinqExecute {
 				int implicit_count = 0;
 
 				if (update != null) {
-					contents.append("\tupdate(" + update.table_id + ", print_table_"
-							+ update.table_id + ", " + update.ion_key + ", "
+					contents.append("\tupdate(" + update.table_id + ", " + update.ion_key + ", "
 							+ update.key_size + ", " + update.value_size + ", " + update.num_wheres + ", "
 							+ update.num_updates);
 
@@ -1446,55 +1444,6 @@ public class IinqExecute {
 		sql = StringFunc.verifyTerminator(sql);
 
 		iinqDatabase.executeUpdateStatement(sql);
-
-		/* Check if that table table_id already has an ID */
-/*		for (int i = 0; i < table_names.size(); i++) {
-			if (table_names.get(i).equalsIgnoreCase(table_name)) {
-				table_id = i;
-				new_table = false;
-				table_found = true;
-				break;
-			}
-		}
-
-		if (!table_found) {
-			table_names.add(table_name);
-			table_id = table_id_count;
-			table_id_count++;
-			new_table = true;
-		}*/
-
-		/* Create print table method if it doesn't already exist */
-/*		if (!tables.get(table_name).isPrintFunctionWritten()) {
-			print_table(out, table_name);
-			tables.get(table_name).setPrintFunctionWritten(true);
-		}*/
-
-/*		if (!update_written) {
-			write_update_method(out);
-		}*/
-
-/*		update_written = true;*/
-
-
-
-
-
-
-
-
-
-
-/*		if (new_table) {
-			tableInfo table_info = new tableInfo(table_id, Integer.parseInt(iinqDatabase.getSchemaValue(table_name, NUMBER_OF_FIELDS)), new ArrayList<String>(Arrays.asList(where.getIinq_field_types())), field_sizes);
-
-			calculateInfo.add(table_info);
-			//tables_count++;
-		}*/
-
-
-
-
 	}
 
 	private static void

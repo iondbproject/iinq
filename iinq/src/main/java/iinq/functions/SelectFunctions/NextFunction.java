@@ -10,7 +10,7 @@ public class NextFunction extends IinqFunction {
 						"\tif (*(int *) select->count < (*(int *) select->num_recs) - 1) {\n" +
 						"\t\t*(int *) select->count = (*(int *) select->count) + 1;\n" +
 						"\t\treturn boolean_true;\n\t}\n\n" +
-						"\tion_err_t error = iinq_drop(\"SEL.inq\");\n\n" +
+						"\tion_err_t error = iinq_drop(255);\n\n" +
 						"\tif (err_ok != error) {\n" +
 						"\t\tprintf(\"Error occurred. Error code: %i"+"\\"+"n"+"\", error);\n" +
 						"\t}\n\n" +

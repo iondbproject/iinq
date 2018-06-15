@@ -2,7 +2,6 @@ package iinq.functions;
 
 import iinq.metadata.IinqTable;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -17,6 +16,8 @@ public class CalculatedFunctions {
 		function = new CalculateOffsetFunction();
 		functions.put(function.getName(), function);
 		function = new ExecuteFunction();
+		functions.put(function.getName(), function);
+		function = new CalculatedPrintFunction();
 		functions.put(function.getName(), function);
 	}
 

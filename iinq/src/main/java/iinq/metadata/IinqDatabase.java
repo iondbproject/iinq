@@ -111,9 +111,6 @@ public class IinqDatabase {
 			functions.putAll(calculatedFunctions.getFunctions());
 		}
 
-		func = new PrintFunction(table);
-		functions.put(func.getName(), func);
-
 		calculatedFunctions.addTable(table);
 		return table;
 	}
