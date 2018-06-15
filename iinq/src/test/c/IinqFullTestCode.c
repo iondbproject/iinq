@@ -92,46 +92,55 @@ main(
 	SQL_execute("CREATE TABLE Dogs (id VARCHAR(2), type CHAR(20), name VARCHAR(30), age INT, city VARCHAR(30), primary key(id));");
 
 	/* Test prepared statements */
-	iinq_prepared_sql p1 = SQL_prepare("INSERT INTO Dogs VALUES ('10', (?), 'Minnie', (?), 'Penticton');");
+	iinq_prepared_sql p1 = SQL_prepare("INSERT INTO Dogs VALUES ('1', (?), 'Minnie', (?), 'Penticton');");
 	setParam(p1, 2, "Black Lab");
-	setParam(p1, 4, "5");
+	setParam(p1, 4, 5);
 	execute(p1);
-	print_table(0);
+	print_table(1);
 
 	/* Test that multiple tables simultaneously will not break functionality (table_id = 2)*/
 	SQL_execute("CREATE TABLE Cats (id INT, name VARCHAR(30), age INT, primary key(id));");
 
 	SQL_execute("INSERT INTO Cats VALUES (6, 'Buttons', 2);");
-	print_table(0);
+	print_table(2);
 	SQL_execute("INSERT INTO Cats VALUES (4, 'Mr. Whiskers', 4);");
-	print_table(0);
+	print_table(2);
 
 	iinq_prepared_sql p2 = SQL_prepare("INSERT INTO Cats VALUES (5, ?, (?));");
 	setParam(p2, 2, "Minnie");
 	setParam(p2, 3, 6);
 	execute(p2);
-	print_table(0);
+	print_table(2);
 
 	/* Test DELETE with multiple conditions */
 	SQL_execute("DELETE FROM Cats WHERE id >= 5 AND id < 10 AND name != 'Minnie';");
+	print_table(2);
 
 	/* Reinsert rows that were deleted */
     SQL_execute("INSERT INTO Cats VALUES (6, 'Buttons', 2);");
+    print_table(2);
 
 	/* Test UPDATE with multiple conditions */
 	SQL_execute("UPDATE Cats SET age = age + 90 WHERE id >= 5 AND id < 10 AND name != 'Minnie';");
+	print_table(2);
 	SQL_execute("UPDATE Cats SET age = 90 WHERE age < 5;");
+	print_table(2);
 
 	/* Test update with implicit fields */
 	SQL_execute("UPDATE Cats SET age = 90, id = id+1, name = 'Chichi' WHERE age < 5;");
+	print_table(2);
 	SQL_execute("UPDATE Cats SET age = 90, id = id+1, name = 'Chichi' WHERE id >= 5 AND id < 10 AND name != 'Minnie';");
+	print_table(2);
 
 	SQL_execute("UPDATE Cats SET age = age + 5 WHERE age > 2;");
+	print_table(2);
 
 	SQL_execute("DELETE FROM Cats WHERE age >= 10;");
+	print_table(2);
 
 	/* Test query */
 	iinq_result_set rs1 = SQL_select("SELECT id, name FROM Cats WHERE age < 10;");
+	print_table(2);
 
     while (next(&rs1)) {
         printf("ID: %i,", getInt(&rs1, 1));

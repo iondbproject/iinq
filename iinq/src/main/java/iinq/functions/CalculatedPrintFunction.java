@@ -94,7 +94,7 @@ public class CalculatedPrintFunction extends IinqFunction implements CalculatedF
 			def.append(String.format("\t\t\tion_record.value = malloc(%s);\n",entry.getValue().valueSize));
 			def.append("\t\t\tbreak;\n");
 		}
-		def.append("\t\t}\n\n" +
+		def.append("\t}\n\n" +
 				"\tunsigned char *value;\n" +
 				"\tswitch (table_id) {\n");
 		for (Map.Entry<Integer, PrintParams> entry : tablePrintParams.entrySet()) {
@@ -102,9 +102,9 @@ public class CalculatedPrintFunction extends IinqFunction implements CalculatedF
 			def.append(entry.getValue().printCode);
 			def.append("\t\t\tbreak;\n");
 		}
-		def.append("\t\t}\n" +
-				"\t}\n" +
-				"\t");
+		def.append("\t}\n" +
+				"}\n" +
+				"\n");
 		setDefinition(def.toString());
 		return def.toString();
 	}
