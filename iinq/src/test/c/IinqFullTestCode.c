@@ -66,32 +66,42 @@ main(
 	SQL_execute("CREATE TABLE Dogs (id INT, type CHAR(20), name VARCHAR(30), age INT, city VARCHAR(30), primary key(id));");
 
 	/* Test INSERT statements */
+	printf("INSERT INTO Dogs VALUES (10, 'Frenchie', 'Minnie', 1, 'Penticton');\n");
 	SQL_execute("INSERT INTO Dogs VALUES (10, 'Frenchie', 'Minnie', 1, 'Penticton');");
 	print_table(0);
+	printf("INSERT INTO Dogs VALUES (40, 'Chihuahua', 'Barky', 7, 'Van');\n");
 	SQL_execute("INSERT INTO Dogs VALUES (40, 'Chihuahua', 'Barky', 7, 'Van');");
 	print_table(0);
+	printf("INSERT INTO Dogs COLUMNS (id, type, age) VALUES (30, 'Black Lab', 5);\n");
 	SQL_execute("INSERT INTO Dogs COLUMNS (id, type, age) VALUES (30, 'Black Lab', 5);");
 	print_table(0);
+	printf("INSERT INTO Dogs COLUMNS (id, type) VALUES (20, 'Black Lab');\n");
 	SQL_execute("INSERT INTO Dogs COLUMNS (id, type) VALUES (20, 'Black Lab');");
 	print_table(0);
+	printf("INSERT INTO Dogs COLUMNS (city, name, id) VALUES ('West Bench', 'Corky', 50);\n");
 	SQL_execute("INSERT INTO Dogs COLUMNS (city, name, id) VALUES ('West Bench', 'Corky', 50);");
 	print_table(0);
 
 	/* Test UPDATE statement */
+	printf("UPDATE Dogs SET id = id-1, age = age * 10 WHERE name = 'Barky';\n");
 	SQL_execute("UPDATE Dogs SET id = id-1, age = age * 10 WHERE name = 'Barky';");
 	print_table(0);
 
 	/* Test DELETE statement */
+	printf("DELETE FROM Dogs WHERE id < 50 AND age >= 5;\n");
 	SQL_execute("DELETE FROM Dogs WHERE id < 50 AND age >= 5;");
 	print_table(0);
 
 	/* Test DROP TABLE statement */
+	printf("DROP TABLE Dogs;\n");
 	SQL_execute("DROP TABLE Dogs;");
 
 	/* Create Dogs table for further testing (table_id = 1)*/
+	printf("CREATE TABLE Dogs (id VARCHAR(2), type CHAR(20), name VARCHAR(30), age INT, city VARCHAR(30), primary key(id));\n");
 	SQL_execute("CREATE TABLE Dogs (id VARCHAR(2), type CHAR(20), name VARCHAR(30), age INT, city VARCHAR(30), primary key(id));");
 
 	/* Test prepared statements */
+	printf("INSERT INTO Dogs VALUES ('1', (?), 'Minnie', (?), 'Penticton');\n\tsetParam(p1, 2, \"Black Lab\");\n\tsetParam(p1, 4, 5);\n");
 	iinq_prepared_sql p1 = SQL_prepare("INSERT INTO Dogs VALUES ('1', (?), 'Minnie', (?), 'Penticton');");
 	setParam(p1, 2, "Black Lab");
 	setParam(p1, 4, 5);
@@ -99,55 +109,69 @@ main(
 	print_table(1);
 
 	/* Test that multiple tables simultaneously will not break functionality (table_id = 2)*/
+	printf("CREATE TABLE Cats (id INT, name VARCHAR(30), age INT, primary key(id));\n");
 	SQL_execute("CREATE TABLE Cats (id INT, name VARCHAR(30), age INT, primary key(id));");
 
+    printf("INSERT INTO Cats VALUES (6, 'Buttons', 2);\n");
 	SQL_execute("INSERT INTO Cats VALUES (6, 'Buttons', 2);");
 	print_table(2);
+	printf("INSERT INTO Cats VALUES (4, 'Mr. Whiskers', 4);\n");
 	SQL_execute("INSERT INTO Cats VALUES (4, 'Mr. Whiskers', 4);");
 	print_table(2);
 
-	iinq_prepared_sql p2 = SQL_prepare("INSERT INTO Cats VALUES (5, ?, (?));");
+    printf("INSERT INTO Cats VALUES (5, ?, (?));\n\tsetParam(p2, 2, \"Minnie\");\n\tsetParam(p2, 3, 6);\n");
+	iinq_prepared_sql p2 = SQL_prepare(""INSERT INTO Cats VALUES (5, ?, (?));"");
 	setParam(p2, 2, "Minnie");
 	setParam(p2, 3, 6);
 	execute(p2);
 	print_table(2);
 
 	/* Test DELETE with multiple conditions */
+	printf("DELETE FROM Cats WHERE id >= 5 AND id < 10 AND name != 'Minnie';\n");
 	SQL_execute("DELETE FROM Cats WHERE id >= 5 AND id < 10 AND name != 'Minnie';");
 	print_table(2);
 
 	/* Reinsert rows that were deleted */
+	printf("INSERT INTO Cats VALUES (6, 'Buttons', 2);\n");
     SQL_execute("INSERT INTO Cats VALUES (6, 'Buttons', 2);");
     print_table(2);
 
 	/* Test UPDATE with multiple conditions */
+	printf("UPDATE Cats SET age = age + 90 WHERE id >= 5 AND id < 10 AND name != 'Minnie';\n");
 	SQL_execute("UPDATE Cats SET age = age + 90 WHERE id >= 5 AND id < 10 AND name != 'Minnie';");
 	print_table(2);
+	printf("UPDATE Cats SET age = 90 WHERE age < 5;\n");
 	SQL_execute("UPDATE Cats SET age = 90 WHERE age < 5;");
 	print_table(2);
 
 	/* Test update with implicit fields */
+	printf("UPDATE Cats SET age = 90, id = id+1, name = 'Chichi' WHERE age < 5;\n");
 	SQL_execute("UPDATE Cats SET age = 90, id = id+1, name = 'Chichi' WHERE age < 5;");
 	print_table(2);
+	printf("UPDATE Cats SET age = 90, id = id+1, name = 'Chichi' WHERE id >= 5 AND id < 10 AND name != 'Minnie';\n");
 	SQL_execute("UPDATE Cats SET age = 90, id = id+1, name = 'Chichi' WHERE id >= 5 AND id < 10 AND name != 'Minnie';");
 	print_table(2);
 
+    printf("UPDATE Cats SET age = age + 5 WHERE age > 2;\n");
 	SQL_execute("UPDATE Cats SET age = age + 5 WHERE age > 2;");
 	print_table(2);
 
+    printf("DELETE FROM Cats WHERE age >= 10;\n");
 	SQL_execute("DELETE FROM Cats WHERE age >= 10;");
 	print_table(2);
 
 	/* Test query */
+	printf("SELECT id, name FROM Cats WHERE age < 10;\n");
 	iinq_result_set rs1 = SQL_select("SELECT id, name FROM Cats WHERE age < 10;");
-	print_table(2);
 
     while (next(&rs1)) {
         printf("ID: %i,", getInt(&rs1, 1));
         printf(" name: %s\n", getString(&rs1, 1));
     }
 
+    printf("DROP TABLE Cats;\n");
 	SQL_execute("DROP TABLE Cats;");
+	printf("DROP TABLE Dogs;\n");
 	SQL_execute("DROP TABLE Dogs;");
 
 	/* Clean-up */

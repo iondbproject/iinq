@@ -22,10 +22,10 @@ public class CalculateOffsetFunction extends IinqFunction implements CalculatedF
 		offset.append("\t\t\tswitch (field_num) {\n");
 		offset.append("\t\t\t\tcase 1:\n");
 		offset.append("\t\t\t\t\treturn 0;\n");
-		for (int i = 2, n = table.getNumFields(); i <= n; i++) {
-			offset.append("\t\t\t\tcase " + i + ":\n");
+		for (int i = 1, n = table.getNumFields(); i <= n; i++) {
+			offset.append("\t\t\t\tcase " + (i+1) + ":\n");
 			offset.append("\t\t\t\t\treturn ");
-			total.append(table.getIonFieldSize(i-1));
+			total.append(table.getIonFieldSize(i));
 			offset.append(total.toString());
 			offset.append(";\n");
 			total.append(" + ");

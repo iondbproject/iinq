@@ -191,35 +191,39 @@ public class IinqExecute {
 			main_setup();
 
 			/* File is read line by line */
-			while (((sql = buff_in.readLine()) != null) && (!sql.contains("return 0;"))) {
+			// TODO: make this more robust
+			while (((sql = buff_in.readLine()) != null) && !sql.contains("return 0;")) {
 				/* Verify file contents are as expected*/
 				System.out.println(sql);
 
-				/* CREATE TABLE statements exists in code that is not a comment */
-				if ((sql.toUpperCase()).contains("CREATE TABLE") && !sql.contains("/*") && !sql.contains("//")) {
-					create_table(sql, buff_out);
-				}
+				if (!sql.contains("printf")&& !sql.contains("/*") && !sql.contains("//")) {
 
-				/* INSERT statements exists in code that is not a comment */
-				else if ((sql.toUpperCase()).contains("INSERT INTO") && !sql.contains("/*") && !sql.contains("//")) {
-					insert(sql, buff_out);
-				}
+					/* CREATE TABLE statements exists in code that is not a comment */
+					if ((sql.toUpperCase()).contains("CREATE TABLE")) {
+						create_table(sql, buff_out);
+					}
 
-				/* UPDATE statements exists in code that is not a comment */
-				else if ((sql.toUpperCase()).contains("UPDATE") && !sql.contains("/*") && !sql.contains("//")) {
-					update(sql, buff_out);
-				}
+					/* INSERT statements exists in code that is not a comment */
+					else if ((sql.toUpperCase()).contains("INSERT INTO")) {
+						insert(sql, buff_out);
+					}
 
-				/* DELETE statements exists in code that is not a comment */
-				else if ((sql.toUpperCase()).contains("DELETE FROM") && !sql.contains("/*") && !sql.contains("//")) {
-					delete(sql, buff_out);
-				}
+					/* UPDATE statements exists in code that is not a comment */
+					else if ((sql.toUpperCase()).contains("UPDATE")) {
+						update(sql, buff_out);
+					}
 
-				/* DROP TABLE statements exists in code that is not a comment */
-				else if ((sql.toUpperCase()).contains("DROP TABLE") && !sql.contains("/*") && !sql.contains("//")) {
-					drop_table(sql, buff_out);
-				} else if ((sql.toUpperCase()).contains("SELECT") && !sql.contains("/*") && !sql.contains("//")) {
-					select(sql, buff_out);
+					/* DELETE statements exists in code that is not a comment */
+					else if ((sql.toUpperCase()).contains("DELETE FROM")) {
+						delete(sql, buff_out);
+					}
+
+					/* DROP TABLE statements exists in code that is not a comment */
+					else if ((sql.toUpperCase()).contains("DROP TABLE")) {
+						drop_table(sql, buff_out);
+					} else if ((sql.toUpperCase()).contains("SELECT")) {
+						select(sql, buff_out);
+					}
 				}
 			}
 
@@ -230,6 +234,7 @@ public class IinqExecute {
 
 			params();
 			write_headers();
+			// TODO: combine into single function
 			create_setup();
 			insert_setup();
 			delete_setup();
@@ -830,7 +835,7 @@ public class IinqExecute {
 		int count = 0;
 
 		while (null != (line = ex_file.readLine())) {
-			if ((line.toUpperCase()).contains("INSERT") && !line.contains("/*") && !line.contains("//")) {
+			if ((line.toUpperCase()).contains("INSERT") && !line.contains("/*") && !line.contains("//") && !line.contains("printf")) {
 				contents += "/* " + line + " */\n";
 
 				int index = line.indexOf("SQL_prepare");
@@ -869,7 +874,7 @@ public class IinqExecute {
 		int count = 0;
 
 		while (null != (line = ex_file.readLine())) {
-			if ((line.toUpperCase()).contains("DELETE") && line.contains("SQL_execute") && !line.contains("/*") && !line.contains("//")) {
+			if ((line.toUpperCase()).contains("DELETE") && line.contains("SQL_execute") && !line.contains("/*") && !line.contains("//") && !line.contains("printf")) {
 				contents.append("/* " + line + " */\n");
 
 				delete = iinqDatabase.getDeletes().get(count);
@@ -918,7 +923,7 @@ public class IinqExecute {
 		int count = 0;
 
 		while (null != (line = ex_file.readLine())) {
-			if ((line.toUpperCase()).contains("UPDATE") && !line.contains("/*") && !line.contains("//")) {
+			if ((line.toUpperCase()).contains("UPDATE") && !line.contains("/*") && !line.contains("//") && !line.contains("printf")) {
 				contents.append("/* " + line + " */\n");
 
 				update = iinqDatabase.getUpdates().get(count);
@@ -946,18 +951,18 @@ public class IinqExecute {
 							contents.append(update.update_fields.get(i) + ", 0, 0, ");
 
 							if (update.update_field_types.get(i) == Types.INTEGER) {
-								contents.append(update.update_values.get(i));
+								contents.append(String.format("IONIZE(%s,int)", update.update_values.get(i)));
 							} else {
-								contents.append("\"" + update.update_values.get(i) + "\"");
+								contents.append(update.update_values.get(i).replace("\'", "\""));
 							}
 						} else {
 							contents.append(update.update_fields.get(i) + ", " + update.implicit_fields.get(implicit_count) + ", "
 									+ update.update_operators.get(implicit_count) + ", ");
 
 							if (update.update_field_types.get(i) == Types.INTEGER) {
-								contents.append(update.update_values.get(i));
+								contents.append(String.format("IONIZE(%s,int)", update.update_values.get(i)));
 							} else {
-								contents.append("\"" + update.update_values.get(i) + "\"");
+								contents.append(update.update_values.get(i).replace("\'", "\""));
 							}
 							implicit_count++;
 						}
@@ -994,7 +999,7 @@ public class IinqExecute {
 		int count = 0;
 
 		while (null != (line = ex_file.readLine())) {
-			if ((line.toUpperCase()).contains("SELECT") && !line.contains("/*") && !line.contains("//")) {
+			if ((line.toUpperCase()).contains("SELECT") && !line.contains("/*") && !line.contains("//") && !line.contains("printf")) {
 				contents.append("/* " + line + " */\n");
 
 				select = iinqDatabase.getSelect(count);
@@ -1054,7 +1059,7 @@ public class IinqExecute {
 		int count = 0;
 
 		while (null != (line = ex_file.readLine())) {
-			if ((line.toUpperCase()).contains("CREATE TABLE") && !line.contains("/*") && !line.contains("//")) {
+			if ((line.toUpperCase()).contains("CREATE TABLE") && !line.contains("/*") && !line.contains("//")&& !line.contains("printf")) {
 				contents += "/* " + line + " */\n";
 
 				create = create_fields.get(count);
@@ -1092,7 +1097,7 @@ public class IinqExecute {
 		int count = 0;
 
 		while (null != (line = ex_file.readLine())) {
-			if ((line.toUpperCase()).contains("DROP TABLE") && !line.contains("/*") && !line.contains("//")) {
+			if ((line.toUpperCase()).contains("DROP TABLE") && !line.contains("/*") && !line.contains("//") && !line.contains("printf")) {
 				contents += "/* " + line + " */\n";
 
 				try {

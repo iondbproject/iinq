@@ -62,25 +62,25 @@ public class UpdateFunction extends IinqFunction {
 				"\t\t\t\tvalue = ion_record.value + calculateOffset(table_id, updates[i].implicit_field);\n\n" +
 				"\t\t\t\tswitch (updates[i].operator) {\n" +
 				"\t\t\t\t\tcase iinq_add :\n" +
-				"\t\t\t\t\t\tnew_value = (NEUTRALIZE(value, int) + (int) updates[i].field_value);\n" +
+				"\t\t\t\t\t\tnew_value = (NEUTRALIZE(value, int) + NEUTRALIZE(updates[i].field_value, int));\n" +
 				"\t\t\t\t\t\tbreak;\n" +
 				"\t\t\t\t\tcase iinq_subtract :\n" +
-				"\t\t\t\t\t\tnew_value = (NEUTRALIZE(value, int) - (int) updates[i].field_value);\n" +
+				"\t\t\t\t\t\tnew_value = (NEUTRALIZE(value, int) - NEUTRALIZE(updates[i].field_value, int));\n" +
 				"\t\t\t\t\t\tbreak;\n" +
 				"\t\t\t\t\tcase iinq_multiply :\n" +
-				"\t\t\t\t\t\tnew_value = (NEUTRALIZE(value, int) * (int) updates[i].field_value);\n" +
+				"\t\t\t\t\t\tnew_value = (NEUTRALIZE(value, int) * NEUTRALIZE(updates[i].field_value, int));\n" +
 				"\t\t\t\t\t\tbreak;\n" +
 				"\t\t\t\t\tcase iinq_divide :\n" +
-				"\t\t\t\t\t\tnew_value = (NEUTRALIZE(value, int) / (int) updates[i].field_value);\n" +
+				"\t\t\t\t\t\tnew_value = (NEUTRALIZE(value, int) / NEUTRALIZE(updates[i].field_value, int));\n" +
 				"\t\t\t\t\t\tbreak;\n\t\t\t\t}\n" +
 				"\t\t\t\tvalue = ion_record.value + calculateOffset(table_id, updates[i].update_field);\n" +
 				"\t\t\t\t*(int *) value = new_value;\n\t\t\t}\n" +
 				"\t\t\telse {\n" +
 				"\t\t\t\tvalue = ion_record.value + calculateOffset(table_id, updates[i].update_field);\n" +
 				"\t\t\t\tif (getFieldType(table_id, updates[i].update_field) == iinq_int) {\n" +
-				"\t\t\t\t\t*(int *) value = (int) updates[i].field_value;\n\t\t\t\t}\n" +
+				"\t\t\t\t\t*(int *) value = NEUTRALIZE(updates[i].field_value, int);\n\t\t\t\t}\n" +
 				"\t\t\t\telse {\n" +
-				"\t\t\t\t\tmemcpy(value, updates[i].field_value, calculateOffset(table_id, updates[i].update_field) - calculateOffset(table_id, updates[i].update_field - 1));\n\t\t\t\t}\n\t\t\t}\n\t\t}\n\n" +
+				"\t\t\t\t\tstrncpy(value, updates[i].field_value, calculateOffset(table_id, updates[i].update_field+1) - calculateOffset(table_id, updates[i].update_field));\n\t\t\t\t}\n\t\t\t}\n\t\t}\n\n" +
 				"\t\terror = dictionary_update(&dictionary, ion_record.key, ion_record.value).error;\n\n" +
 				"\t\tif (err_ok != error) {\n" +
 				"\t\t\tprintf(\"Error occurred. Error code: %i" + "\\" + "n" + "\", error);\n" +
