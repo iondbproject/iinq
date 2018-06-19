@@ -11,7 +11,7 @@ public class CalculateOffsetFunction extends IinqFunction implements CalculatedF
 
 	public CalculateOffsetFunction() {
 		super("calculateOffset",
-		"size_t calculateOffset(iinq_table_id table_id, int field_num);\n",
+		"size_t calculateOffset(iinq_table_id table_id, iinq_field_num_t field_num);\n",
 				null);
 	}
 
@@ -38,7 +38,7 @@ public class CalculateOffsetFunction extends IinqFunction implements CalculatedF
 
 	public String generateDefinition() {
 		StringBuilder def = new StringBuilder();
-		def.append("size_t calculateOffset(iinq_table_id table_id, int field_num) {\n\n");
+		def.append("size_t calculateOffset(iinq_table_id table_id, iinq_field_num_t field_num) {\n\n");
 		def.append("\tswitch (table_id) {\n");
 		Iterator<String> it = tableOffsets.iterator();
 		while (it.hasNext()) {

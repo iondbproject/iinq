@@ -7,19 +7,26 @@ public class NextFunction extends IinqFunction {
 		super("next",
 				"ion_boolean_t next(iinq_result_set *select);\n",
 				"ion_boolean_t next(iinq_result_set *select) {\n" +
-						"\tif (*(int *) select->count < (*(int *) select->num_recs) - 1) {\n" +
-						"\t\t*(int *) select->count = (*(int *) select->count) + 1;\n" +
+						"\tif (select->status.count < select->num_recs-1) {\n" +
+						"\t\tselect->status.count++;\n" +
 						"\t\treturn boolean_true;\n\t}\n\n" +
-						"\tion_err_t error = iinq_drop(255);\n\n" +
-						"\tif (err_ok != error) {\n" +
-						"\t\tprintf(\"Error occurred. Error code: %i"+"\\"+"n"+"\", error);\n" +
-						"\t}\n\n" +
+						"\tselect->status.error = ion_init_master_table();\n" +
+						"\tif (err_ok != select->status.error)\n" +
+						"\t\treturn boolean_false;\n\n" +
+						"\tion_dictionary_t dictionary;\n" +
+						"\tion_dictionary_handler_t handler;\n" +
+						"\tdictionary.handler = &handler;\n" +
+						"\tselect->status.error = ion_open_dictionary(&handler, &dictionary, select->id);\n" +
+						"\tif (err_ok != select->status.error)\n" +
+						"\t\treturn boolean_false;\n\n" +
+						"\tselect->status.error = ion_delete_dictionary(&dictionary, select->id);\n" +
+						"\tif (err_ok != select->status.error)\n" +
+						"\t\treturn boolean_false;\n\n" +
+						"\tselect->status.error = ion_close_master_table();\n" +
+						"\tif (err_ok != select->status.error)\n" +
+						"\t\treturn boolean_false;\n\n" +
 						"\tfree(select->value);\n" +
 						"\tfree(select->fields);\n" +
-						"\tfree(select->count);\n" +
-						"\tfree(select->table_id);\n" +
-						"\tfree(select->num_recs);\n" +
-						"\tfree(select->num_fields);\n" +
 						"\treturn boolean_false;\n}\n\n");
 	}
 }

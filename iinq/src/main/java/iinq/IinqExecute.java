@@ -1012,12 +1012,12 @@ public class IinqExecute {
 						contents.append(", IINQ_CONDITION_LIST(");
 						for (int j = 0; j < select.num_wheres; j++) {
 							contents.append("IINQ_CONDITION(");
-							contents.append(select.where_fields.get(j) + ", " + select.where_operators.get(j) + ", ");
+							contents.append(select.where_fields[j] + ", " + select.where_operators[j] + ", ");
 
-							if (select.where_field_types.get(j).contains("INT")) {
-								contents.append(select.where_values.get(j));
+							if (select.where_field_types[j].equals(String.valueOf(Types.INTEGER))) {
+								contents.append(select.where_values[j]);
 							} else {
-								contents.append("\"" + select.where_values.get(j) + "\"");
+								contents.append("\"" + select.where_values[j] + "\"");
 							}
 							contents.append("), ");
 						}
@@ -1025,11 +1025,13 @@ public class IinqExecute {
 						contents.append(")");
 					}
 
+					contents.append(", IINQ_SELECT_LIST(");
 					for (int i = 0; i < select.num_fields; i++) {
-						contents.append(", " + select.fields.get(i));
+						contents.append(select.fields.get(i) + ", ");
 					}
+					contents.setLength(contents.length()-2);
 
-					contents.append(");\n");
+					contents.append("));\n");
 					count++;
 				}
 			} else {

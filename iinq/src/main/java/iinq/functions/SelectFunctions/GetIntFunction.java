@@ -8,22 +8,26 @@ public class GetIntFunction extends IinqFunction {
 		super("getInt",
 				"int getInt(iinq_result_set *select, int field_num);\n",
 				"int getInt(iinq_result_set *select, int field_num) {\n" +
-						"\tint i, count = 0;\n\n" +
+						"\tiinq_field_num_t i;\n\n" +
 						"\tion_err_t                  error;\n" +
 						"\tion_dictionary_t           dictionary;\n" +
 						"\tion_dictionary_handler_t   handler;\n\n" +
 						"\tdictionary.handler = &handler;\n\n" +
-						"\tselect->status.error              = iinq_open_source(255, &dictionary, &handler);\n\n" +
+						"\tselect->status.error = ion_init_master_table();\n" +
 						CommonCode.errorCheckWithReturn("select->status.error", CommonCode.ReturnType.EMPTY_NUMERIC) +
-						"\tdictionary_get(&dictionary, select->count, select->value);\n\n" +
+						"\tselect->status.error              = ion_open_dictionary(&handler, &dictionary, select->id);\n\n" +
+						CommonCode.errorCheckWithReturn("select->status.error", CommonCode.ReturnType.EMPTY_NUMERIC) +
+						"\tselect->status.error = ion_close_master_table();\n" +
+						"\tdictionary_get(&dictionary, IONIZE(select->status.count,int), select->value);\n\n" +
 						"\tselect->status.error = ion_close_dictionary(&dictionary);\n\n" +
 						CommonCode.errorCheckWithReturn("select->status.error", CommonCode.ReturnType.EMPTY_NUMERIC) +
-						"\tfor (i = 0; i < *(int *) select->num_fields; i++) {\n" +
-						"\t\tint field = *(int *) (select->fields + sizeof(int)*i);\n\n" +
+						"\treturn NEUTRALIZE(select->value + calculateOffset(select->table_id, select->fields[field_num-1]), int);\n}\n\n");
+						/*"\tfor (i = 0; i < select->num_fields; i++) {\n" +
+						"\t\tiinq_field_num_t field = select->fields[i];\n\n" +
 						"\t\tif (getFieldType(select->table_id, field) == iinq_int) {\n" +
 						"\t\t\tcount++;\n\t\t}\n\n" +
 						"\t\tif (count == field_num) {\n" +
-						"\t\t\treturn NEUTRALIZE(select->value + calculateOffset(select->table_id, field-1), int);\n" +
-						"\t\t}\n\t}\n\n\treturn 0;\n}\n\n");
+						"\t\t\treturn NEUTRALIZE(select->value + calculateOffset(select->table_id, field), int);\n" +
+						"\t\t}\n\t}\n\n\treturn 0;\n}\n\n");*/
 	}
 }

@@ -39,4 +39,14 @@ public class TestIinqExecute {
 		IinqExecute.main(null);
 	}
 
+	@Test
+	public void testInsertAndSelectSingleTable() throws IOException {
+		Path sourceFile = Paths.get("src/test/c/IinqInsertAndSelectSingleTableTestCode.c");
+		Path destFile = Paths.get(user_file);
+
+		Files.copy(sourceFile, destFile, REPLACE_EXISTING);
+
+		IinqExecute.main(null);
+	}
+
 }

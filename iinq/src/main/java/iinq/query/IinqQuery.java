@@ -9,12 +9,14 @@ import iinq.query.RequiresSchemaException;
 import unity.annotation.SourceField;
 import unity.annotation.SourceTable;
 import unity.generic.query.WebQuery;
+import unity.query.LQExprNode;
 
 import javax.management.relation.RelationNotFoundException;
 import java.io.*;
 import java.sql.SQLFeatureNotSupportedException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
 
 
 /**
@@ -221,6 +223,19 @@ public class IinqQuery extends WebQuery {
 		// first thing we will need is the table name for the query
 		returnValue.put("table_name", this.parameters.get("source"));
 
+		// TODO: move this to appropriate spot
+		ArrayList<LQExprNode> expList = this.proj.getExpressions();
+		Iterator<LQExprNode> it = expList.iterator();
+		ArrayList<String> fieldList = new ArrayList<>();
+		ArrayList<Integer> fieldListNums = new ArrayList<>();
+		while (it.hasNext()) {
+			LQExprNode expNode = it.next();
+			fieldList.add(expNode.getFieldReference().getName());
+			fieldListNums.add(expNode.getFieldReference().getField().getOrdinalPosition());
+		}
+		this.parameters.put("fieldList", fieldList);
+		this.parameters.put("fieldListNums", fieldListNums);
+
 		// if there is a predicate, create a function definition for it
 		if (this.parameters.containsKey("filter")) {
 			/*try {
@@ -240,7 +255,7 @@ public class IinqQuery extends WebQuery {
 			}
 		}
 
-		// is select all
+/*		// is select all
 		if (isSelectAll()) {
 			if (hasOrderBy()) {
 
@@ -263,8 +278,8 @@ public class IinqQuery extends WebQuery {
 				// Field list will be an iinq_field_list_t array. We use a macro in the C code to improve readibility.
 				StringBuilder fieldList = new StringBuilder("IINQ_FIELD_LIST(");
 				for (int i = 0; i < fields.length; i++) {
-				/* First number is table index (hardcoded as 0 since multiple tables are unsupported)
-				 * Second number is the field number of that table (requires the ordinal positions in the schema to be correct) */
+				*//* First number is table index (hardcoded as 0 since multiple tables are unsupported)
+				 * Second number is the field number of that table (requires the ordinal positions in the schema to be correct) *//*
 					fieldList.append(String.format("{ 0, %d }, ", this.getRelation().getAttributeIndexByName(fields[i])));
 				}
 				// remove the last comma
@@ -274,7 +289,7 @@ public class IinqQuery extends WebQuery {
 				returnValue.put("field_list", fieldList.toString());
 				returnValue.put("select_init", "iinq_query_init_select_field_list_from_table");
 			}
-		}
+		}*/
 
 		return this.queryCode = returnValue;
 	}

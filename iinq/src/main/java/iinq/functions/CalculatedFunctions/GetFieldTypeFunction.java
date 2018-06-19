@@ -13,7 +13,7 @@ public class GetFieldTypeFunction extends IinqFunction implements CalculatedFunc
 	public GetFieldTypeFunction() {
 		super(
 				"getFieldType",
-				"iinq_field_t getFieldType(iinq_table_id table_id, int field_num);\n",
+				"iinq_field_t getFieldType(iinq_table_id table_id, iinq_field_num_t field_num);\n",
 				null
 		);
 	}
@@ -36,7 +36,7 @@ public class GetFieldTypeFunction extends IinqFunction implements CalculatedFunc
 
 	public String generateDefinition() {
 		StringBuilder def = new StringBuilder();
-		def.append("iinq_field_t getFieldType(iinq_table_id table, int field_num) {\n\n");
+		def.append("iinq_field_t getFieldType(iinq_table_id table, iinq_field_num_t field_num) {\n\n");
 		def.append("\tswitch (table) {\n");
 		Iterator<String> it = tableFieldTypes.iterator();
 		while (it.hasNext()) {

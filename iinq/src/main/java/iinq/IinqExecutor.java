@@ -15,6 +15,7 @@ import unity.util.StringFunc;
 
 import javax.management.relation.RelationNotFoundException;
 import java.io.IOException;
+import java.sql.Array;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
@@ -337,117 +338,35 @@ public class IinqExecutor {
 		IinqQuery query = builder.toQuery();
 		HashMap<String, Object> code = query.generateCode();
 		IinqWhere where = null;
-		if (code.containsKey("where")) {
-			where = (IinqWhere) code.get("where");
-		}
-		int num_conditions = where.getNum_conditions();
-		int i = -1;
-		int pos = 0;
+		int num_conditions;
+		where = (IinqWhere) code.get("where");
 
 		IinqTable table = iinqDatabase.getIinqTable(query.getTableName());
 
-		/* Calculate number of WHERE conditions in statement */
-
-		/*String[] conditions = null;
-
-		//conditions = get_fields(where_condition, num_conditions);
-
-		*//* Get fields to select *//*
-		String field_list;
-		field_list = query.getParameter("fields");
-
-		int num_fields = 0;
-		i = 0;
-
-		*//* Calculate number of fields to select in statement *//*
-		while (-1 != i) {
-			num_fields++;
-			i = field_list.indexOf(",", i + 1);
-		}
-
-		ArrayList<Integer> where_field = new ArrayList<>(); *//* Field value that is being used to update a value. *//*
-		ArrayList<String> where_value = new ArrayList<>(); *//* Value that is being added to another value value to update a value. *//*
-		ArrayList<String> where_operator = new ArrayList<>(); *//* Whether values are being updated through addition or subtraction. *//*
-		ArrayList<String> iinq_field_types = new ArrayList<>();
-		ArrayList<String> where_field_type = new ArrayList<>();
-
-		int len = 0;
-		String value = "";
-
-		for (int j = 0; j < num_conditions; j++) {
-
-			*//* Set up value, operator, and condition for each WHERE clause *//*
-			if (conditions[j].contains("!=")) {
-				pos = conditions[j].indexOf("!=");
-				len = 2;
-				where_operator.add("iinq_not_equal");
-			} else if (conditions[j].contains("<=")) {
-				pos = conditions[j].indexOf("<=");
-				len = 2;
-				where_operator.add("iinq_less_than_equal_to");
-			} else if (conditions[j].contains(">=")) {
-				pos = conditions[j].indexOf(">=");
-				len = 2;
-				where_operator.add("iinq_greater_than_equal_to");
-			} else if (conditions[j].contains("=")) {
-				pos = conditions[j].indexOf("=");
-				len = 1;
-				where_operator.add("iinq_equal");
-			} else if (conditions[j].contains("<")) {
-				pos = conditions[j].indexOf("<");
-				len = 1;
-				where_operator.add("iinq_less_than");
-			} else if (conditions[j].contains(">")) {
-				pos = conditions[j].indexOf(">");
-				len = 1;
-				where_operator.add("iinq_greater_than");
-			}
-
-			value = conditions[j].substring(0, pos).trim();
-			where_value.add(conditions[j].substring(pos + len).trim());
-		}
-
-		for (int n = 0; n < table.getNumFields(); n++) {
-
-			String field_type = table.getFieldTypeName(n);
-
-			if (field_type.contains("CHAR")) {
-				iinq_field_types.add("iinq_null_terminated_string");
-			} else {
-				iinq_field_types.add("iinq_int");
-			}
-
-			if (value.equals(table.getFieldName(n))) {
-				where_field.add(n + 1);
-				where_field_type.add(field_type);
-			}
-		}
-*/
 		ArrayList<Integer> select_field_nums = new ArrayList<>();
 		ArrayList<String> field_sizes = new ArrayList<>();
 
-		String[] fields = query.getParameter("fields").split(",");
-		int num_fields = fields.length;
+		ArrayList<String> fields = (ArrayList<String>) query.getParameterObject("fieldList");
+		ArrayList<Integer> fieldNums = (ArrayList<Integer>) query.getParameterObject("fieldListNums");
+		int num_fields = fields.size();
 
 		//fields = get_fields(field_list, num_fields);
 
-		for (int j = 0; j < num_fields; j++) {
+/*		for (int j = 0; j < num_fields; j++) {
 			for (int n = 0; n < table.getNumFields(); n++) {
-				String field_type = table.getFieldName(n+1);
-				field_sizes.add(table.getIonFieldSize(j+1));
+				String field_type = table.getFieldName(n + 1);
+				field_sizes.add(table.getIonFieldSize(j + 1));
 
-				if ((fields[j].trim()).equals(table.getFieldName(n+1))) {
+				if ((fields[j].trim()).equals(table.getFieldName(n + 1))) {
 					select_field_nums.add(n + 1);
 				}
 			}
-		}
+		}*/
 
 		String value_size = table.generateIonValueSize();
 		String key_size = table.generateIonKeySize();
 		String ion_key = table.getIonKeyType();
 
-		IinqSelect select = new IinqSelect(table.getTableName(), table.getTableId(), num_conditions, num_fields, new ArrayList<Integer>(Arrays.asList(where.getWhere_field_nums())), new ArrayList<String>(Arrays.asList(where.getWhere_operators())),
-				new ArrayList<String>(Arrays.asList(where.getWhere_values())), new ArrayList<String>(Arrays.asList(where.getWhere_field_types())), ion_key, key_size, value_size, select_field_nums, null);
-		return select;
+		return new IinqSelect(table.getTableName(), table.getTableId(), num_fields, where, ion_key, key_size, value_size, fieldNums, null);
 	}
 }

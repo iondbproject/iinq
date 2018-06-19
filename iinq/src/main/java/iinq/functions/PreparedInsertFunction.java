@@ -96,8 +96,7 @@ public class PreparedInsertFunction extends IinqFunction {
 		definition.append(" {\n");
 		definition.append("\tiinq_prepared_sql p = {0};\n");
 
-		definition.append("\tp.table = malloc(sizeof(int));\n");
-		definition.append("\t*(int *) p.table = " + table.getTableId() + ";\n");
+		definition.append("\tp.table = " + table.getTableId() + ";\n");
 		definition.append("\tp.value = malloc(" + table.getSchemaValue(VALUE_SIZE) + ");\n");
 		definition.append("\tunsigned char\t*data = p.value;\n");
 		definition.append("\tp.key = malloc(" + table.generateIonKeySize() + ");\n");
