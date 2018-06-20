@@ -3,8 +3,8 @@ package iinq.functions;
 public class UpdateFunction extends IinqFunction {
 	public UpdateFunction() {
 		super("update",
-				"void update(iinq_table_id table_id, ion_key_type_t key_type, size_t key_size, size_t value_size, int num_wheres, int num_update, ...);\n",
-				"void update(iinq_table_id table_id, ion_key_type_t key_type, size_t key_size, size_t value_size, int num_wheres, int num_update, ...) {\n\n" +
+				"void update(iinq_table_id table_id, ion_key_type_t key_type, size_t key_size, size_t project_size, int num_wheres, int num_update, ...);\n",
+				"void update(iinq_table_id table_id, ion_key_type_t key_type, size_t key_size, size_t project_size, int num_wheres, int num_update, ...) {\n\n" +
 				"\tva_list valist;\n" +
 				"\tva_start(valist, num_update);\n\n" +
 				"\tion_err_t                  error;\n" +
@@ -21,9 +21,9 @@ public class UpdateFunction extends IinqFunction {
 				"\tdictionary_find(&dictionary, &predicate, &cursor);\n\n" +
 				"\tion_record_t ion_record;\n" +
 				"\tion_record.key     = malloc(key_size);\n" +
-				"\tion_record.value   = malloc(value_size);\n\n" +
+				"\tion_record.value   = malloc(project_size);\n\n" +
 				"\tion_cursor_status_t status;\n\n" +
-				"\terror = iinq_create_source(255, key_type, (ion_key_size_t) key_size, (ion_value_size_t) value_size);\n\n" +
+				"\terror = iinq_create_source(255, key_type, (ion_key_size_t) key_size, (ion_value_size_t) project_size);\n\n" +
 				"\tif (err_ok != error) {\n" +
 				"\t\tprintf(\"Error occurred. Error code: %i" + "\\" + "n" + "\", error);\n" +
 				"\t}\n\n" +

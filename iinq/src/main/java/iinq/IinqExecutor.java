@@ -184,7 +184,7 @@ public class IinqExecutor {
 
 		// TODO revise IinqUpdate to use IinqWhere object
 		return new IinqUpdate(table.getTableId(), num_conditions, num_fields, new ArrayList<Integer>(Arrays.asList(where.getWhere_field_nums())), new ArrayList<String>(Arrays.asList(where.getWhere_operators())),
-				new ArrayList<String>(Arrays.asList(where.getWhere_values())), new ArrayList<String>(Arrays.asList(where.getWhere_field_types())), key_size, value_size, ion_key, update_field_nums, implicit, implicit_fields, update_operators,
+				new ArrayList<String>(Arrays.asList(where.getWhere_values())), /*new ArrayList<String>(Arrays.asList(where.getWhere_field_types()))*/null, key_size, value_size, ion_key, update_field_nums, implicit, implicit_fields, update_operators,
 				update_values, update_field_types, implicit_count);
 	}
 
@@ -287,7 +287,7 @@ public class IinqExecutor {
 		String ion_key = iinqTable.getSchemaValue(ION_KEY_TYPE);
 
 		// TODO: update delete_fields to take an IinqWhere object as a parameter
-		return new delete_fields(iinqTable.getTableId(), num_conditions, new ArrayList<Integer>(Arrays.asList(iinqWhere.getWhere_field_nums())), new ArrayList<String>(Arrays.asList(iinqWhere.getWhere_operators())), new ArrayList<String>(Arrays.asList(iinqWhere.getWhere_values())), new ArrayList<String>(Arrays.asList(iinqWhere.getWhere_field_types())), key_size, value_size, ion_key);
+		return new delete_fields(iinqTable.getTableId(), num_conditions, new ArrayList<Integer>(Arrays.asList(iinqWhere.getWhere_field_nums())), new ArrayList<String>(Arrays.asList(iinqWhere.getWhere_operators())), new ArrayList<String>(Arrays.asList(iinqWhere.getWhere_values())), /*new ArrayList<String>(Arrays.asList(iinqWhere.getWhere_field_types()))*/null, key_size, value_size, ion_key);
 	}
 
 	public int executeDropTable(String sql) throws SQLException {
@@ -363,10 +363,9 @@ public class IinqExecutor {
 			}
 		}*/
 
-		String value_size = table.generateIonValueSize();
-		String key_size = table.generateIonKeySize();
-		String ion_key = table.getIonKeyType();
+		String project_size = table.generateProjectionSize(fieldNums);
 
-		return new IinqSelect(table.getTableName(), table.getTableId(), num_fields, where, ion_key, key_size, value_size, fieldNums, null);
+
+		return new IinqSelect(table.getTableName(), table.getTableId(), num_fields, where, project_size, fieldNums, null);
 	}
 }

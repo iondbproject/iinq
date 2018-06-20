@@ -286,4 +286,16 @@ public class IinqTable extends AnnotatedSourceTable {
 				return "p.key";
 		}
 	}
+
+	// TODO: change to use multipliers
+	public String generateProjectionSize(ArrayList<Integer> fields) {
+		StringBuilder size = new StringBuilder();
+		Iterator<Integer> it = fields.iterator();
+		while (it.hasNext()) {
+			size.append(getIonFieldSize(it.next()));
+			size.append("+");
+		}
+		size.setLength(size.length()-1);
+		return size.toString();
+	}
 }

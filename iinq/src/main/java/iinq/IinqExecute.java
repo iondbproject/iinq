@@ -266,7 +266,7 @@ public class IinqExecute {
 	}
 
 	private static void write_select_method(BufferedWriter out) throws IOException {
-		out.write("iinq_result_set iinq_select(int id, char *table_id, ion_key_type_t key_type, size_t key_size, size_t value_size, int num_wheres, int num_fields, ...) {\n\n");
+		out.write("iinq_result_set iinq_select(int id, char *table_id, ion_key_type_t key_type, size_t key_size, size_t project_size, int num_wheres, int num_fields, ...) {\n\n");
 		out.write("\tint i;\n");
 		out.write("\tva_list valist, where_list;\n");
 		out.write("\tva_start(valist, num);\n");
@@ -296,7 +296,7 @@ public class IinqExecute {
 
 		out.write("\tion_record_t ion_record;\n");
 		out.write("\tion_record.key     = malloc(key_size);\n");
-		out.write("\tion_record.value   = malloc(value_size);\n\n");
+		out.write("\tion_record.value   = malloc(project_size);\n\n");
 
 		out.write("\tion_cursor_status_t status;\n\n");
 		out.write("\tint count = 0;\n");
@@ -323,7 +323,7 @@ public class IinqExecute {
 		out.write("\tva_end(valist);\n\n");
 		out.write("\tion_dictionary_handler_t   handler_temp;\n");
 		out.write("\tion_dictionary_t           dictionary_temp;\n\n");
-		out.write("\terror = iinq_create_source(\"SEL\", key_type, (ion_key_size_t) key_size, (ion_value_size_t) value_size);\n\n");
+		out.write("\terror = iinq_create_source(\"SEL\", key_type, (ion_key_size_t) key_size, (ion_value_size_t) project_size);\n\n");
 		out.write("\tif (err_ok != error) {\n");
 		out.write("\t\tprintf(\"Error occurred. Error code: %i" + "\\" + "n" + "\", error);\n");
 		out.write("\t}\n\n");
@@ -336,7 +336,7 @@ public class IinqExecute {
 		out.write("\twhile ((status = iinq_next_record(cursor, &ion_record)) == cs_cursor_initialized || status == cs_cursor_active) {\n");
 		out.write("\t\tcondition_satisfied = where(table_id, &ion_record, num_wheres, &where_list);\n\n");
 		out.write("\t\tif (!condition_satisfied || num_wheres == 0) {\n");
-		out.write("\t\t\tunsigned char *fieldlist = malloc(value_size);\n");
+		out.write("\t\t\tunsigned char *fieldlist = malloc(project_size);\n");
 		out.write("\t\t\tunsigned char *data = fieldlist;\n\n");
 
 		out.write("\t\t\tfor (i = 0; i < num_fields; i++) {\n\n");
@@ -367,7 +367,7 @@ public class IinqExecute {
 		out.write("\t*(int *) select.num_recs = count;\n");
 		out.write("\tselect.table_id = malloc(sizeof(int));\n");
 		out.write("\t*(int *) select.table_id = id;\n");
-		out.write("\tselect.value = malloc(value_size);\n");
+		out.write("\tselect.value = malloc(project_size);\n");
 		out.write("\tselect.count = malloc(sizeof(int));\n");
 		out.write("\t*(int *) select.count = -1;\n\n");
 
@@ -440,7 +440,7 @@ public class IinqExecute {
 		out.write("\t\t\treturn NEUTRALIZE(select->value + calculateOffset(select->table_id, value-1), int);\n");
 		out.write("\t\t}\n\t}\n\n\treturn 0;\n}\n\n");
 
-		function_headers.add("iinq_result_set iinq_select(int id, char *table_id, ion_key_type_t key_type, size_t key_size, size_t value_size, int num_wheres, int num_fields, ...);\n");
+		function_headers.add("iinq_result_set iinq_select(int id, char *table_id, ion_key_type_t key_type, size_t key_size, size_t project_size, int num_wheres, int num_fields, ...);\n");
 		function_headers.add("ion_boolean_t next(iinq_result_set *select);\n");
 		function_headers.add("char* getString(iinq_result_set *select, int fieldNum);\n");
 		function_headers.add("int getInt(iinq_result_set *select, int fieldNum);\n");
@@ -1005,11 +1005,13 @@ public class IinqExecute {
 				select = iinqDatabase.getSelect(count);
 
 				if (select != null) {
-					contents.append("\t" + select.return_value + " = iinq_select(" + select.table_id + ", " + select.key_type + ", " + select.key_size + ", "
-							+ select.value_size + ", " + select.num_wheres + ", " + select.num_fields);
+					contents.append("\t" + select.return_value + " = iinq_select(" + select.table_id +  ", "
+							+ select.project_size + ", " + select.num_wheres + ", " + select.num_fields);
 
 					if (select.num_wheres > 0) {
-						contents.append(", IINQ_CONDITION_LIST(");
+						contents.append(", ");
+						contents.append(select.where.generateIinqConditionList());
+/*						contents.append(", IINQ_CONDITION_LIST(");
 						for (int j = 0; j < select.num_wheres; j++) {
 							contents.append("IINQ_CONDITION(");
 							contents.append(select.where_fields[j] + ", " + select.where_operators[j] + ", ");
@@ -1022,7 +1024,7 @@ public class IinqExecute {
 							contents.append("), ");
 						}
 						contents.setLength(contents.length()-2);
-						contents.append(")");
+						contents.append(")");*/
 					}
 
 					contents.append(", IINQ_SELECT_LIST(");

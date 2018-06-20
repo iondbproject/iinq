@@ -102,7 +102,7 @@ main(
     rs1 = SQL_select("SELECT value FROM Table1 WHERE id > 50 AND id < 70;\n");
 
     while (next(rs1)) {
-        printf(" VALUE: %d\n", getInt(rs1, 1));
+        printf("VALUE: %d\n", getInt(rs1, 1));
     }
 
 	SQL_execute("DROP TABLE Table1;");

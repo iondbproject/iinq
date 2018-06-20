@@ -42,35 +42,25 @@ public class IinqSelect {
     public int table_id;
     public int num_wheres;
     public int num_fields;
-    public Integer[] where_fields;
-    public String[] where_operators;
-    public String[] where_values;
-    public String[] where_field_types;
-    public String key_type;
-    public String key_size;
-    public String value_size;
+    public IinqWhere where;
+    public String project_size;
     public ArrayList<Integer> fields;
     public String return_value;
 
-    public IinqSelect(String name, int id, int num_f, IinqWhere where,String type_k, String size_k, String size_v, ArrayList<Integer> field_list,
-                      String val) {
-        table_name = name;
-        table_id = id;
-        num_fields = num_f;
+    public IinqSelect(String table_name, int table_id, int num_fields, IinqWhere where, String project_size, ArrayList<Integer> field_list,
+                      String return_value) {
+        this.table_name = table_name;
+        this.table_id = table_id;
+        this.num_fields = num_fields;
         if (where != null) {
+            this.where = where;
             num_wheres = where.getNum_conditions();
-            where_fields = where.getWhere_field_nums();
-            where_operators = where.getWhere_operators();
-            where_values = where.getWhere_values();
-            where_field_types = where.getWhere_field_types();
         } else {
             num_wheres = 0;
         }
-        key_type = type_k;
-        key_size = size_k;
-        value_size = size_v;
+        this.project_size = project_size;
         fields = field_list;
-        return_value = val;
+        this.return_value = return_value;
     }
 }
 
