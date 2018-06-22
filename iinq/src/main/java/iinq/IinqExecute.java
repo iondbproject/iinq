@@ -122,8 +122,6 @@ public class IinqExecute {
 			String sql;
 			buff_out.write("#include \"iinq_user_functions.h\"\n\n");
 
-			main_setup();
-
 			/* File is read line by line */
 			// TODO: make this more robust
 			while (((sql = buff_in.readLine()) != null) && !sql.contains("return 0;")) {
@@ -168,12 +166,7 @@ public class IinqExecute {
 
 			write_headers();
 			// TODO: combine into single function
-			create_setup();
-			insert_setup();
-			delete_setup();
-			update_setup();
-			select_setup();
-			drop_setup();
+			setup();
 			function_close();
 
 		} catch (Exception e) {
@@ -196,32 +189,126 @@ public class IinqExecute {
 		iinqDatabase.reloadTablesFromXML();
 	}
 
-	private static void
-	main_setup() throws IOException {
-		/* Comment out old IINQ functions */
+	// TODO: move setup code into other iinq functions (to allow iinq to run in a single pass)
+	private static void setup() throws IOException {
 		String path = user_file;
-		BufferedReader file = new BufferedReader(new FileReader(path));
+		BufferedReader inFile = new BufferedReader(new FileReader(path));
 
-		String contents = "";
+		StringBuilder contents = new StringBuilder();
 		String line;
 
-		while (null != (line = file.readLine())) {
-			if ((line.contains("create_table") || line.contains("insert")
-					|| line.contains("update") || line.contains("delete_record") || line.contains("iinq_select")
-					|| line.contains("drop_table")) && !line.contains("/*")) {
-				contents += "/* " + line + " */\n";
+		int insertCount = 0;
+		int deleteCount = 0;
+		int createTableCount = 0;
+		int updateCount = 0;
+		int selectCount = 0;
+		int dropCount = 0;
+
+		while (null != (line = inFile.readLine())) {
+			if (!line.contains("/*") && !line.contains("//") && !line.contains("printf")) {
+				/* Comment out old iinq function call */
+				if ((line.contains("create_table") || line.contains("insert")
+						|| line.contains("update") || line.contains("delete_record") || line.contains("iinq_select")
+						|| line.contains("drop_table"))) {
+					contents.append("/* ").append(line).append(" */\n");
+				} else if (line.contains("SQL_execute") || line.contains("SQL_prepare")) {
+					if ((line.toUpperCase()).contains("INSERT")) {
+						/* Add insert function call */
+						contents.append("/* ").append(line).append(" */\n");
+						int index = line.indexOf("SQL_prepare");
+						if (index != -1) {
+							contents.append(line, 0, index).append(iinqDatabase.getInsert(insertCount).generateFunctionCall());
+						} else {
+							contents.append("\t").append(CommonCode.wrapInExecuteFunction(iinqDatabase.getInsert(insertCount).generateFunctionCall()));
+						}
+
+						contents.append(";\n");
+						insertCount++;
+
+					} else if (line.toUpperCase().contains("DELETE")) {
+						/* Add delete function call */
+						contents.append("/* ").append(line).append(" */\n");
+
+						IinqDelete delete = iinqDatabase.getDelete(deleteCount);
+
+						if (delete != null) {
+							contents.append("\t").append(delete.generateFunctionCall()).append(";\n");
+							deleteCount++;
+						}
+					} else if ((line.toUpperCase()).contains("CREATE TABLE")) {
+						/* Add create table function call */
+						contents.append("/* ").append(line).append(" */\n");
+
+						IinqCreateTable create = iinqDatabase.getCreateTable(createTableCount);
+
+						if (create != null) {
+							contents.append("\t").append(create.generateFunctionCall()).append(";\n");
+						}
+
+						createTableCount++;
+					} else if (line.toUpperCase().contains("UPDATE")) {
+						/* Add update function call */
+						contents.append("/* ").append(line).append(" */\n");
+
+						IinqUpdate update = iinqDatabase.getUpdate(updateCount);
+
+						if (update != null) {
+							contents.append("\t").append(update.generateFunctionCall()).append(";\n");
+						}
+
+						updateCount++;
+					} else if (line.toUpperCase().contains("DROP TABLE")) {
+						/* Add drop table function call */
+						contents.append("/* ").append(line).append(" */\n");
+
+						try {
+							int table_id = iinqDatabase.getDroppedTableIds().get(dropCount);
+							contents.append("\tdrop_table(").append(table_id).append(");\n");
+						} catch (NullPointerException e) {
+							e.printStackTrace();
+						} finally {
+							dropCount++;
+						}
+
+					}
+
+				} else if (line.contains("SQL_select") && line.toUpperCase().contains("SELECT")) {
+					/* Add select function call */
+					contents.append("/* " + line + " */\n");
+
+					IinqSelect select = iinqDatabase.getSelect(selectCount);
+
+					if (select != null) {
+						contents.append(select.return_value).append(" = iinq_select(").append(select.table_id).append(", ")
+								.append(select.project_size).append(", ").append(select.num_wheres).append(", ").append(select.num_fields);
+
+						if (select.num_wheres > 0) {
+							contents.append(", ");
+							contents.append(select.where.generateIinqConditionList());
+						}
+
+						contents.append(", IINQ_SELECT_LIST(");
+						for (int i = 0; i < select.num_fields; i++) {
+							contents.append(select.fields.get(i)).append(", ");
+						}
+						contents.setLength(contents.length() - 2);
+
+						contents.append("));\n");
+					}
+					selectCount++;
+				} else {
+					contents.append(line).append('\n');
+				}
+
 			} else {
-				contents += line + '\n';
+				contents.append(line).append('\n');
 			}
 		}
+		inFile.close();
+		FileOutputStream outFile = new FileOutputStream(new File(path), false);
 
-		File ex_output_file = new File(path);
-		FileOutputStream out = new FileOutputStream(ex_output_file, false);
-
-		out.write(contents.getBytes());
-
-		file.close();
-		out.close();
+		outFile.write(contents.toString().getBytes());
+		outFile.close();
 	}
 
 	private static void
@@ -268,242 +355,6 @@ public class IinqExecute {
 		header.write(contents.getBytes());
 
 		header.close();
-	}
-
-	private static void
-	insert_setup() throws IOException {
-
-		/* Add new functions to be run to executable */
-		String ex_path = user_file;
-		BufferedReader ex_file = new BufferedReader(new FileReader(ex_path));
-
-		String contents = "";
-		String line;
-		int count = 0;
-
-		while (null != (line = ex_file.readLine())) {
-			if ((line.toUpperCase()).contains("INSERT") && !line.contains("/*") && !line.contains("//") && !line.contains("printf")) {
-				contents += "/* " + line + " */\n";
-
-				int index = line.indexOf("SQL_prepare");
-				if (index != -1) {
-					contents += line.substring(0,index) + iinqDatabase.getInsert(count).generateFunctionCall();
-				} else if (line.contains("SQL_execute")) {
-					contents += "\t" + CommonCode.wrapInExecuteFunction(iinqDatabase.getInsert(count).generateFunctionCall());
-				}
-
-				contents += ";\n";
-				count++;
-			} else {
-				contents += line + '\n';
-			}
-		}
-
-		File ex_output_file = new File(ex_path);
-		FileOutputStream ex_out = new FileOutputStream(ex_output_file, false);
-
-		ex_out.write(contents.getBytes());
-
-		ex_file.close();
-		ex_out.close();
-	}
-
-	private static void
-	delete_setup() throws IOException {
-
-		/* Add new functions to be run to executable */
-		String ex_path = user_file;
-		BufferedReader ex_file = new BufferedReader(new FileReader(ex_path));
-
-		StringBuilder contents = new StringBuilder();
-		String line;
-		IinqDelete delete;
-		int count = 0;
-
-		while (null != (line = ex_file.readLine())) {
-			if ((line.toUpperCase()).contains("DELETE") && line.contains("SQL_execute") && !line.contains("/*") && !line.contains("//") && !line.contains("printf")) {
-				contents.append("/* ").append(line).append(" */\n");
-
-				delete = iinqDatabase.getDelete(count);
-
-				if (delete != null) {
-					contents.append("\t" + delete.generateFunctionCall() + ";\n");
-					count++;
-				}
-			} else {
-				contents.append(line + '\n');
-			}
-		}
-
-		File ex_output_file = new File(ex_path);
-		FileOutputStream ex_out = new FileOutputStream(ex_output_file, false);
-
-		ex_out.write(contents.toString().getBytes());
-
-		ex_file.close();
-		ex_out.close();
-	}
-
-	private static void
-	update_setup() throws IOException {
-
-		/* Add new functions to be run to executable */
-		String ex_path = user_file;
-		BufferedReader ex_file = new BufferedReader(new FileReader(ex_path));
-
-		StringBuilder contents = new StringBuilder();
-		String line;
-		IinqUpdate update;
-		int count = 0;
-
-		while (null != (line = ex_file.readLine())) {
-			if ((line.toUpperCase()).contains("UPDATE") && !line.contains("/*") && !line.contains("//") && !line.contains("printf")) {
-				contents.append("/* " + line + " */\n");
-
-				update = iinqDatabase.getUpdate(count);
-
-				if (update != null) {
-					contents.append ("\t" + update.generateFunctionCall() + ";\n");
-
-					count++;
-				}
-			} else {
-				contents.append(line + '\n');
-			}
-		}
-
-		File ex_output_file = new File(ex_path);
-		FileOutputStream ex_out = new FileOutputStream(ex_output_file, false);
-
-		ex_out.write(contents.toString().getBytes());
-
-		ex_file.close();
-		ex_out.close();
-	}
-
-	private static void
-	select_setup() throws IOException {
-
-		/* Add new functions to be run to executable */
-		String ex_path = user_file;
-		BufferedReader ex_file = new BufferedReader(new FileReader(ex_path));
-
-		StringBuilder contents = new StringBuilder();
-		String line;
-		IinqSelect select;
-		int count = 0;
-
-		while (null != (line = ex_file.readLine())) {
-			if ((line.toUpperCase()).contains("SELECT") && !line.contains("/*") && !line.contains("//") && !line.contains("printf")) {
-				contents.append("/* " + line + " */\n");
-
-				select = iinqDatabase.getSelect(count);
-
-				if (select != null) {
-					contents.append("\t" + select.return_value + " = iinq_select(" + select.table_id +  ", "
-							+ select.project_size + ", " + select.num_wheres + ", " + select.num_fields);
-
-					if (select.num_wheres > 0) {
-						contents.append(", ");
-						contents.append(select.where.generateIinqConditionList());
-					}
-
-					contents.append(", IINQ_SELECT_LIST(");
-					for (int i = 0; i < select.num_fields; i++) {
-						contents.append(select.fields.get(i) + ", ");
-					}
-					contents.setLength(contents.length()-2);
-
-					contents.append("));\n");
-					count++;
-				}
-			} else {
-				contents.append(line + '\n');
-			}
-		}
-
-		File ex_output_file = new File(ex_path);
-		FileOutputStream ex_out = new FileOutputStream(ex_output_file, false);
-
-		ex_out.write(contents.toString().getBytes());
-
-		ex_file.close();
-		ex_out.close();
-	}
-
-	private static void
-	create_setup() throws IOException {
-
-		/* Add new functions to be run to executable */
-		String ex_path = user_file;
-		BufferedReader ex_file = new BufferedReader(new FileReader(ex_path));
-
-		String contents = "";
-		String line;
-		IinqCreateTable create;
-		int count = 0;
-
-		while (null != (line = ex_file.readLine())) {
-			if ((line.toUpperCase()).contains("CREATE TABLE") && !line.contains("/*") && !line.contains("//")&& !line.contains("printf")) {
-				contents += "/* " + line + " */\n";
-
-				create = iinqDatabase.getCreateTable(count);
-
-				if (create != null) {
-					contents += "\t" + create.generateFunctionCall() + ";\n";
-
-					count++;
-				}
-			} else {
-				contents += line + '\n';
-			}
-		}
-
-		File ex_output_file = new File(ex_path);
-		FileOutputStream ex_out = new FileOutputStream(ex_output_file, false);
-
-		ex_out.write(contents.getBytes());
-
-		ex_file.close();
-		ex_out.close();
-	}
-
-	private static void
-	drop_setup() throws IOException {
-
-		/* Add new functions to be run to executable */
-		String ex_path = user_file;
-		BufferedReader ex_file = new BufferedReader(new FileReader(ex_path));
-
-		String contents = "";
-		String line;
-		int table_id;
-		int count = 0;
-
-		while (null != (line = ex_file.readLine())) {
-			if ((line.toUpperCase()).contains("DROP TABLE") && !line.contains("/*") && !line.contains("//") && !line.contains("printf")) {
-				contents += "/* " + line + " */\n";
-
-				try {
-					table_id = iinqDatabase.getDroppedTableIds().get(count);
-					contents += "\tdrop_table(" + table_id + ");\n";
-				} catch (NullPointerException e) {
-					e.printStackTrace();
-				} finally {
-					count++;
-				}
-			} else {
-				contents += line + '\n';
-			}
-		}
-
-		File ex_output_file = new File(ex_path);
-		FileOutputStream ex_out = new FileOutputStream(ex_output_file, false);
-
-		ex_out.write(contents.getBytes());
-
-		ex_file.close();
-		ex_out.close();
 	}
 
 	private static void
