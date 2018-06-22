@@ -3,8 +3,8 @@ package iinq.functions;
 public class UpdateFunction extends IinqFunction {
 	public UpdateFunction() {
 		super("update",
-				"void update(iinq_table_id tableId, int numWheres, int num_update, ...);\n",
-				"void update(iinq_table_id tableId, int numWheres, int num_update, ...) {\n\n" +
+				"void update(iinq_table_id tableId, int num_wheres, int num_update, ...);\n",
+				"void update(iinq_table_id tableId, int num_wheres, int num_update, ...) {\n\n" +
 				"\tva_list valist;\n" +
 				"\tva_start(valist, num_update);\n\n" +
 				"\tion_err_t                  error;\n" +
@@ -33,8 +33,11 @@ public class UpdateFunction extends IinqFunction {
 				"\t\tprintf(\"Error occurred. Error code: %i" + "\\" + "n" + "\", error);\n" +
 				"\t}\n\n" +
 				"\tion_boolean_t condition_satisfied;\n\n" +
+				"\tiinq_where_params_t *wheres = NULL;\n" +
+				"\tif (num_wheres > 0)\n" +
+				"\t\twheres = va_arg(valist, iinq_where_params_t*);\n" +
 				"\twhile ((status = iinq_next_record(cursor, &ion_record)) == cs_cursor_initialized || status == cs_cursor_active) {\n" +
-				"\t\tcondition_satisfied = where(tableId, &ion_record, numWheres, &valist);\n\n" +
+				"\t\tcondition_satisfied = where(tableId, &ion_record, num_wheres, wheres);\n\n" +
 				"\t\tif (condition_satisfied) {\n" +
 				"\t\t\terror = dictionary_insert(&dictionary_temp, ion_record.key, ion_record.value).error;\n\n" +
 				"\t\t\tif (err_ok != error) {\n" +
@@ -42,11 +45,7 @@ public class UpdateFunction extends IinqFunction {
 				"\t\t}\n\t}\n\n" +
 				"\tcursor->destroy(&cursor);\n\n" +
 				"\tint i;\n\n" +
-				"\tiinq_update_params_t updates[num_update];\n" +
-				"\tfor (i = 0; i < numWheres; i++) {\n" +
-				"\t\tva_arg(valist, void *);\n\t}\n\n" +
-				"\tfor (i = 0; i < num_update; i++) {\n" +
-				"\t\tupdates[i] = va_arg(valist, iinq_update_params_t);\n\t}\n\n" +
+				"\tiinq_update_params_t *updates = va_arg(valist, iinq_update_params_t*);\n" +
 				"\tva_end(valist);\n\n" +
 				"\tion_predicate_t predicate_temp;\n" +
 				"\tdictionary_build_predicate(&predicate_temp, predicate_all_records);\n\n" +

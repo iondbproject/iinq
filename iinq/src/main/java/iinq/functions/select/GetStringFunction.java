@@ -19,15 +19,10 @@ public class GetStringFunction extends IinqFunction {
 						CommonCode.errorCheckWithReturn("select->status.error", CommonCode.ReturnType.EMPTY_STRING) +
 						"\tselect->status.error = ion_close_master_table();\n" +
 						CommonCode.errorCheckWithReturn("select->status.error", CommonCode.ReturnType.EMPTY_STRING) +
-						"\tdictionary_get(&dictionary, select->status.count, select->value);\n\n" +
+						"\tdictionary_get(&dictionary, IONIZE(select->status.count,int), select->value);\n\n" +
 						"\terror = ion_close_dictionary(&dictionary);\n\n" +
 						CommonCode.errorCheckWithReturn("select->status.error", CommonCode.ReturnType.EMPTY_STRING) +
-						"\tfor (i = 0; i < select->num_fields; i++) {\n" +
-						"\t\tint field = *(int *) (select->fields + sizeof(int)*i);\n\n" +
-						"\t\tif (getFieldType(select->table_id, field) == iinq_null_terminated_string) {\n" +
-						"\t\t\tcount++;\n\t\t}\n\n" +
-						"\t\tif (count == field_num) {\n" +
-						"\t\t\treturn (char *) (select->value + calculateOffset(select->table_id, field-1));\n" +
-						"\t\t}\n\t}\n\n\treturn \"\";\n}\n\n");
+
+						"\treturn (char*) (select->value + select->offset[field_num-1]);\n}\n\n");
 	}
 }

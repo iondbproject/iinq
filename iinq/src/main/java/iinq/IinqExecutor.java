@@ -162,7 +162,7 @@ public class IinqExecutor {
 			if (fieldType == Types.INTEGER) {
 				fieldList.addField(new UpdateField(fieldNum, is_implicit ? new ImplicitFieldInfo(table.getFieldPosition(implicit_field), updateOperator) : null, Integer.parseInt(update_value)));
 			} else {
-				fieldList.addField(new UpdateField(fieldNum, is_implicit ? new ImplicitFieldInfo(table.getFieldPosition(implicit_field), updateOperator) : null, update_value));
+				fieldList.addField(new UpdateField(fieldNum, is_implicit ? new ImplicitFieldInfo(table.getFieldPosition(implicit_field), updateOperator) : null, update_value.replace("\'", "\"")));
 			}
 
 		}

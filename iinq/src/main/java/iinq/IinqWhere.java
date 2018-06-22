@@ -67,7 +67,11 @@ public class IinqWhere {
 				conditionList.append(", ");
 				conditionList.append(where_operators[i]);
 				conditionList.append(", ");
-				conditionList.append(where_values[i]);
+				if (where_field_types[i] == Types.INTEGER) {
+					conditionList.append(String.format("IONIZE(%s, int)", where_values[i]));
+				} else {
+					conditionList.append(where_values[i]);
+				}
 				conditionList.append("), ");
 			}
 			conditionList.setLength(conditionList.length()-2);

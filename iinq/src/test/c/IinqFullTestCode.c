@@ -104,7 +104,7 @@ main(
 	printf("INSERT INTO Dogs VALUES ('1', (?), 'Minnie', (?), 'Penticton');\n\tsetParam(p1, 2, \"Black Lab\");\n\tsetParam(p1, 4, 5);\n");
 	iinq_prepared_sql p1 = SQL_prepare("INSERT INTO Dogs VALUES ('1', (?), 'Minnie', (?), 'Penticton');");
 	setParam(p1, 2, "Black Lab");
-	setParam(p1, 4, 5);
+	setParam(p1, 4, IONIZE(5,int));
 	execute(p1);
 	print_table(1);
 
@@ -122,7 +122,7 @@ main(
     printf("INSERT INTO Cats VALUES (5, ?, (?));\n\tsetParam(p2, 2, \"Minnie\");\n\tsetParam(p2, 3, 6);\n");
 	iinq_prepared_sql p2 = SQL_prepare(""INSERT INTO Cats VALUES (5, ?, (?));"");
 	setParam(p2, 2, "Minnie");
-	setParam(p2, 3, 6);
+	setParam(p2, 3, IONIZE(6,int));
 	execute(p2);
 	print_table(2);
 
@@ -164,9 +164,9 @@ main(
 	printf("SELECT id, name FROM Cats WHERE age < 10;\n");
 	iinq_result_set *rs1 = SQL_select("SELECT id, name FROM Cats WHERE age < 10;");
 
-    while (next(&rs1)) {
-        printf("ID: %i,", getInt(&rs1, 1));
-        printf(" name: %s\n", getString(&rs1, 1));
+    while (next(rs1)) {
+        printf("ID: %i,", getInt(rs1, 1));
+        printf(" name: %s\n", getString(rs1, 2));
     }
 
     printf("DROP TABLE Cats;\n");
