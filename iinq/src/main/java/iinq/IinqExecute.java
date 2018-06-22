@@ -165,7 +165,6 @@ public class IinqExecute {
 			buff_out.close();
 
 			write_headers();
-			// TODO: combine into single function
 			setup();
 			function_close();
 

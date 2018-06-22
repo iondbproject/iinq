@@ -180,7 +180,7 @@ public class IinqTable extends AnnotatedSourceTable {
 		this.tableId = tableId;
 	}
 
-	private ArrayList<Integer> getPrimaryKeyIndices() {
+	public ArrayList<Integer> getPrimaryKeyIndices() {
 		ArrayList<SourceField> keyFields = this.getPrimaryKey().getFields();
 		ArrayList<Integer> indexList = new ArrayList<>(keyFields.size());
 		for (int i = 0, n = keyFields.size(); i < n; i++) {

@@ -17,7 +17,6 @@ public abstract class IinqFunction {
 		setDefinition(definition);
 	}
 
-	@Override
 	public String toString() {
 		return String.format("Name: %s, " +
 				"Header: %s, " +

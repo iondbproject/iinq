@@ -20,6 +20,8 @@ public class CalculatedFunctions {
 		functions.put(function.getName(), function);
 		function = new CalculatedPrintFunction();
 		functions.put(function.getName(), function);
+		function = new IsKeyFieldFunction();
+		functions.put(function.getName(), function);
 	}
 
 	public void addTable(IinqTable table) {
