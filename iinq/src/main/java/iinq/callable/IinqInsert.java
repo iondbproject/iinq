@@ -79,7 +79,7 @@ public class IinqInsert implements Callable{
         return insertFunction;
     }
 
-    public String getFunctionArguments() {
+    private String getFunctionArguments() {
         return functionArguments;
     }
 

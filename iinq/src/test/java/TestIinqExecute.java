@@ -13,31 +13,31 @@ import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 
 public class TestIinqExecute {
 
-	public static final String interfaceDir = "../../iondb/src/iinq/iinq_interface/";
-	public static final String interfaceUserFile = "../../iondb/src/iinq/iinq_interface/iinq_user.c";
-	public static final String interfaceUserFunctions = "../../iondb/src/iinq/iinq_interface/iinq_user_functions.c";
-	public static final String interfaceUserHeader = "../../iondb/src/iinq/iinq_interface/iinq_user_functions.h";
+	private static final String interfaceDir = "../../iondb/src/iinq/iinq_interface/";
+	private static final String interfaceUserFile = "../../iondb/src/iinq/iinq_interface/iinq_user.c";
+	private static final String interfaceUserFunctions = "../../iondb/src/iinq/iinq_interface/iinq_user_functions.c";
+	private static final String interfaceUserHeader = "../../iondb/src/iinq/iinq_interface/iinq_user_functions.h";
 
-	public static final String testingDir = "../../iondb/src/iinq/iinq_interface/";
-	public static final String testingUserFile = "../../iondb/src/iinq/iinq_interface/iinq_user.c";
-	public static final String testingUserFunctions = "../../iondb/src/iinq/iinq_interface/iinq_user_functions.c";
-	public static final String testingUserHeader = "../../iondb/src/iinq/iinq_interface/iinq_user_functions.h";
+	private static final String testingDir = "../../iondb/src/iinq/iinq_interface/";
+	private static final String testingUserFile = "../../iondb/src/iinq/iinq_interface/iinq_user.c";
+	private static final String testingUserFunctions = "../../iondb/src/iinq/iinq_interface/iinq_user_functions.c";
+	private static final String testingUserHeader = "../../iondb/src/iinq/iinq_interface/iinq_user_functions.h";
 
-	public static final String useExisting = "false";
+	private static final String useExisting = "false";
 	
-	public static void setSystemPropertiesForIinqInterface() {
+	private static void setSystemPropertiesForIinqInterface() {
 		setSystemProperties(interfaceUserFile, interfaceUserFunctions, interfaceUserHeader, interfaceDir, useExisting);
 	}
 
-	public static void setSystemPropertiesForPlanckUnit() {
+	private static void setSystemPropertiesForPlanckUnit() {
 		setSystemProperties(testingUserFile, testingUserFunctions, testingUserHeader, testingDir, useExisting);
 	}
 
-	public static void setSystemProperties(String userFile, String userFunctions, String userHeader, String testingDir, String useExisting) {
+	private static void setSystemProperties(String userFile, String userFunctions, String userHeader, String testingDir, String useExisting) {
 		System.setProperty("USE_EXISTING", useExisting);
-		System.setProperty("USER_FILE", testingUserFile);
-		System.setProperty("FUNCTION_FILE", testingUserFunctions);
-		System.setProperty("FUNCTION_HEADER_FILE", testingUserHeader);
+		System.setProperty("USER_FILE", userFile);
+		System.setProperty("FUNCTION_FILE", userFunctions);
+		System.setProperty("FUNCTION_HEADER_FILE", userHeader);
 		System.setProperty("DIRECTORY", testingDir);
 	}
 

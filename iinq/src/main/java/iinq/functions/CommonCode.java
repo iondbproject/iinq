@@ -1,7 +1,7 @@
 package iinq.functions;
 
 public final class CommonCode {
-	public static enum ReturnType {
+	public enum ReturnType {
 		EMPTY_STRING,
 		EMPTY_NUMERIC,
 		ERROR_VALUE,

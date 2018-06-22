@@ -9,8 +9,6 @@ import java.io.IOException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.sql.Types;
 
-import static iinq.functions.SchemaKeyword.*;
-
 public class IinqWhere {
 	private String[] where_values; 			/* Value that is being added to another value value to update a value. */
 	private String[] where_operators; 		/* Whether values are being updated through addition or subtraction. */

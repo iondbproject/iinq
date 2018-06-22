@@ -1,7 +1,7 @@
 package iinq.callable.update;
 
 public class UpdateField {
-	int fieldNum;
+	private int fieldNum;
 	ImplicitFieldInfo implicitFieldInfo;
 	String value;
 

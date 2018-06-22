@@ -19,7 +19,7 @@ public class GetFieldTypeFunction extends IinqFunction implements CalculatedFunc
 
 	public void addTable(IinqTable table) {
 		StringBuilder fieldTypes = new StringBuilder();
-		fieldTypes.append("\t\tcase " + table.getTableId() + " : {\n");
+		fieldTypes.append("\t\tcase ").append(table.getTableId()).append(" : {\n");
 		fieldTypes.append("\t\t\tswitch (field_num) {\n");
 		for (int i = 1, n = table.getNumFields(); i <= n; i++) {
 			fieldTypes.append("\t\t\t\tcase " + i + " :\n");

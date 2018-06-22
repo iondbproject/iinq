@@ -2,7 +2,7 @@ package iinq.functions.select;
 
 import iinq.functions.IinqFunction;
 
-public class NextFunction extends IinqFunction {
+class NextFunction extends IinqFunction {
 	public NextFunction() {
 		super("next",
 				"ion_boolean_t next(iinq_result_set *select);\n",

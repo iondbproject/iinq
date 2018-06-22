@@ -44,12 +44,9 @@ import unity.annotation.SourceDatabase;
 import unity.annotation.SourceField;
 import unity.annotation.SourceTable;
 import unity.jdbc.UnityConnection;
-import unity.jdbc.UnityStatement;
 
 import java.sql.Connection;
-import java.sql.DatabaseMetaData;
 import java.sql.DriverManager;
-import java.sql.SQLException;
 import java.util.ArrayList;
 
 

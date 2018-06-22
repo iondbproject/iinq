@@ -38,14 +38,12 @@ package iinq.callable.update;
 import iinq.IinqWhere;
 import iinq.callable.Callable;
 
-import java.util.ArrayList;
-
 public class IinqUpdate implements Callable {
-    public int tableId;
-    public int numWheres;
-    public int numUpdates;
-    public IinqWhere where;
-    public IinqUpdateFieldList updateFieldList;
+    private int tableId;
+    private int numWheres;
+    private int numUpdates;
+    private IinqWhere where;
+    private IinqUpdateFieldList updateFieldList;
 
     public IinqUpdate(int tableId, IinqWhere where, int num_u, IinqUpdateFieldList fieldList) {
         this.tableId = tableId;

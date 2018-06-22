@@ -38,12 +38,12 @@ package iinq.callable;
 import iinq.metadata.IinqTable;
 
 public class IinqCreateTable implements Callable {
-    public int tableId;
-    public String keyType;
-    public String keySize;
-    public String valueSize;
+    private int tableId;
+    private String keyType;
+    private String keySize;
+    private String valueSize;
 
-    public IinqCreateTable(int tableId, String keyType, String keySize, String valueSize) {
+    private IinqCreateTable(int tableId, String keyType, String keySize, String valueSize) {
         this.tableId = tableId;
         this.keyType = keyType;
         this.keySize = keySize;

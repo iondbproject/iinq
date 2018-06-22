@@ -38,9 +38,9 @@ package iinq.callable;
 import iinq.IinqWhere;
 
 public class IinqDelete implements Callable {
-    public int tableId;
-    public int numWheres;
-    public IinqWhere where;
+    private int tableId;
+    private int numWheres;
+    private IinqWhere where;
 
     public IinqDelete(int tableId, IinqWhere where) {
         this.tableId = tableId;

@@ -3,7 +3,7 @@ package iinq.functions.select;
 import iinq.functions.CommonCode;
 import iinq.functions.IinqFunction;
 
-public class SelectFunction extends IinqFunction {
+class SelectFunction extends IinqFunction {
 	public SelectFunction() {
 		super("iinq_select",
 				"iinq_result_set *iinq_select(iinq_table_id table_id, size_t project_size, int numWheres, iinq_field_num_t num_fields, ...);\n",

@@ -3,7 +3,6 @@ package iinq.functions;
 import com.sun.javaws.exceptions.InvalidArgumentException;
 import iinq.metadata.IinqDatabase;
 import iinq.metadata.IinqTable;
-import iinq.tableInfo;
 import unity.jdbc.UnityPreparedStatement;
 import unity.query.GQFieldRef;
 import unity.query.GlobalUpdate;
@@ -12,13 +11,10 @@ import unity.query.LQInsertNode;
 
 import java.sql.SQLException;
 import java.sql.Types;
-import java.util.ArrayList;
 
 import static iinq.functions.SchemaKeyword.*;
 
 public class PreparedInsertFunction extends IinqFunction {
-	public tableInfo table_info;
-	private static ArrayList<Integer> tablesWritten = new ArrayList<>();
 	private static boolean setParamsWritten = false;
 	private GlobalUpdate globalUpdate;
 	private IinqDatabase iinqDatabase;
@@ -36,23 +32,16 @@ public class PreparedInsertFunction extends IinqFunction {
 
 		LQInsertNode insertNode = (LQInsertNode) globalUpdate.getPlan().getLogicalQueryTree().getRoot();
 		IinqTable table = (IinqTable) iinqDatabase.getIinqTable(insertNode.getSourceTable().getTable().getTableName());
-		String table_name = table.getTableName().toLowerCase();
 
 		this.setName("insert_" + table.getTableId());
 
 		/* Number of fields specified for the insert */
 		int count = insertNode.getInsertFields().size();
-		int[] insert_field_nums = new int[count];
-
-		/* Get field numbers for the insert */
-		for (int i = 0; i < count; i++) {
-			insert_field_nums[i] = table.getFieldPosition(insertNode.getInsertFields().get(i).getName().toLowerCase());
-		}
 
 		boolean[] prep_fields = new boolean[count];
 
 		/* Check if the INSERT statement is a prepared statement */
-		UnityPreparedStatement stmt = (UnityPreparedStatement) iinqDatabase.prepareUnityStatement(insertNode.generateSQL());
+		UnityPreparedStatement stmt = iinqDatabase.prepareUnityStatement(insertNode.generateSQL());
 		preparedStatement = stmt.getParameters().size() > 0;
 
 		String[] fields = new String[count];
@@ -67,7 +56,7 @@ public class PreparedInsertFunction extends IinqFunction {
 
 		// TODO: can this be combined with the other for loop?
 		for (int j = 0; j < count; j++) {
-			GQFieldRef fieldNode = (GQFieldRef) insertNode.getInsertFields().get(j);
+			GQFieldRef fieldNode = insertNode.getInsertFields().get(j);
 			fields[j] = ((LQExprNode) insertNode.getInsertValues().get(j)).getContent().toString();
 
 			field_type = fieldNode.getField().getDataTypeName();
@@ -78,11 +67,11 @@ public class PreparedInsertFunction extends IinqFunction {
 
 			if (field_type.contains("CHAR")) {
 
-				header.append("char *value_" + (j + 1));
+				header.append("char *value_").append(j + 1);
 
 			} else {
 
-				header.append("int value_" + (j + 1));
+				header.append("int value_").append(j + 1);
 			}
 
 			prep_fields[j] = fields[j].equals("?");
@@ -94,16 +83,16 @@ public class PreparedInsertFunction extends IinqFunction {
 		definition.append(" {\n");
 		definition.append("\tiinq_prepared_sql p = {0};\n");
 
-		definition.append("\tp.table = " + table.getTableId() + ";\n");
-		definition.append("\tp.value = malloc(" + table.getSchemaValue(VALUE_SIZE) + ");\n");
+		definition.append("\tp.table = ").append(table.getTableId()).append(";\n");
+		definition.append("\tp.value = malloc(").append(table.getSchemaValue(VALUE_SIZE)).append(");\n");
 		definition.append("\tunsigned char\t*data = p.value;\n");
-		definition.append("\tp.key = malloc(" + table.generateIonKeySize() + ");\n");
+		definition.append("\tp.key = malloc(").append(table.generateIonKeySize()).append(");\n");
 
 		// TODO: allow composite keys
 		if (Integer.parseInt(key_type) == Types.INTEGER) {
-			definition.append("\t*(int *) p.key = value_" + (Integer.parseInt(key_field_num)) + ";\n\n");
+			definition.append("\t*(int *) p.key = value_").append(Integer.parseInt(key_field_num)).append(";\n\n");
 		} else {
-			definition.append("\tmemcpy(p.key, value_" + (Integer.parseInt(key_field_num)) + ", " + key_type + ");\n\n");
+			definition.append("\tmemcpy(p.key, value_").append(Integer.parseInt(key_field_num)).append(", ").append(key_type).append(");\n\n");
 		}
 
 		for (int i = 0; i < fields.length; i++) {
@@ -112,13 +101,13 @@ public class PreparedInsertFunction extends IinqFunction {
 
 			// TODO: add support for byte arrays
 			if (field_type.contains("CHAR")) {
-				definition.append("\tstrcpy(data, value_" + (i + 1) +");\n");
+				definition.append("\tstrcpy(data, value_").append(i + 1).append(");\n");
 			} else {
-				definition.append("\t*(int *) data = value_" + (i + 1) + ";\n");
+				definition.append("\t*(int *) data = value_").append(i + 1).append(";\n");
 			}
 
 			if (i < fields.length - 1) {
-				definition.append("\tdata += " + value_size + ";\n\n");
+				definition.append("\tdata += ").append(value_size).append(";\n\n");
 			}
 		}
 

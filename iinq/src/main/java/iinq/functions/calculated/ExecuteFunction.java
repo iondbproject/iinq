@@ -11,11 +11,9 @@ public class ExecuteFunction extends IinqFunction implements CalculatedFunction 
 
 	private class executeCallData {
 		int tableId;
-		String keyCast;
 
-		private executeCallData(int tableId, String keyCast) {
+		private executeCallData(int tableId) {
 			this.tableId = tableId;
-			this.keyCast = keyCast;
 		}
 	}
 
@@ -28,17 +26,17 @@ public class ExecuteFunction extends IinqFunction implements CalculatedFunction 
 		return this;
 	}
 
-	public boolean containsTable(IinqTable table) {
+	private boolean containsTable(IinqTable table) {
 		return tableIdToFunctionCall.containsKey(table.getTableId());
 	}
 
 	public void addTable(IinqTable iinqTable) {
 		if (!containsTable(iinqTable))
-			addCallData(iinqTable.getTableId(), iinqTable.getTableName(), iinqTable.getIonKeyCast());
+			addCallData(iinqTable.getTableId());
 	}
 
-	private void addCallData(int tableId, String tableName, String keyCast) {
-		tableIdToFunctionCall.put(tableId, new executeCallData(tableId, keyCast));
+	private void addCallData(int tableId) {
+		tableIdToFunctionCall.put(tableId, new executeCallData(tableId));
 	}
 
 	public String generateDefinition() {

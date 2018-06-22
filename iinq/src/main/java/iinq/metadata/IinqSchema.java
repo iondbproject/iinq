@@ -2,22 +2,20 @@ package iinq.metadata;
 
 import unity.annotation.AnnotatedSourceTable;
 import unity.annotation.GlobalSchema;
-import unity.annotation.SourceTable;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 
 public class IinqSchema extends GlobalSchema {
-	protected HashSet<String> iinqTableIdentifiers = new HashSet<>();
+	private HashSet<String> iinqTableIdentifiers = new HashSet<>();
 
 	public IinqSchema() {
 		super();
 	}
 
 
-	public AnnotatedSourceTable getNewlyCreatedTable(String databaseName) {
+	public AnnotatedSourceTable getNewlyCreatedTable() {
 		AnnotatedSourceTable table = null;
 		for (Map.Entry<String, ArrayList<AnnotatedSourceTable>> entry: this.tableIdentifiers.entrySet()) {
 			if (!this.iinqTableIdentifiers.contains(entry.getKey())) {

@@ -31,7 +31,7 @@ import unity.util.StringFunc;
 @SuppressWarnings("nls")
 public class IinqBuilder extends QueryBuilder
 {
-	IinqDatabase database;
+	private IinqDatabase database;
 
 	/**
 	 * Constructor that takes a logical query tree as input.

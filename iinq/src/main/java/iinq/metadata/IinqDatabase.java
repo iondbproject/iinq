@@ -26,30 +26,30 @@ import java.sql.*;
 import java.util.*;
 
 public class IinqDatabase {
-	protected IinqSchema schema;
-	protected UnityConnection unityConnection;
-	protected Connection javaConnection;
-	protected String databaseName;
-	protected String directory;
-	protected int tableCount = 0;
-	protected IinqExecutor executor;
-	protected boolean createWritten = false;
-	protected boolean updateWritten = false;
-	protected boolean deleteWritten = false;
-	protected boolean dropWritten = false;
-	protected boolean selectWritten = false;
-	protected boolean preparedStatements = false;
-	protected HashMap<Integer, PreparedInsertFunction> insertFunctions = new HashMap<>();
-	protected ArrayList<IinqCreateTable> createTables = new ArrayList<>();
-	protected ArrayList<IinqInsert> inserts = new ArrayList<>();
-	protected ArrayList<IinqUpdate> updates = new ArrayList<>();
-	protected ArrayList<IinqDelete> deletes = new ArrayList<>();
-	protected ArrayList<IinqSelect> selects = new ArrayList<>();
-	protected HashMap<String, IinqFunction> functions = new HashMap<>();
-	protected ArrayList<Integer> droppedTableIds = new ArrayList<>();
-	protected HashMap<Integer, String> tableIds = new HashMap<>();
-	protected HashMap<String, IinqTable> iinqTables = new HashMap<>();
-	protected CalculatedFunctions calculatedFunctions = null;
+	private IinqSchema schema;
+	private UnityConnection unityConnection;
+	private Connection javaConnection;
+	private String databaseName;
+	private String directory;
+	private int tableCount = 0;
+	private IinqExecutor executor;
+	private boolean createWritten = false;
+	private boolean updateWritten = false;
+	private boolean deleteWritten = false;
+	private boolean dropWritten = false;
+	private boolean selectWritten = false;
+	private boolean preparedStatements = false;
+	private HashMap<Integer, PreparedInsertFunction> insertFunctions = new HashMap<>();
+	private ArrayList<IinqCreateTable> createTables = new ArrayList<>();
+	private ArrayList<IinqInsert> inserts = new ArrayList<>();
+	private ArrayList<IinqUpdate> updates = new ArrayList<>();
+	private ArrayList<IinqDelete> deletes = new ArrayList<>();
+	private ArrayList<IinqSelect> selects = new ArrayList<>();
+	private HashMap<String, IinqFunction> functions = new HashMap<>();
+	private ArrayList<Integer> droppedTableIds = new ArrayList<>();
+	private HashMap<Integer, String> tableIds = new HashMap<>();
+	private HashMap<String, IinqTable> iinqTables = new HashMap<>();
+	private CalculatedFunctions calculatedFunctions = null;
 
 	public IinqDatabase(String directory, String databaseName) throws ClassNotFoundException, SQLException {
 		this.schema = new IinqSchema();
@@ -87,11 +87,11 @@ public class IinqDatabase {
 		iinqTables.put(table.getTableName().toLowerCase(), table);
 	}
 
-	public static String getFullSchemaFileName(String directory, String databaseName) {
+	private static String getFullSchemaFileName(String directory, String databaseName) {
 		return directory + File.separator + databaseName + ".xml";
 	}
 
-	public String
+	private String
 	getSchemaValue(String table_name, SchemaKeyword keyword, int field_num) throws InvalidArgumentException {
 		IinqTable table = this.getIinqTable(table_name);
 		return table.getSchemaValue(keyword, field_num);
@@ -190,7 +190,7 @@ public class IinqDatabase {
 		this.schema.updateSource(databaseName);
 	}
 
-	public void updateSchemaFile() throws IOException {
+	private void updateSchemaFile() throws IOException {
 		this.schema.updateSchemaFile(databaseName);
 	}
 
@@ -225,7 +225,7 @@ public class IinqDatabase {
 		return this.databaseName;
 	}
 
-	public String getDirectory() {
+	private String getDirectory() {
 		return this.directory;
 	}
 
@@ -246,7 +246,7 @@ public class IinqDatabase {
 	}
 
 	public IinqTable getNewlyCreatedIinqTable() {
-		SourceTable table = schema.getNewlyCreatedTable(databaseName);
+		SourceTable table = schema.getNewlyCreatedTable();
 		if (table != null) {
 			IinqTable iinqTable = new IinqTable((AnnotatedSourceTable) table);
 			iinqTable.setTableId(tableCount++);
@@ -271,7 +271,7 @@ public class IinqDatabase {
 		return executor.getExFunc().generateDefinition();
 	}
 
-	public boolean containsPreparedStatements() {
+	private boolean containsPreparedStatements() {
 		return preparedStatements;
 	}
 

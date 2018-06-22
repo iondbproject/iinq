@@ -38,9 +38,8 @@ package iinq;
 import java.util.ArrayList;
 import java.util.Collections;
 
-public class IinqInsertFields {
-	public ArrayList<FieldNode> fields;
-	public int total_fields;
+class IinqInsertFields {
+	private ArrayList<FieldNode> fields;
 	class FieldNode implements Comparable<FieldNode> {
 		int fieldNum;
 		String value;
@@ -56,12 +55,11 @@ public class IinqInsertFields {
 		}
 	}
 
-    public IinqInsertFields(ArrayList<String> vals, int[] field_nums, int total_fields) {
+    public IinqInsertFields(ArrayList<String> vals, int[] field_nums) {
         fields = new ArrayList<>();
         for (int i = 0; i < field_nums.length; i++) {
         	fields.add(new FieldNode(field_nums[i], vals.get(i)));
 		}
-		this.total_fields = total_fields;
     }
 
     public void sortFields() {

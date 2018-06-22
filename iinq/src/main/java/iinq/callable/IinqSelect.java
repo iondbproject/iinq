@@ -40,7 +40,6 @@ import iinq.IinqWhere;
 import java.util.ArrayList;
 
 public class IinqSelect implements Callable{
-    public String table_name;
     public int table_id;
     public int num_wheres;
     public int num_fields;
@@ -49,9 +48,8 @@ public class IinqSelect implements Callable{
     public ArrayList<Integer> fields;
     public String return_value;
 
-    public IinqSelect(String table_name, int table_id, int num_fields, IinqWhere where, String project_size, ArrayList<Integer> field_list,
+    public IinqSelect(int table_id, int num_fields, IinqWhere where, String project_size, ArrayList<Integer> field_list,
                       String return_value) {
-        this.table_name = table_name;
         this.table_id = table_id;
         this.num_fields = num_fields;
         if (where != null) {

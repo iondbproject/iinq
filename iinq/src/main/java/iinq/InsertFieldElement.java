@@ -1,7 +1,5 @@
 package iinq;
 
-import unity.annotation.AnnotatedSourceField;
-
 public class InsertFieldElement implements Comparable<InsertFieldElement> {
 	public int fieldNum;
 	public String value;

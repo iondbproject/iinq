@@ -2,7 +2,6 @@ package iinq.metadata;
 
 import com.sun.javaws.exceptions.InvalidArgumentException;
 import iinq.functions.SchemaKeyword;
-import unity.annotation.AnnotatedSourceDatabase;
 import unity.annotation.AnnotatedSourceTable;
 import unity.annotation.SourceField;
 
@@ -27,7 +26,7 @@ public class IinqTable extends AnnotatedSourceTable {
 		}
 	}
 
-	public AnnotatedSourceTable getAnnotatedSourceTable() {
+	private AnnotatedSourceTable getAnnotatedSourceTable() {
 		return annotatedSourceTable;
 	}
 
@@ -35,7 +34,7 @@ public class IinqTable extends AnnotatedSourceTable {
 
 	}
 
-	public static String getNullValue(AnnotatedSourceTable table, int fieldNum) {
+	private static String getNullValue(AnnotatedSourceTable table, int fieldNum) {
 		switch (table.getSourceFieldsByPosition().get(fieldNum-1).getDataType()) {
 			case Types.CHAR:
 			case Types.VARCHAR:
@@ -106,10 +105,10 @@ public class IinqTable extends AnnotatedSourceTable {
 
 		// TODO: add support for more data types
 		if (int_count > 0) {
-			value_calculation.append("(sizeof(int) * " + int_count + ")+");
+			value_calculation.append("(sizeof(int) * ").append(int_count).append(")+");
 		}
 		if (char_present) {
-			value_calculation.append("(sizeof(char) * " + char_multiplier + ")+");
+			value_calculation.append("(sizeof(char) * ").append(char_multiplier).append(")+");
 		}
 		value_calculation.setLength(value_calculation.length() - 1); // remove last "+"
 
@@ -128,7 +127,7 @@ public class IinqTable extends AnnotatedSourceTable {
 		return returnValue.toString();
 	}
 
-	public int getKeyDataType() {
+	private int getKeyDataType() {
 		// TODO: add support for composite keys
 		return this.getPrimaryKey().getFields().get(0).getDataType();
 	}
@@ -181,7 +180,7 @@ public class IinqTable extends AnnotatedSourceTable {
 		this.tableId = tableId;
 	}
 
-	public ArrayList<Integer> getPrimaryKeyIndices() {
+	private ArrayList<Integer> getPrimaryKeyIndices() {
 		ArrayList<SourceField> keyFields = this.getPrimaryKey().getFields();
 		ArrayList<Integer> indexList = new ArrayList<>(keyFields.size());
 		for (int i = 0, n = keyFields.size(); i < n; i++) {

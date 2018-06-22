@@ -48,7 +48,7 @@ public abstract class QueryBuilder
 	/**
 	 * Flag to indicate if have previously seen a table identifier in FROM (only one table is allowed).
 	 */
-	protected boolean fromSeen;
+	private boolean fromSeen;
 	
 	/**
 	 * Base URL of data source

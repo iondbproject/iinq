@@ -3,7 +3,7 @@ package iinq.functions.select;
 import iinq.functions.CommonCode;
 import iinq.functions.IinqFunction;
 
-public class GetStringFunction extends IinqFunction {
+class GetStringFunction extends IinqFunction {
 	public GetStringFunction() {
 		super("getString",
 				"char* getString(iinq_result_set *select, int field_num);\n",

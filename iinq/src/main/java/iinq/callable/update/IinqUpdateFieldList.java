@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.Iterator;
 
 public class IinqUpdateFieldList {
-	ArrayList<UpdateField> fields;
+	private ArrayList<UpdateField> fields;
 
 	public IinqUpdateFieldList() {
 		fields = new ArrayList<>();

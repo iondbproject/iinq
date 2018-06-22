@@ -5,13 +5,13 @@ public abstract class IinqFunction {
 	private String header;
 	private String definition;
 
-	public IinqFunction() {
+	protected IinqFunction() {
 		setName(null);
 		setHeader(null);
 		setDefinition(null);
 	}
 
-	public IinqFunction(String name, String header, String definition) {
+	protected IinqFunction(String name, String header, String definition) {
 		setName(name);
 		setHeader(header);
 		setDefinition(definition);
@@ -28,7 +28,7 @@ public abstract class IinqFunction {
 		return name;
 	}
 
-	public void setName(String name) {
+	void setName(String name) {
 		this.name = name;
 	}
 
@@ -36,7 +36,7 @@ public abstract class IinqFunction {
 		return header;
 	}
 
-	public void setHeader(String header) {
+	void setHeader(String header) {
 		this.header = header;
 	}
 
@@ -44,7 +44,7 @@ public abstract class IinqFunction {
 		return definition;
 	}
 
-	public void setDefinition(String definition) {
+	protected void setDefinition(String definition) {
 		this.definition = definition;
 	}
 

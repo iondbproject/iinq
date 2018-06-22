@@ -26,16 +26,11 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Types;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 
-import static iinq.functions.SchemaKeyword.*;
-import static iinq.functions.SchemaKeyword.ION_KEY_TYPE;
-import static iinq.functions.SchemaKeyword.VALUE_SIZE;
-
 public class IinqExecutor {
-	protected IinqDatabase iinqDatabase;
-	protected ExecuteFunction exFunc;
+	private IinqDatabase iinqDatabase;
+	private ExecuteFunction exFunc;
 
 	public IinqExecutor(IinqDatabase iinqDatabase) {
 		this.iinqDatabase = iinqDatabase;
@@ -71,8 +66,6 @@ public class IinqExecutor {
 		LQUpdateNode updateNode = (LQUpdateNode) gu.getPlan().getLogicalQueryTree().getRoot();
 		String table_name = updateNode.getTable().getTable().getTableName().toLowerCase();
 
-		boolean table_found = false;
-
 		IinqTable table = iinqDatabase.getIinqTable(table_name);
 
 		if (table == null) {
@@ -105,9 +98,6 @@ public class IinqExecutor {
 			conditionFields[i] = conditions.get(i);
 		}
 
-		/* Get fields to update */
-		String update;
-
 		/* Calculate number of fields to update in statement */
 		int num_fields = updateNode.getNumFields();
 
@@ -125,7 +115,7 @@ public class IinqExecutor {
 		String update_field;
 		String implicit_field = "";
 		boolean is_implicit;
-		String update_value = null;
+		String update_value;
 
 		IinqUpdateFieldList fieldList = new IinqUpdateFieldList();
 		for (int j = 0; j < num_fields; j++) {
@@ -299,35 +289,18 @@ public class IinqExecutor {
 		IinqBuilder builder = new IinqBuilder(gq.getLogicalQueryTree().getRoot(), iinqDatabase);
 		IinqQuery query = builder.toQuery();
 		HashMap<String, Object> code = query.generateCode();
-		IinqWhere where = null;
-		int num_conditions;
+		IinqWhere where;
 		where = (IinqWhere) code.get("where");
 
 		IinqTable table = iinqDatabase.getIinqTable(query.getTableName());
-
-		ArrayList<Integer> select_field_nums = new ArrayList<>();
-		ArrayList<String> field_sizes = new ArrayList<>();
 
 		ArrayList<String> fields = (ArrayList<String>) query.getParameterObject("fieldList");
 		ArrayList<Integer> fieldNums = (ArrayList<Integer>) query.getParameterObject("fieldListNums");
 		int num_fields = fields.size();
 
-		//fields = get_fields(field_list, num_fields);
-
-/*		for (int j = 0; j < num_fields; j++) {
-			for (int n = 0; n < table.getNumFields(); n++) {
-				String field_type = table.getFieldName(n + 1);
-				field_sizes.add(table.getIonFieldSize(j + 1));
-
-				if ((fields[j].trim()).equals(table.getFieldName(n + 1))) {
-					select_field_nums.add(n + 1);
-				}
-			}
-		}*/
-
 		String project_size = table.generateProjectionSize(fieldNums);
 
 
-		return new IinqSelect(table.getTableName(), table.getTableId(), num_fields, where, project_size, fieldNums, null);
+		return new IinqSelect(table.getTableId(), num_fields, where, project_size, fieldNums, null);
 	}
 }

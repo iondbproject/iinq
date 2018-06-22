@@ -155,7 +155,7 @@ public class IinqQuery extends WebQuery {
 	 *
 	 * @return true if a schema was given, false if it was not.
 	 */
-	public boolean hasSchema() {
+	private boolean hasSchema() {
 		return (this.proj.getDatabase().getDatabase().getSchemaFile() != null) ? true : false;
 	}
 
