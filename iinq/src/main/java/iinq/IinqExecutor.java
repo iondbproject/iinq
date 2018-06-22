@@ -1,7 +1,14 @@
 package iinq;
 
 import com.sun.javaws.exceptions.InvalidArgumentException;
-import iinq.functions.CalculatedFunctions.ExecuteFunction;
+import iinq.callable.IinqDelete;
+import iinq.callable.IinqInsert;
+import iinq.callable.IinqSelect;
+import iinq.callable.update.IinqUpdate;
+import iinq.callable.update.IinqUpdateFieldList;
+import iinq.callable.update.ImplicitFieldInfo;
+import iinq.callable.update.UpdateField;
+import iinq.functions.calculated.ExecuteFunction;
 import iinq.functions.PreparedInsertFunction;
 import iinq.metadata.IinqDatabase;
 import iinq.metadata.IinqTable;
@@ -15,9 +22,9 @@ import unity.util.StringFunc;
 
 import javax.management.relation.RelationNotFoundException;
 import java.io.IOException;
-import java.sql.Array;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -107,14 +114,6 @@ public class IinqExecutor {
 		IinqWhere where = new IinqWhere(num_conditions);
 		where.generateWhere(conditionFields, table);
 
-		ArrayList<Integer> update_field_nums = new ArrayList<>();
-		ArrayList<Boolean> implicit = new ArrayList<>();
-		ArrayList<Integer> implicit_fields = new ArrayList<>();
-		ArrayList<String> update_operators = new ArrayList<>();
-		ArrayList<String> update_values = new ArrayList<>();
-		ArrayList<Integer> update_field_types = new ArrayList<>();
-		ArrayList<String> field_sizes = new ArrayList<>();
-
 		String[] fields = new String[updateNode.getNumFields()];
 		LQExprNode[] fieldValues = new LQExprNode[updateNode.getNumFields()];
 		for (int i = 0; i < fields.length; i++) {
@@ -127,65 +126,49 @@ public class IinqExecutor {
 		String implicit_field = "";
 		boolean is_implicit;
 		String update_value = null;
-		int implicit_count = 0;
 
+		IinqUpdateFieldList fieldList = new IinqUpdateFieldList();
 		for (int j = 0; j < num_fields; j++) {
 			is_implicit = false;
 			update_field = fields[j].trim();
 			update_value = fieldValues[j].getContent().toString();
+			String updateOperator = null;
 
 			/* Check if update value contains an operator */
 			if (fieldValues[j].getContent().equals("+")) {
-				update_operators.add("iinq_add");
+				updateOperator = "iinq_add";
 				implicit_field = fieldValues[j].getChild(0).getContent().toString();
 				update_value = fieldValues[j].getChild(1).getContent().toString();
 				is_implicit = true;
 			} else if (fieldValues[j].getContent().equals("-")) {
-				update_operators.add("iinq_subtract");
+				updateOperator = "iinq_subtract";
 				implicit_field = fieldValues[j].getChild(0).getContent().toString();
 				update_value = fieldValues[j].getChild(1).getContent().toString();
 				is_implicit = true;
 			} else if (fieldValues[j].getContent().equals("*")) {
-				update_operators.add("iinq_multiply");
+				updateOperator = "iinq_multiply";
 				implicit_field = fieldValues[j].getChild(0).getContent().toString();
 				update_value = fieldValues[j].getChild(1).getContent().toString();
 				is_implicit = true;
 			} else if (fieldValues[j].getContent().equals("/")) {
-				update_operators.add("iinq_divide");
+				updateOperator = "iinq_divide";
 				implicit_field = fieldValues[j].getChild(0).getContent().toString();
 				update_value = fieldValues[j].getChild(1).getContent().toString();
 				is_implicit = true;
 			}
 
-			update_values.add(update_value);
-			implicit.add(is_implicit);
-
-			if (is_implicit) {
-				implicit_count++;
+			int fieldNum = table.getFieldPosition(update_field);
+			int fieldType = table.getFieldType(fieldNum);
+			if (fieldType == Types.INTEGER) {
+				fieldList.addField(new UpdateField(fieldNum, is_implicit ? new ImplicitFieldInfo(table.getFieldPosition(implicit_field), updateOperator) : null, Integer.parseInt(update_value)));
+			} else {
+				fieldList.addField(new UpdateField(fieldNum, is_implicit ? new ImplicitFieldInfo(table.getFieldPosition(implicit_field), updateOperator) : null, update_value));
 			}
 
-			for (int n = 1, m = table.getNumFields(); n <= m; n++) {
-				int field_type = table.getFieldType(n);
-				field_sizes.add(table.getIonFieldSize(n));
-
-				if (update_field.equalsIgnoreCase(table.getFieldName(n))) {
-					update_field_nums.add(n);
-					update_field_types.add(field_type);
-				}
-				if (implicit_field.equalsIgnoreCase(table.getFieldName(n))) {
-					implicit_fields.add(n);
-				}
-			}
 		}
 
-		String key_size = table.getSchemaValue(PRIMARY_KEY_SIZE);
-		String value_size = table.getSchemaValue(VALUE_SIZE);
-		String ion_key = table.getSchemaValue(ION_KEY_TYPE);
-
 		// TODO revise IinqUpdate to use IinqWhere object
-		return new IinqUpdate(table.getTableId(), num_conditions, num_fields, new ArrayList<Integer>(Arrays.asList(where.getWhere_field_nums())), new ArrayList<String>(Arrays.asList(where.getWhere_operators())),
-				new ArrayList<String>(Arrays.asList(where.getWhere_values())), /*new ArrayList<String>(Arrays.asList(where.getWhere_field_types()))*/null, key_size, value_size, ion_key, update_field_nums, implicit, implicit_fields, update_operators,
-				update_values, update_field_types, implicit_count);
+		return new IinqUpdate(table.getTableId(), where, num_fields, fieldList);
 	}
 
 	public IinqInsert executeInsertStatement(String sql) throws SQLException, InvalidArgumentException {
@@ -219,7 +202,7 @@ public class IinqExecutor {
 		return exFunc;
 	}
 
-	public delete_fields executeDeleteStatement(String sql) throws SQLException, InvalidArgumentException, IOException, RelationNotFoundException {
+	public IinqDelete executeDeleteStatement(String sql) throws SQLException, InvalidArgumentException, IOException, RelationNotFoundException {
 		// Use UnityJDBC to parse the drop table statement (metadata is required to verify table existence)
 		GlobalParser kingParser;
 		GlobalUpdate gu;
@@ -257,16 +240,6 @@ public class IinqExecutor {
 			throw new SQLException("Delete attempted on non-existent table: " + table_name);
 		}
 
-		/* Create print table method if it doesn't already exist */
-/*		if (!iinqTable.isPrintFunctionWritten()) {
-			print_table(out, table_name);
-			iinqTable.setPrintFunctionWritten(true);
-		}*/
-
-		/* Write function to file */
-		String key_size = iinqTable.getSchemaValue(PRIMARY_KEY_SIZE);
-		String value_size = iinqTable.getSchemaValue(VALUE_SIZE);
-
 		String[] conditionFields = new String[num_conditions];
 
 		for (int i = 0; i < num_conditions; i++) {
@@ -276,18 +249,7 @@ public class IinqExecutor {
 		IinqWhere iinqWhere = new IinqWhere(num_conditions);
 		iinqWhere.generateWhere(conditionFields, iinqTable);
 
-/*		if (new_table) {
-			// TODO: update tableInfo constructor to take IinqWhere object a a parameter
-			tableInfo table_info = new tableInfo(table_id, Integer.parseInt(iinqDatabase.getSchemaValue(table_name, NUMBER_OF_FIELDS)), new ArrayList(Arrays.asList(iinqWhere.getIinq_field_types())), new ArrayList(Arrays.asList(iinqWhere.getField_sizes())));
-
-			calculateInfo.add(table_info);
-			//tables_count++;
-		}*/
-
-		String ion_key = iinqTable.getSchemaValue(ION_KEY_TYPE);
-
-		// TODO: update delete_fields to take an IinqWhere object as a parameter
-		return new delete_fields(iinqTable.getTableId(), num_conditions, new ArrayList<Integer>(Arrays.asList(iinqWhere.getWhere_field_nums())), new ArrayList<String>(Arrays.asList(iinqWhere.getWhere_operators())), new ArrayList<String>(Arrays.asList(iinqWhere.getWhere_values())), /*new ArrayList<String>(Arrays.asList(iinqWhere.getWhere_field_types()))*/null, key_size, value_size, ion_key);
+		return new IinqDelete(iinqTable.getTableId(), iinqWhere);
 	}
 
 	public int executeDropTable(String sql) throws SQLException {

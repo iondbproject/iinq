@@ -1,4 +1,4 @@
-package iinq.functions.CalculatedFunctions;
+package iinq.functions.calculated;
 
 import iinq.metadata.IinqTable;
 

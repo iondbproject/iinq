@@ -431,7 +431,7 @@ public class IinqQuery extends WebQuery {
 	}
 
 	/**
-	 * Retrieves the SourceTable with a given table_id.
+	 * Retrieves the SourceTable with a given tableId.
 	 *
 	 * @param tableName name of the table to retrieve
 	 * @return SourceTable with the given name

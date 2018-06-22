@@ -3,8 +3,8 @@ package iinq;
 import unity.annotation.AnnotatedSourceField;
 
 public class InsertFieldElement implements Comparable<InsertFieldElement> {
-	int fieldNum;
-	String value;
+	public int fieldNum;
+	public String value;
 
 	public InsertFieldElement(int fieldNum, String value) {
 		this.fieldNum = fieldNum;

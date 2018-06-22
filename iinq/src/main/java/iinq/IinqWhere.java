@@ -18,7 +18,6 @@ public class IinqWhere {
 	private int[] where_field_types;
 	private Integer[] where_field_nums;
 	private int num_conditions;
-	private String[] field_sizes;
 
 	public IinqWhere(int num_conditions) {
 		this.num_conditions		= num_conditions;
@@ -68,13 +67,7 @@ public class IinqWhere {
 				conditionList.append(", ");
 				conditionList.append(where_operators[i]);
 				conditionList.append(", ");
-				if (where_field_types[i] == Types.INTEGER) {
-					conditionList.append(where_values[i]);
-				} else {
-					conditionList.append("\"");
-					conditionList.append(where_values[i]);
-					conditionList.append("\"");
-				}
+				conditionList.append(where_values[i]);
 				conditionList.append("), ");
 			}
 			conditionList.setLength(conditionList.length()-2);
@@ -89,7 +82,6 @@ public class IinqWhere {
 			throw new InvalidArgumentException(new String[]{"Array must be the same length as specified in the constructor."});
 		int num_fields = table.getNumFields();
 		this.iinq_field_types	= new String[num_fields*num_conditions];
-		this.field_sizes		= new String[num_fields*num_conditions];
 		for (int i = 0; i < num_conditions; i++) {
 			int pos = -1, len = -1;
 			/* Set up value, operator, and condition for each WHERE clause */
@@ -124,22 +116,6 @@ public class IinqWhere {
 			SourceField field = table.getField(fieldName);
 			where_field_nums[i] = field.getOrdinalPosition();
 			where_field_types[i] = field.getDataType();
-
-			/*for (int j = 0; j < num_fields; j++) {
-				int field_type = table.getFieldType(j+1);
-				field_sizes[j] = table.getIonFieldSize(j+1);
-
-				if (field_type == Types.CHAR) {
-					iinq_field_types[i*num_conditions + j] = "iinq_char";
-				} else {
-					iinq_field_types[i*num_conditions + j] = "iinq_int";
-				}
-
-				if (where_field_names[i].equalsIgnoreCase(table.getFieldName(i+1))) {
-					where_field_nums[i] = j + 1;
-					where_field_types[i] = field_type;
-				}
-			}*/
 		}
 	}
 }

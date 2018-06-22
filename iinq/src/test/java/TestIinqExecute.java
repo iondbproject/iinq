@@ -1,6 +1,5 @@
 import com.sun.javaws.exceptions.InvalidArgumentException;
 import iinq.IinqExecute;
-import org.junit.BeforeClass;
 import org.junit.Test;
 
 import javax.management.relation.RelationNotFoundException;
@@ -14,25 +13,39 @@ import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 
 public class TestIinqExecute {
 
-	public static final String directory = "../../iondb/src/iinq/iinq_interface/";
-	public static final String user_file = "../../iondb/src/iinq/iinq_interface/iinq_user.c";
-	public static final String function_file = "../../iondb/src/iinq/iinq_interface/iinq_user_functions.c";
-	public static final String function_header_file = "../../iondb/src/iinq/iinq_interface/iinq_user_functions.h";
-	public static final String use_existing = "false";
+	public static final String interfaceDir = "../../iondb/src/iinq/iinq_interface/";
+	public static final String interfaceUserFile = "../../iondb/src/iinq/iinq_interface/iinq_user.c";
+	public static final String interfaceUserFunctions = "../../iondb/src/iinq/iinq_interface/iinq_user_functions.c";
+	public static final String interfaceUserHeader = "../../iondb/src/iinq/iinq_interface/iinq_user_functions.h";
 
-	@BeforeClass
-	public static void setSystemProperties() {
-		System.setProperty("USE_EXISTING", use_existing);
-		System.setProperty("USER_FILE", user_file);
-		System.setProperty("FUNCTION_FILE", function_file);
-		System.setProperty("FUNCTION_HEADER_FILE", function_header_file);
-		System.setProperty("DIRECTORY", directory);
+	public static final String testingDir = "../../iondb/src/iinq/iinq_interface/";
+	public static final String testingUserFile = "../../iondb/src/iinq/iinq_interface/iinq_user.c";
+	public static final String testingUserFunctions = "../../iondb/src/iinq/iinq_interface/iinq_user_functions.c";
+	public static final String testingUserHeader = "../../iondb/src/iinq/iinq_interface/iinq_user_functions.h";
+
+	public static final String useExisting = "false";
+	
+	public static void setSystemPropertiesForIinqInterface() {
+		setSystemProperties(interfaceUserFile, interfaceUserFunctions, interfaceUserHeader, interfaceDir, useExisting);
+	}
+
+	public static void setSystemPropertiesForPlanckUnit() {
+		setSystemProperties(testingUserFile, testingUserFunctions, testingUserHeader, testingDir, useExisting);
+	}
+
+	public static void setSystemProperties(String userFile, String userFunctions, String userHeader, String testingDir, String useExisting) {
+		System.setProperty("USE_EXISTING", useExisting);
+		System.setProperty("USER_FILE", testingUserFile);
+		System.setProperty("FUNCTION_FILE", testingUserFunctions);
+		System.setProperty("FUNCTION_HEADER_FILE", testingUserHeader);
+		System.setProperty("DIRECTORY", testingDir);
 	}
 
 	@Test
 	public void testFull() throws SQLException, InvalidArgumentException, RelationNotFoundException, IOException {
+		setSystemPropertiesForIinqInterface();
 		Path sourceFile = Paths.get("src/test/c/IinqFullTestCode.c");
-		Path destFile = Paths.get(user_file);
+		Path destFile = Paths.get(interfaceUserFile);
 
 		Files.copy(sourceFile, destFile, REPLACE_EXISTING);
 
@@ -41,12 +54,19 @@ public class TestIinqExecute {
 
 	@Test
 	public void testInsertAndSelectSingleTable() throws IOException {
+		setSystemPropertiesForIinqInterface();
 		Path sourceFile = Paths.get("src/test/c/IinqInsertAndSelectSingleTableTestCode.c");
-		Path destFile = Paths.get(user_file);
+		Path destFile = Paths.get(interfaceUserFile);
 
 		Files.copy(sourceFile, destFile, REPLACE_EXISTING);
 
 		IinqExecute.main(null);
+	}
+
+	@Test
+	public void testInsertAndSelectSingleTablePlanckUnit() throws IOException {
+		setSystemPropertiesForPlanckUnit();
+
 	}
 
 }

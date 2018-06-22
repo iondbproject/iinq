@@ -1,6 +1,6 @@
 /******************************************************************************/
 /**
- @file		    IinqUpdate.java
+ @file		    IinqSelect.java
  @author		Dana Klamut, Kai Neubauer
  @copyright	    Copyright 2018
  The University of British Columbia,
@@ -33,50 +33,41 @@
  */
 /******************************************************************************/
 
-package iinq;
+package iinq.callable;
+
+import iinq.IinqWhere;
 
 import java.util.ArrayList;
 
-public class IinqUpdate {
+public class IinqSelect implements Callable{
+    public String table_name;
     public int table_id;
     public int num_wheres;
-    public int num_updates;
-    public ArrayList<Integer> where_fields;
-    public ArrayList<String> where_operators;
-    public ArrayList<String> where_values;
-    public ArrayList<String> where_field_types;
-    public String key_size;
-    public String value_size;
-    public String ion_key;
-    public ArrayList<Integer> update_fields;
-    public ArrayList<Boolean> implicit;
-    public ArrayList<Integer> implicit_fields;
-    public ArrayList<String> update_operators;
-    public ArrayList<String> update_values;
-    public ArrayList<Integer> update_field_types;
-    public int implicit_count;
+    public int num_fields;
+    public IinqWhere where;
+    public String project_size;
+    public ArrayList<Integer> fields;
+    public String return_value;
 
-    public IinqUpdate(int id, int num_w, int num_u, ArrayList<Integer> cols, ArrayList<String> ops,
-                      ArrayList<String> vals, ArrayList<String> types_w, String size_k, String size_v, String key_i,
-                      ArrayList<Integer> fields_u, ArrayList<Boolean> bool_i, ArrayList<Integer> fields_i, ArrayList<String> ops_u,
-                      ArrayList<String> vals_u, ArrayList<Integer> types_u, int i_count) {
-        table_id = id;
-        num_wheres = num_w;
-        num_updates = num_u;
-        where_fields = cols;
-        where_operators = ops;
-        where_values = vals;
-        where_field_types = types_w;
-        key_size = size_k;
-        value_size = size_v;
-        ion_key = key_i;
-        update_fields = fields_u;
-        implicit = bool_i;
-        implicit_fields = fields_i;
-        update_operators = ops_u;
-        update_values = vals_u;
-        update_field_types = types_u;
-        implicit_count = i_count;
+    public IinqSelect(String table_name, int table_id, int num_fields, IinqWhere where, String project_size, ArrayList<Integer> field_list,
+                      String return_value) {
+        this.table_name = table_name;
+        this.table_id = table_id;
+        this.num_fields = num_fields;
+        if (where != null) {
+            this.where = where;
+            num_wheres = where.getNum_conditions();
+        } else {
+            num_wheres = 0;
+        }
+        this.project_size = project_size;
+        fields = field_list;
+        this.return_value = return_value;
+    }
+
+    public String generateFunctionCall() {
+        return null;
     }
 }
+
 

@@ -1,4 +1,4 @@
-package iinq.functions.SelectFunctions;
+package iinq.functions.select;
 
 import iinq.functions.CommonCode;
 import iinq.functions.IinqFunction;

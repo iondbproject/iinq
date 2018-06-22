@@ -1,6 +1,5 @@
-package iinq.functions.CalculatedFunctions;
+package iinq.functions.calculated;
 
-import iinq.functions.CalculatedFunctions.CalculatedFunction;
 import iinq.functions.IinqFunction;
 import iinq.metadata.IinqTable;
 
@@ -13,7 +12,7 @@ public class GetFieldTypeFunction extends IinqFunction implements CalculatedFunc
 	public GetFieldTypeFunction() {
 		super(
 				"getFieldType",
-				"iinq_field_t getFieldType(iinq_table_id table_id, iinq_field_num_t field_num);\n",
+				"iinq_field_t getFieldType(iinq_table_id tableId, iinq_field_num_t field_num);\n",
 				null
 		);
 	}

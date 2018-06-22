@@ -162,7 +162,7 @@ main(
 
 	/* Test query */
 	printf("SELECT id, name FROM Cats WHERE age < 10;\n");
-	iinq_result_set rs1 = SQL_select("SELECT id, name FROM Cats WHERE age < 10;");
+	iinq_result_set *rs1 = SQL_select("SELECT id, name FROM Cats WHERE age < 10;");
 
     while (next(&rs1)) {
         printf("ID: %i,", getInt(&rs1, 1));

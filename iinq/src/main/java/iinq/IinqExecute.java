@@ -42,6 +42,8 @@ import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.transform.Transformer;
 import javax.xml.transform.TransformerFactory;
 
+import iinq.callable.*;
+import iinq.callable.update.IinqUpdate;
 import iinq.functions.*;
 import iinq.metadata.IinqDatabase;
 import iinq.metadata.IinqTable;
@@ -102,10 +104,10 @@ public class IinqExecute {
 	private static ArrayList<IinqInsertFields> IinqInsertFields = new ArrayList<>();
 	private static ArrayList<String> function_headers = new ArrayList<>();
 	private static ArrayList<tableInfo> calculateInfo = new ArrayList<>();
-	private static ArrayList<delete_fields> delete_fields = new ArrayList<>();
-	private static ArrayList<IinqUpdate> IinqUpdate = new ArrayList<>();
-	private static ArrayList<IinqSelect> IinqSelect = new ArrayList<>();
-	private static ArrayList<create_fields> create_fields = new ArrayList<>();
+	private static ArrayList<iinq.callable.IinqDelete> IinqDelete = new ArrayList<>();
+	private static ArrayList<iinq.callable.update.IinqUpdate> IinqUpdate = new ArrayList<>();
+	private static ArrayList<iinq.callable.IinqSelect> IinqSelect = new ArrayList<>();
+	private static ArrayList<iinq.callable.IinqCreateTable> IinqCreateTable = new ArrayList<>();
 	private static ArrayList<String> drop_tables = new ArrayList<>();
 
 	private static boolean new_table;
@@ -266,17 +268,17 @@ public class IinqExecute {
 	}
 
 	private static void write_select_method(BufferedWriter out) throws IOException {
-		out.write("iinq_result_set iinq_select(int id, char *table_id, ion_key_type_t key_type, size_t key_size, size_t project_size, int num_wheres, int num_fields, ...) {\n\n");
+		out.write("iinq_result_set iinq_select(int id, char *tableId, ion_key_type_t keyType, size_t keySize, size_t project_size, int numWheres, int num_fields, ...) {\n\n");
 		out.write("\tint i;\n");
 		out.write("\tva_list valist, where_list;\n");
 		out.write("\tva_start(valist, num);\n");
 		out.write("\tva_copy(where_list, valist);\n\n");
 
-		out.write("\tunsigned char *table_id = malloc(sizeof(int));\n");
-		out.write("\t*(int *) table_id = id;\n\n");
+		out.write("\tunsigned char *tableId = malloc(sizeof(int));\n");
+		out.write("\t*(int *) tableId = id;\n\n");
 
 		out.write("\tchar *table_name = malloc(sizeof(char)*ION_MAX_FILENAME_LENGTH);\n");
-		out.write("\tstrcpy(table_name, table_id);\n\n");
+		out.write("\tstrcpy(table_name, tableId);\n\n");
 
 		out.write("\tion_err_t                  error;\n");
 		out.write("\tion_dictionary_t           dictionary;\n");
@@ -295,7 +297,7 @@ public class IinqExecute {
 		out.write("\tdictionary_find(&dictionary, &predicate, &cursor);\n\n");
 
 		out.write("\tion_record_t ion_record;\n");
-		out.write("\tion_record.key     = malloc(key_size);\n");
+		out.write("\tion_record.key     = malloc(keySize);\n");
 		out.write("\tion_record.value   = malloc(project_size);\n\n");
 
 		out.write("\tion_cursor_status_t status;\n\n");
@@ -303,7 +305,7 @@ public class IinqExecute {
 		out.write("\tion_boolean_t condition_satisfied;\n\n");
 
 		out.write("\tint fields[num_fields];\n\n");
-		out.write("\tfor (i = 0; i < num_wheres; i++) {\n");
+		out.write("\tfor (i = 0; i < numWheres; i++) {\n");
 		out.write("\t\tva_arg(valist, void *);\n\t}\n\n");
 
 		out.write("\tiinq_result_set select = {0};\n");
@@ -323,7 +325,7 @@ public class IinqExecute {
 		out.write("\tva_end(valist);\n\n");
 		out.write("\tion_dictionary_handler_t   handler_temp;\n");
 		out.write("\tion_dictionary_t           dictionary_temp;\n\n");
-		out.write("\terror = iinq_create_source(\"SEL\", key_type, (ion_key_size_t) key_size, (ion_value_size_t) project_size);\n\n");
+		out.write("\terror = iinq_create_source(\"SEL\", keyType, (ion_key_size_t) keySize, (ion_value_size_t) project_size);\n\n");
 		out.write("\tif (err_ok != error) {\n");
 		out.write("\t\tprintf(\"Error occurred. Error code: %i" + "\\" + "n" + "\", error);\n");
 		out.write("\t}\n\n");
@@ -334,19 +336,19 @@ public class IinqExecute {
 		out.write("\t}\n\n");
 
 		out.write("\twhile ((status = iinq_next_record(cursor, &ion_record)) == cs_cursor_initialized || status == cs_cursor_active) {\n");
-		out.write("\t\tcondition_satisfied = where(table_id, &ion_record, num_wheres, &where_list);\n\n");
-		out.write("\t\tif (!condition_satisfied || num_wheres == 0) {\n");
+		out.write("\t\tcondition_satisfied = where(tableId, &ion_record, numWheres, &where_list);\n\n");
+		out.write("\t\tif (!condition_satisfied || numWheres == 0) {\n");
 		out.write("\t\t\tunsigned char *fieldlist = malloc(project_size);\n");
 		out.write("\t\t\tunsigned char *data = fieldlist;\n\n");
 
 		out.write("\t\t\tfor (i = 0; i < num_fields; i++) {\n\n");
-		out.write("\t\t\t\tif (getFieldType(table_id, fields[i]) == iinq_int) {\n");
-		out.write("\t\t\t\t\t*(int *) data = NEUTRALIZE(ion_record.value + calculateOffset(table_id, fields[i] - 1), int);\n");
+		out.write("\t\t\t\tif (getFieldType(tableId, fields[i]) == iinq_int) {\n");
+		out.write("\t\t\t\t\t*(int *) data = NEUTRALIZE(ion_record.value + calculateOffset(tableId, fields[i] - 1), int);\n");
 		out.write("\t\t\t\t\tdata += sizeof(int);\n");
 		out.write("\t\t\t\t}\n");
 		out.write("\t\t\t\telse {\n");
-		out.write("\t\t\t\t\tmemcpy(data, ion_record.value + calculateOffset(table_id, fields[i] - 1), calculateOffset(table_id, fields[i]) - calculateOffset(table_id, fields[i]-1));\n");
-		out.write("\t\t\t\t\tdata += calculateOffset(table_id, fields[i]) - calculateOffset(table_id, fields[i]-1);\n");
+		out.write("\t\t\t\t\tmemcpy(data, ion_record.value + calculateOffset(tableId, fields[i] - 1), calculateOffset(tableId, fields[i]) - calculateOffset(tableId, fields[i]-1));\n");
+		out.write("\t\t\t\t\tdata += calculateOffset(tableId, fields[i]) - calculateOffset(tableId, fields[i]-1);\n");
 		out.write("\t\t\t\t}\n\t\t\t}\n\n");
 		out.write("\t\t\terror = dictionary_insert(&dictionary_temp, IONIZE(count, int), fieldlist).error;\n\n");
 		out.write("\t\t\tif (err_ok != error) {\n");
@@ -365,13 +367,13 @@ public class IinqExecute {
 		out.write("\t}\n\n");
 
 		out.write("\t*(int *) select.num_recs = count;\n");
-		out.write("\tselect.table_id = malloc(sizeof(int));\n");
-		out.write("\t*(int *) select.table_id = id;\n");
+		out.write("\tselect.tableId = malloc(sizeof(int));\n");
+		out.write("\t*(int *) select.tableId = id;\n");
 		out.write("\tselect.value = malloc(project_size);\n");
 		out.write("\tselect.count = malloc(sizeof(int));\n");
 		out.write("\t*(int *) select.count = -1;\n\n");
 
-		out.write("\tfree(table_id);\n");
+		out.write("\tfree(tableId);\n");
 		out.write("\tfree(table_name);\n\n");
 		out.write("\tfree(ion_record.key);\n");
 		out.write("\tfree(ion_record.value);\n\n");
@@ -389,7 +391,7 @@ public class IinqExecute {
 		out.write("\tfree(select->value);\n");
 		out.write("\tfree(select->fields);\n");
 		out.write("\tfree(select->count);\n");
-		out.write("\tfree(select->table_id);\n");
+		out.write("\tfree(select->tableId);\n");
 		out.write("\tfree(select->num_recs);\n");
 		out.write("\tfree(select->num_fields);\n");
 		out.write("\treturn boolean_false;\n}\n\n");
@@ -411,10 +413,10 @@ public class IinqExecute {
 		out.write("\t}\n\n");
 		out.write("\tfor (i = 0; i < *(int *) select->num_fields; i++) {\n");
 		out.write("\t\tint value = *(int *) (select->fields + sizeof(int)*i);\n\n");
-		out.write("\t\tif (getFieldType(select->table_id, value) == iinq_null_terminated_string) {\n");
+		out.write("\t\tif (getFieldType(select->tableId, value) == iinq_null_terminated_string) {\n");
 		out.write("\t\t\tcount++;\n\t\t}\n\n");
 		out.write("\t\tif (count == fieldNum) {\n");
-		out.write("\t\t\treturn (char *) (select->value + calculateOffset(select->table_id, value-1));\n");
+		out.write("\t\t\treturn (char *) (select->value + calculateOffset(select->tableId, value-1));\n");
 		out.write("\t\t}\n\t}\n\n\treturn \"\";\n}\n\n");
 
 		out.write("int getInt(iinq_result_set *select, int fieldNum) {\n");
@@ -434,13 +436,13 @@ public class IinqExecute {
 		out.write("\t}\n\n");
 		out.write("\tfor (i = 0; i < *(int *) select->num_fields; i++) {\n");
 		out.write("\t\tint value = *(int *) (select->fields + sizeof(int)*i);\n\n");
-		out.write("\t\tif (getFieldType(select->table_id, value) == iinq_int) {\n");
+		out.write("\t\tif (getFieldType(select->tableId, value) == iinq_int) {\n");
 		out.write("\t\t\tcount++;\n\t\t}\n\n");
 		out.write("\t\tif (count == fieldNum) {\n");
-		out.write("\t\t\treturn NEUTRALIZE(select->value + calculateOffset(select->table_id, value-1), int);\n");
+		out.write("\t\t\treturn NEUTRALIZE(select->value + calculateOffset(select->tableId, value-1), int);\n");
 		out.write("\t\t}\n\t}\n\n\treturn 0;\n}\n\n");
 
-		function_headers.add("iinq_result_set iinq_select(int id, char *table_id, ion_key_type_t key_type, size_t key_size, size_t project_size, int num_wheres, int num_fields, ...);\n");
+		function_headers.add("iinq_result_set iinq_select(int id, char *tableId, ion_key_type_t keyType, size_t keySize, size_t project_size, int numWheres, int num_fields, ...);\n");
 		function_headers.add("ion_boolean_t next(iinq_result_set *select);\n");
 		function_headers.add("char* getString(iinq_result_set *select, int fieldNum);\n");
 		function_headers.add("int getInt(iinq_result_set *select, int fieldNum);\n");
@@ -777,6 +779,7 @@ public class IinqExecute {
 		contents += "#if defined(__cplusplus)\n" + "extern \"C\" {\n" + "#endif\n\n";
 
 		/* Include other headers*/
+		// TODO: make the includes work from other directories
 		contents += "#include \"../../dictionary/dictionary_types.h\"\n" +
 				"#include \"../../dictionary/dictionary.h\"\n" +
 				"#include \"../iinq.h\"\n" + "#include \"iinq_functions.h\"\n\n";
@@ -840,9 +843,9 @@ public class IinqExecute {
 
 				int index = line.indexOf("SQL_prepare");
 				if (index != -1) {
-					contents += line.substring(0,index) + iinqDatabase.getInsert(count).getFunctionCall();
+					contents += line.substring(0,index) + iinqDatabase.getInsert(count).generateFunctionCall();
 				} else if (line.contains("SQL_execute")) {
-					contents += "\t" + CommonCode.wrapInExecuteFunction(iinqDatabase.getInsert(count).getFunctionCall());
+					contents += "\t" + CommonCode.wrapInExecuteFunction(iinqDatabase.getInsert(count).generateFunctionCall());
 				}
 
 				contents += ";\n";
@@ -870,30 +873,17 @@ public class IinqExecute {
 
 		StringBuilder contents = new StringBuilder();
 		String line;
-		iinq.delete_fields delete;
+		IinqDelete delete;
 		int count = 0;
 
 		while (null != (line = ex_file.readLine())) {
 			if ((line.toUpperCase()).contains("DELETE") && line.contains("SQL_execute") && !line.contains("/*") && !line.contains("//") && !line.contains("printf")) {
 				contents.append("/* " + line + " */\n");
 
-				delete = iinqDatabase.getDeletes().get(count);
+				delete = iinqDatabase.getDelete(count);
 
 				if (delete != null) {
-					contents.append("\tdelete_record(" + delete.table_id + ", " + delete.ion_key + ", "
-							+ delete.key_size + ", " + delete.value_size + ", " + delete.num_wheres);
-
-					if (delete.num_wheres > 0) {
-						contents.append(", IINQ_CONDITION_LIST(");
-						for (int j = 0; j < delete.num_wheres; j++) {
-							contents.append("IINQ_CONDITION(" + delete.fields.get(j) + ", " + delete.operators.get(j) + ", ");
-							contents.append(delete.values.get(j) + "), ");
-						}
-						contents.setLength(contents.length()-2);
-						contents.append(")");
-					}
-
-					contents.append(");\n");
+					contents.append("\t" + delete.generateFunctionCall() + ";\n");
 					count++;
 				}
 			} else {
@@ -926,50 +916,11 @@ public class IinqExecute {
 			if ((line.toUpperCase()).contains("UPDATE") && !line.contains("/*") && !line.contains("//") && !line.contains("printf")) {
 				contents.append("/* " + line + " */\n");
 
-				update = iinqDatabase.getUpdates().get(count);
-				int implicit_count = 0;
+				update = iinqDatabase.getUpdate(count);
 
 				if (update != null) {
-					contents.append("\tupdate(" + update.table_id + ", " + update.ion_key + ", "
-							+ update.key_size + ", " + update.value_size + ", " + update.num_wheres + ", "
-							+ update.num_updates);
+					contents.append ("\t" + update.generateFunctionCall() + ";\n");
 
-					if (update.num_wheres > 0) {
-						contents.append(", IINQ_CONDITION_LIST(");
-						for (int j = 0; j < update.num_wheres; j++) {
-							contents.append("IINQ_CONDITION(" + update.where_fields.get(j) + ", " + update.where_operators.get(j) + ", ");
-							contents.append(update.where_values.get(j) + "), ");
-						}
-						contents.setLength(contents.length()-2);
-						contents.append(")");
-					}
-
-					contents.append(", IINQ_UPDATE_LIST(");
-					for (int i = 0; i < update.num_updates; i++) {
-						contents.append("IINQ_UPDATE(");
-						if (!update.implicit.get(i)) {
-							contents.append(update.update_fields.get(i) + ", 0, 0, ");
-
-							if (update.update_field_types.get(i) == Types.INTEGER) {
-								contents.append(String.format("IONIZE(%s,int)", update.update_values.get(i)));
-							} else {
-								contents.append(update.update_values.get(i).replace("\'", "\""));
-							}
-						} else {
-							contents.append(update.update_fields.get(i) + ", " + update.implicit_fields.get(implicit_count) + ", "
-									+ update.update_operators.get(implicit_count) + ", ");
-
-							if (update.update_field_types.get(i) == Types.INTEGER) {
-								contents.append(String.format("IONIZE(%s,int)", update.update_values.get(i)));
-							} else {
-								contents.append(update.update_values.get(i).replace("\'", "\""));
-							}
-							implicit_count++;
-						}
-						contents.append("), ");
-					}
-					contents.setLength(contents.length()-2);
-					contents.append("));\n");
 					count++;
 				}
 			} else {
@@ -1011,20 +962,6 @@ public class IinqExecute {
 					if (select.num_wheres > 0) {
 						contents.append(", ");
 						contents.append(select.where.generateIinqConditionList());
-/*						contents.append(", IINQ_CONDITION_LIST(");
-						for (int j = 0; j < select.num_wheres; j++) {
-							contents.append("IINQ_CONDITION(");
-							contents.append(select.where_fields[j] + ", " + select.where_operators[j] + ", ");
-
-							if (select.where_field_types[j].equals(String.valueOf(Types.INTEGER))) {
-								contents.append(select.where_values[j]);
-							} else {
-								contents.append("\"" + select.where_values[j] + "\"");
-							}
-							contents.append("), ");
-						}
-						contents.setLength(contents.length()-2);
-						contents.append(")");*/
 					}
 
 					contents.append(", IINQ_SELECT_LIST(");
@@ -1059,18 +996,17 @@ public class IinqExecute {
 
 		String contents = "";
 		String line;
-		iinq.create_fields create;
+		IinqCreateTable create;
 		int count = 0;
 
 		while (null != (line = ex_file.readLine())) {
 			if ((line.toUpperCase()).contains("CREATE TABLE") && !line.contains("/*") && !line.contains("//")&& !line.contains("printf")) {
 				contents += "/* " + line + " */\n";
 
-				create = create_fields.get(count);
+				create = iinqDatabase.getCreateTable(count);
 
 				if (create != null) {
-					contents += "\tcreate_table(" + create.table_id + ", " + create.key_type + ", " + create.key_size + ", "
-							+ create.value_size + ");\n";
+					contents += "\t" + create.generateFunctionCall() + ";\n";
 
 					count++;
 				}
@@ -1281,7 +1217,7 @@ public class IinqExecute {
 
 		create_written = true;
 
-		create_fields.add(new create_fields(table));
+		IinqCreateTable.add(new IinqCreateTable(table));
 	}
 
 	private static void
@@ -1320,20 +1256,20 @@ public class IinqExecute {
 				String key_type;
 
 				/*for (int i = 0; i < inserts.size(); i++) {
-					table_id = inserts.get(i).table_id;
-					written = iinqDatabase.getIinqTableFromId(table_id).isInsertWritten();
+					tableId = inserts.get(i).tableId;
+					written = iinqDatabase.getIinqTableFromId(tableId).isInsertWritten();
 
 					if (!written) {
-						iinqDatabase.getIinqTableFromId(table_id).setInsertWritten(true);
-						table_id = inserts.get(i).table_id;
-						//key_type = inserts.get(i).key_type;
+						iinqDatabase.getIinqTableFromId(tableId).setInsertWritten(true);
+						tableId = inserts.get(i).tableId;
+						//keyType = inserts.get(i).keyType;
 
-						contents += "\tif (*(int *) p.table == " + table_id + ") {\n";
+						contents += "\tif (*(int *) p.table == " + tableId + ") {\n";
 
-						*//*if (Integer.parseInt(key_type) == Types.INTEGER) {
-							contents += "\t\tiinq_execute(" + table_id + ", IONIZE(*(int *) p.key, int), p.value, iinq_insert_t);\n";
+						*//*if (Integer.parseInt(keyType) == Types.INTEGER) {
+							contents += "\t\tiinq_execute(" + tableId + ", IONIZE(*(int *) p.key, int), p.value, iinq_insert_t);\n";
 						} else {
-							contents += "\t\tiinq_execute(" + table_id + ", p.key, p.value, iinq_insert_t);\n";
+							contents += "\t\tiinq_execute(" + tableId + ", p.key, p.value, iinq_insert_t);\n";
 						}*//*
 						contents += "\t}\n";
 					}
@@ -1383,10 +1319,10 @@ public class IinqExecute {
 
 			for (int i = 0, n = iinqDatabase.getTableCount(); i < n; i++) {
 				IinqTable table = iinqDatabase.getIinqTableFromId(i);
-				int table_id = table.getTableId();
+				int tableId = table.getTableId();
 				int num_fields = table.getNumFields();
 
-				out.write("\t\tcase " + table_id + " : {\n");
+				out.write("\t\tcase " + tableId + " : {\n");
 				out.write("\t\t\tswitch (fieldNum) {\n");
 
 				int int_count;

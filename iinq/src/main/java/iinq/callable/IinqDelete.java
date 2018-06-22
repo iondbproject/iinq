@@ -1,6 +1,6 @@
 /******************************************************************************/
 /**
- @file		    create_fields.java
+ @file		    IinqDelete.java
  @author		Dana Klamut, Kai Neubauer
  @copyright	    Copyright 2018
  The University of British Columbia,
@@ -33,26 +33,37 @@
  */
 /******************************************************************************/
 
-package iinq;
+package iinq.callable;
 
-import iinq.metadata.IinqTable;
+import iinq.IinqWhere;
 
-public class create_fields {
-    public int table_id;
-    public String key_type;
-    public String key_size;
-    public String value_size;
+public class IinqDelete implements Callable {
+    public int tableId;
+    public int numWheres;
+    public IinqWhere where;
 
-    public create_fields(int table_id, String key_type, String key_size, String value_size) {
-        this.table_id = table_id;
-        this.key_type = key_type;
-        this.key_size = key_size;
-        this.value_size = value_size;
+    public IinqDelete(int tableId, IinqWhere where) {
+        this.tableId = tableId;
+        if (where != null) {
+            numWheres = where.getNum_conditions();
+            this.where = where;
+        } else {
+            numWheres = 0;
+        }
     }
 
-    public create_fields(IinqTable table) {
-        this(table.getTableId(), table.getIonKeyType(), table.generateIonKeySize(), table.generateIonValueSize());
+    public String generateFunctionCall() {
+        StringBuilder functionCall = new StringBuilder();
+        functionCall.append("delete_record(");
+        functionCall.append(tableId);
+        functionCall.append(", ");
+        functionCall.append(numWheres);
+        if (numWheres > 0) {
+            functionCall.append(", ");
+            functionCall.append(where.generateIinqConditionList());
+        }
+        functionCall.append(")");
+        return functionCall.toString();
     }
+
 }
-
-

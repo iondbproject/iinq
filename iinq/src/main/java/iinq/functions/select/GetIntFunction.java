@@ -1,4 +1,4 @@
-package iinq.functions.SelectFunctions;
+package iinq.functions.select;
 
 import iinq.functions.CommonCode;
 import iinq.functions.IinqFunction;
@@ -23,12 +23,5 @@ public class GetIntFunction extends IinqFunction {
 						CommonCode.errorCheckWithReturn("select->status.error", CommonCode.ReturnType.EMPTY_NUMERIC) +
 
 						"\treturn NEUTRALIZE(select->value + select->offset[field_num-1], int);\n}\n\n");
-						/*"\tfor (i = 0; i < select->num_fields; i++) {\n" +
-						"\t\tiinq_field_num_t field = select->fields[i];\n\n" +
-						"\t\tif (getFieldType(select->table_id, field) == iinq_int) {\n" +
-						"\t\t\tcount++;\n\t\t}\n\n" +
-						"\t\tif (count == field_num) {\n" +
-						"\t\t\treturn NEUTRALIZE(select->value + calculateOffset(select->table_id, field), int);\n" +
-						"\t\t}\n\t}\n\n\treturn 0;\n}\n\n");*/
 	}
 }

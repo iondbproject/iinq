@@ -2,9 +2,11 @@ package iinq.metadata;
 
 import com.sun.javaws.exceptions.InvalidArgumentException;
 import iinq.*;
+import iinq.callable.*;
+import iinq.callable.update.IinqUpdate;
 import iinq.functions.*;
-import iinq.functions.CalculatedFunctions.CalculatedFunctions;
-import iinq.functions.SelectFunctions.SelectFunctions;
+import iinq.functions.calculated.CalculatedFunctions;
+import iinq.functions.select.SelectFunctions;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
@@ -38,9 +40,10 @@ public class IinqDatabase {
 	protected boolean selectWritten = false;
 	protected boolean preparedStatements = false;
 	protected HashMap<Integer, PreparedInsertFunction> insertFunctions = new HashMap<>();
+	protected ArrayList<IinqCreateTable> createTables = new ArrayList<>();
 	protected ArrayList<IinqInsert> inserts = new ArrayList<>();
 	protected ArrayList<IinqUpdate> updates = new ArrayList<>();
-	protected ArrayList<delete_fields> deletes = new ArrayList<>();
+	protected ArrayList<IinqDelete> deletes = new ArrayList<>();
 	protected ArrayList<IinqSelect> selects = new ArrayList<>();
 	protected HashMap<String, IinqFunction> functions = new HashMap<>();
 	protected ArrayList<Integer> droppedTableIds = new ArrayList<>();
@@ -62,6 +65,10 @@ public class IinqDatabase {
 		this.schema.addDatabase(db);
 		this.unityConnection = new UnityConnection(this.schema, new Properties());
 		this.executor = new IinqExecutor(this);
+	}
+
+	public IinqCreateTable getCreateTable(int i) {
+		return createTables.get(i);
 	}
 
 	public boolean insertFunctionExists(int tableId) {
@@ -113,6 +120,8 @@ public class IinqDatabase {
 		}
 
 		calculatedFunctions.addTable(table);
+		createTables.add(new IinqCreateTable(table));
+
 		return table;
 	}
 
@@ -305,12 +314,12 @@ public class IinqDatabase {
 		iinqTables.remove(table.getTableName().toLowerCase());
 	}
 
-	public ArrayList<delete_fields> getDeletes() {
-		return deletes;
+	public IinqDelete getDelete(int i) {
+		return deletes.get(i);
 	}
 
-	public ArrayList<IinqUpdate> getUpdates() {
-		return updates;
+	public IinqUpdate getUpdate(int i) {
+		return updates.get(i);
 	}
 
 	public ArrayList<Integer> getDroppedTableIds() {

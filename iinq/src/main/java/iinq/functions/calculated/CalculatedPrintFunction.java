@@ -1,4 +1,4 @@
-package iinq.functions.CalculatedFunctions;
+package iinq.functions.calculated;
 
 import iinq.functions.IinqFunction;
 import iinq.metadata.IinqTable;
@@ -28,7 +28,7 @@ public class CalculatedPrintFunction extends IinqFunction implements CalculatedF
 
 	public CalculatedPrintFunction() {
 		super("print_table",
-				"void print_table(iinq_table_id table_id);\n",
+				"void print_table(iinq_table_id tableId);\n",
 				null);
 	}
 
@@ -67,13 +67,13 @@ public class CalculatedPrintFunction extends IinqFunction implements CalculatedF
 
 	public String generateDefinition() {
 		StringBuilder def = new StringBuilder();
-		def.append("void print_table(iinq_table_id table_id) {\n" +
+		def.append("void print_table(iinq_table_id tableId) {\n" +
 				"\tion_dictionary_t dictionary;\n" +
 				"\tion_dictionary_handler_t handler;\n" +
 				"\n" +
 				"\tdictionary.handler = &handler;\n" +
 				"\n" +
-				"\tion_err_t error = iinq_open_source(table_id, &dictionary, &handler);\n" +
+				"\tion_err_t error = iinq_open_source(tableId, &dictionary, &handler);\n" +
 				"\n" +
 				"\tif (err_ok != error) {\n" +
 				"\t\tprintf(\"Print error: %d\", error);\n" +
@@ -88,7 +88,7 @@ public class CalculatedPrintFunction extends IinqFunction implements CalculatedF
 				"\tion_cursor_status_t cursor_status;\n" +
 				"\n" +
 				"\tion_record_t ion_record;\n" +
-				"\tswitch(table_id) {\n");
+				"\tswitch(tableId) {\n");
 		for (Map.Entry<Integer, PrintParams> entry : tablePrintParams.entrySet()) {
 			def.append(String.format("\t\tcase %d:\n",entry.getKey()));
 			def.append(String.format("\t\t\tion_record.key = malloc(%s);\n",entry.getValue().keySize));
@@ -97,7 +97,7 @@ public class CalculatedPrintFunction extends IinqFunction implements CalculatedF
 		}
 		def.append("\t}\n\n" +
 				"\tunsigned char *value;\n" +
-				"\tswitch (table_id) {\n");
+				"\tswitch (tableId) {\n");
 		for (Map.Entry<Integer, PrintParams> entry : tablePrintParams.entrySet()) {
 			def.append(String.format("\t\tcase %d:\n",entry.getKey()));
 			def.append(entry.getValue().printCode);

@@ -33,8 +33,9 @@
  */
 /******************************************************************************/
 
-package iinq;
+package iinq.callable;
 
+import iinq.InsertFieldElement;
 import iinq.functions.PreparedInsertFunction;
 import iinq.metadata.IinqTable;
 import unity.annotation.SourceField;
@@ -45,7 +46,7 @@ import unity.query.LQInsertNode;
 import java.util.ArrayList;
 import java.util.HashMap;
 
-public class IinqInsert {
+public class IinqInsert implements Callable{
     private PreparedInsertFunction insertFunction;
     private int tableId;
     private String functionArguments;
@@ -82,7 +83,7 @@ public class IinqInsert {
         return functionArguments;
     }
 
-    public String getFunctionCall() {
+    public String generateFunctionCall() {
         return insertFunction.getName() + "(" + getFunctionArguments() + ")";
     }
 

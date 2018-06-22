@@ -1,4 +1,4 @@
-package iinq.functions.SelectFunctions;
+package iinq.functions.select;
 
 import iinq.functions.CommonCode;
 import iinq.functions.IinqFunction;
@@ -6,8 +6,8 @@ import iinq.functions.IinqFunction;
 public class SelectFunction extends IinqFunction {
 	public SelectFunction() {
 		super("iinq_select",
-				"iinq_result_set *iinq_select(iinq_table_id table_id, size_t project_size, int num_wheres, iinq_field_num_t num_fields, ...);\n",
-				"iinq_result_set *iinq_select(iinq_table_id table_id, size_t project_size, int num_wheres, iinq_field_num_t num_fields, ...) {\n\n" +
+				"iinq_result_set *iinq_select(iinq_table_id table_id, size_t project_size, int numWheres, iinq_field_num_t num_fields, ...);\n",
+				"iinq_result_set *iinq_select(iinq_table_id table_id, size_t project_size, int numWheres, iinq_field_num_t num_fields, ...) {\n\n" +
 						"\tint i;\n" +
 						"\tva_list valist;\n" +
 						"\tiinq_where_params_t* where_list = NULL;\n" +
@@ -29,7 +29,7 @@ public class SelectFunction extends IinqFunction {
 						"\tion_cursor_status_t status;\n\n" +
 						"\tint count = 0;\n" +
 						"\tion_boolean_t condition_satisfied;\n\n" +
-						"\tif (num_wheres > 0) {\n" +
+						"\tif (numWheres > 0) {\n" +
 						"\t\twhere_list = va_arg(valist, iinq_where_params_t*);\n\t}\n\n" +
 						"\tiinq_field_num_t *fields = va_arg(valist, iinq_field_num_t*);\n" +
 						"\tselect->num_fields = num_fields;\n" +
@@ -45,14 +45,14 @@ public class SelectFunction extends IinqFunction {
 						"\tion_dictionary_handler_t   handler_temp;\n" +
 						"\tion_dictionary_t           dictionary_temp;\n\n" +
 						"\tselect->status.error = ion_init_master_table();\n" +
-						"\tffdict_init(&handler_temp);\n" +
+						"\tiinq_select_handler_init(&handler_temp);\n" +
 						"\tdictionary_temp.handler = &handler_temp;\n\n" +
 						"\tselect->status.error = ion_master_table_create_dictionary(&handler_temp, &dictionary_temp, key_type_numeric_unsigned, sizeof(unsigned int), project_size, 10);\n" +
 						CommonCode.errorCheckResultSet("select", true) +
 						"\tion_close_master_table();\n" +
 						"\tselect->id = dictionary_temp.instance->id;\n" +
 						"\twhile ((status = iinq_next_record(cursor, &ion_record)) == cs_cursor_initialized || status == cs_cursor_active) {\n" +
-						"\t\tcondition_satisfied = where(table_id, &ion_record, num_wheres, where_list);\n\n" +
+						"\t\tcondition_satisfied = where(table_id, &ion_record, numWheres, where_list);\n\n" +
 						"\t\tif (condition_satisfied) {\n" +
 						"\t\t\tion_value_t fieldlist = malloc(project_size);\n" +
 						"\t\t\tion_value_t data = fieldlist;\n\n" +

@@ -1,6 +1,6 @@
 /******************************************************************************/
 /**
- @file		    delete_fields.java
+ @file		    IinqUpdate.java
  @author		Dana Klamut, Kai Neubauer
  @copyright	    Copyright 2018
  The University of British Columbia,
@@ -33,33 +33,49 @@
  */
 /******************************************************************************/
 
-package iinq;
+package iinq.callable.update;
+
+import iinq.IinqWhere;
+import iinq.callable.Callable;
 
 import java.util.ArrayList;
 
-public class delete_fields {
-    public int table_id;
-    public int num_wheres;
-    public ArrayList<Integer> fields;
-    public ArrayList<String> operators;
-    public ArrayList<String> values;
-    public ArrayList<String> field_types;
-    public String key_size;
-    public String value_size;
-    public String ion_key;
+public class IinqUpdate implements Callable {
+    public int tableId;
+    public int numWheres;
+    public int numUpdates;
+    public IinqWhere where;
+    public IinqUpdateFieldList updateFieldList;
 
-    public delete_fields(int id, int num, ArrayList<Integer> cols, ArrayList<String> ops, ArrayList<String> vals, ArrayList<String> types, String size_k, String size_v, String key_i) {
-        table_id = id;
-        num_wheres = num;
-        fields = cols;
-        operators = ops;
-        values = vals;
-        field_types = types;
-        key_size = size_k;
-        value_size = size_v;
-        ion_key = key_i;
+    public IinqUpdate(int tableId, IinqWhere where, int num_u, IinqUpdateFieldList fieldList) {
+        this.tableId = tableId;
+        if (where != null) {
+            this.numWheres = where.getNum_conditions();
+            this.where = where;
+        } else {
+            numWheres = 0;
+        }
+        numUpdates = num_u;
+        this.updateFieldList = fieldList;
     }
 
-	public static class PrepareFunction {
-	}
+    public String generateFunctionCall() {
+        StringBuilder functionCall = new StringBuilder();
+        functionCall.append("update(");
+        functionCall.append(tableId);
+        functionCall.append(", ");
+        functionCall.append(numWheres);
+        functionCall.append(", ");
+        functionCall.append(numUpdates);
+        if (numWheres > 0) {
+            functionCall.append(", ");
+            functionCall.append(where.generateIinqConditionList());
+        }
+        functionCall.append(", ");
+        functionCall.append(updateFieldList.generateUpdateList());
+        functionCall.append(")");
+
+        return functionCall.toString();
+    }
 }
+

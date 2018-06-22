@@ -1,6 +1,6 @@
 /******************************************************************************/
 /**
- @file		    IinqSelect.java
+ @file		    IinqCreateTable.java
  @author		Dana Klamut, Kai Neubauer
  @copyright	    Copyright 2018
  The University of British Columbia,
@@ -33,34 +33,29 @@
  */
 /******************************************************************************/
 
-package iinq;
+package iinq.callable;
 
-import java.util.ArrayList;
+import iinq.metadata.IinqTable;
 
-public class IinqSelect {
-    public String table_name;
-    public int table_id;
-    public int num_wheres;
-    public int num_fields;
-    public IinqWhere where;
-    public String project_size;
-    public ArrayList<Integer> fields;
-    public String return_value;
+public class IinqCreateTable implements Callable {
+    public int tableId;
+    public String keyType;
+    public String keySize;
+    public String valueSize;
 
-    public IinqSelect(String table_name, int table_id, int num_fields, IinqWhere where, String project_size, ArrayList<Integer> field_list,
-                      String return_value) {
-        this.table_name = table_name;
-        this.table_id = table_id;
-        this.num_fields = num_fields;
-        if (where != null) {
-            this.where = where;
-            num_wheres = where.getNum_conditions();
-        } else {
-            num_wheres = 0;
-        }
-        this.project_size = project_size;
-        fields = field_list;
-        this.return_value = return_value;
+    public IinqCreateTable(int tableId, String keyType, String keySize, String valueSize) {
+        this.tableId = tableId;
+        this.keyType = keyType;
+        this.keySize = keySize;
+        this.valueSize = valueSize;
+    }
+
+    public String generateFunctionCall() {
+        return "create_table(" + tableId + ", " + keyType + ", " + keySize + ", " + valueSize + ")";
+    }
+
+    public IinqCreateTable(IinqTable table) {
+        this(table.getTableId(), table.getIonKeyType(), table.generateIonKeySize(), table.generateIonValueSize());
     }
 }
 
