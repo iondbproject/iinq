@@ -11,6 +11,8 @@ import unity.query.LQInsertNode;
 
 import java.sql.SQLException;
 import java.sql.Types;
+import java.util.ArrayList;
+import java.util.Iterator;
 
 import static iinq.functions.SchemaKeyword.*;
 
@@ -37,6 +39,7 @@ public class PreparedInsertFunction extends IinqFunction {
 
 		/* Number of fields specified for the insert */
 		int count = insertNode.getInsertFields().size();
+		int totalFields = table.getNumFields();
 
 		boolean[] prep_fields = new boolean[count];
 
@@ -47,32 +50,28 @@ public class PreparedInsertFunction extends IinqFunction {
 		String[] fields = new String[count];
 		String field_type;
 
+		ArrayList<Integer> keyIndices = table.getPrimaryKeyIndices();
 		String key_type = table.getSchemaValue(PRIMARY_KEY_TYPE);
-		String key_field_num = table.getSchemaValue(PRIMARY_KEY_FIELD);
 
 		header.append("iinq_prepared_sql ");
 		header.append(getName());
 		header.append("(");
 
+		for (int j = 1; j <= totalFields; j++) {
+			if (table.getFieldType(j) == Types.INTEGER) {
+				header.append("int value_").append(j);
+			} else {
+				header.append("char *value_").append(j);
+			}
+			header.append(", ");
+		}
+
+		header.setLength(header.length()-2);
+
 		// TODO: can this be combined with the other for loop?
 		for (int j = 0; j < count; j++) {
 			GQFieldRef fieldNode = insertNode.getInsertFields().get(j);
 			fields[j] = ((LQExprNode) insertNode.getInsertValues().get(j)).getContent().toString();
-
-			field_type = fieldNode.getField().getDataTypeName();
-
-			if (j > 0) {
-				header.append(", ");
-			}
-
-			if (field_type.contains("CHAR")) {
-
-				header.append("char *value_").append(j + 1);
-
-			} else {
-
-				header.append("int value_").append(j + 1);
-			}
 
 			prep_fields[j] = fields[j].equals("?");
 		}
@@ -88,12 +87,21 @@ public class PreparedInsertFunction extends IinqFunction {
 		definition.append("\tunsigned char\t*data = p.value;\n");
 		definition.append("\tp.key = malloc(").append(table.generateIonKeySize()).append(");\n");
 
-		// TODO: allow composite keys
-		if (Integer.parseInt(key_type) == Types.INTEGER) {
-			definition.append("\t*(int *) p.key = value_").append(Integer.parseInt(key_field_num)).append(";\n\n");
-		} else {
-			definition.append("\tmemcpy(p.key, value_").append(Integer.parseInt(key_field_num)).append(", ").append(key_type).append(");\n\n");
+		Iterator<Integer> it = keyIndices.iterator();
+		StringBuilder offset = new StringBuilder();
+		offset.append("0");
+		while (it.hasNext()) {
+			int keyField = it.next();
+			String fieldSize = table.getIonFieldSize(keyField);
+			if (table.getFieldType(keyField) == Types.INTEGER) {
+				definition.append(String.format("\t*(int *) (p.key+%s) = value_%d;\n", offset, keyField));
+			} else {
+				definition.append(String.format("\tstrncpy(p.key+%s, value_%d, %s);\n", offset.toString(), keyField, fieldSize));
+			}
+			offset.append("+").append(fieldSize);
 		}
+
+		definition.append("\n");
 
 		for (int i = 0; i < fields.length; i++) {
 			field_type = table.getFieldTypeName(i+1);

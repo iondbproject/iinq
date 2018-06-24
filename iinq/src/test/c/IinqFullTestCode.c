@@ -50,7 +50,8 @@ cleanup(
 	fremove("0.inq");
 	fremove("1.inq");
 	fremove("2.inq");
-	fremove("255.inq");
+    fremove("3.inq");
+    fremove("4.inq");
 	fremove("ion_mt.tbl");
 }
 
@@ -101,7 +102,7 @@ main(
 	SQL_execute("CREATE TABLE Dogs (id VARCHAR(2), type CHAR(20), name VARCHAR(30), age INT, city VARCHAR(30), primary key(id));");
 
 	/* Test prepared statements */
-	printf("INSERT INTO Dogs VALUES ('1', (?), 'Minnie', (?), 'Penticton');\n\tsetParam(p1, 2, \"Black Lab\");\n\tsetParam(p1, 4, 5);\n");
+	printf("INSERT INTO Dogs VALUES ('1', 'Black Lab', 'Minnie', 5, 'Penticton'); (prepared)\n");
 	iinq_prepared_sql p1 = SQL_prepare("INSERT INTO Dogs VALUES ('1', (?), 'Minnie', (?), 'Penticton');");
 	setParam(p1, 2, "Black Lab");
 	setParam(p1, 4, IONIZE(5,int));
@@ -119,7 +120,7 @@ main(
 	SQL_execute("INSERT INTO Cats VALUES (4, 'Mr. Whiskers', 4);");
 	print_table(2);
 
-    printf("INSERT INTO Cats VALUES (5, ?, (?));\n\tsetParam(p2, 2, \"Minnie\");\n\tsetParam(p2, 3, 6);\n");
+    printf("INSERT INTO Cats VALUES (5, 'Minnie', 6); (prepared)\n");
 	iinq_prepared_sql p2 = SQL_prepare(""INSERT INTO Cats VALUES (5, ?, (?));"");
 	setParam(p2, 2, "Minnie");
 	setParam(p2, 3, IONIZE(6,int));
@@ -173,6 +174,51 @@ main(
 	SQL_execute("DROP TABLE Cats;");
 	printf("DROP TABLE Dogs;\n");
 	SQL_execute("DROP TABLE Dogs;");
+
+    /* Test tables with composite keys and different orderings for key fields (table_id = 3 & 4)*/
+    printf("CREATE TABLE test1 (id1 INT, id2 INT, value CHAR(5), PRIMARY KEY(id1, id2));\n");
+    SQL_execute("CREATE TABLE test1 (id1 INT, id2 INT, value CHAR(5), PRIMARY KEY(id1, id2));");
+    printf("CREATE TABLE test2 (id1 INT, id2 INT, value CHAR(5), PRIMARY KEY(id2, id1));\n");
+    SQL_execute("CREATE TABLE test2 (id1 INT, id2 INT, value CHAR(5), PRIMARY KEY(id2, id1));");
+
+    /* Test that the keys are also set when using prepared statements */
+    p1 = SQL_prepare("INSERT INTO test1 COLUMNS (id1, id2) VALUES (?, ?);");
+    p2 = SQL_prepare("INSERT INTO test2 COLUMNS (id1, id2) VALUES (?, ?);");
+
+    setParam(p1, 1, IONIZE(1,int));
+    setParam(p1, 2, IONIZE(2,int));
+
+    setParam(p2, 1, IONIZE(1,int));
+    setParam(p2, 2, IONIZE(2,int));
+
+    printf("INSERT INTO test1 COLUMNS (id1, id2) VALUES (1, 2); (prepared)\n");
+    execute(p1);
+    print_table(3);
+    printf("INSERT INTO test2 COLUMNS (id1, id2) VALUES (1, 2); (prepared)\n");
+    execute(p2);
+    print_table(4);
+
+    // TODO: print keys
+
+    /* Test that duplicate keys cannot be inserted */
+    printf("INSERT INTO test1 COLUMNS (id1, id2) VALUES (5, 3);\n");
+    SQL_execute("INSERT INTO test1 COLUMNS (id1, id2) VALUES (5, 3);");
+    print_table(3);
+    printf("INSERT INTO test1 COLUMNS (id1, id2) VALUES (5, 3);\n");
+    SQL_execute("INSERT INTO test1 COLUMNS (id1, id2) VALUES (5, 3);");
+    print_table(3);
+
+    printf("INSERT INTO test2 COLUMNS (id1, id2) VALUES (5, 3);\n");
+    SQL_execute("INSERT INTO test2 COLUMNS (id1, id2) VALUES (5, 3);");
+    print_table(4);
+    printf("INSERT INTO test2 COLUMNS (id1, id2) VALUES (5, 3);\n");
+    SQL_execute("INSERT INTO test2 COLUMNS (id1, id2) VALUES (5, 3);");
+    print_table(4);
+
+    printf("DROP TABLE test1;\n");
+    SQL_execute("DROP TABLE test1;");
+    printf("DROP TABLE test2;\n");
+    SQL_execute("DROP TABLE test2;\n");
 
 	/* Clean-up */
 	cleanup();

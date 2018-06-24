@@ -24,8 +24,9 @@ public class CalculatedFunctions {
 		functions.put(function.getName(), function);
 		function = new GetKeyFieldOffsetFunction();
 		functions.put(function.getName(), function);
-		function = new GetKeyFieldSizeFunction();
-		functions.put(function.getName(), function);
+		// Field size can be calculated using offset as before
+		/*function = new GetKeyFieldSizeFunction();
+		functions.put(function.getName(), function);*/
 	}
 
 	public void addTable(IinqTable table) {
