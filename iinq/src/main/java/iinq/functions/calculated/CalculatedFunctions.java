@@ -22,6 +22,10 @@ public class CalculatedFunctions {
 		functions.put(function.getName(), function);
 		function = new IsKeyFieldFunction();
 		functions.put(function.getName(), function);
+		function = new GetKeyFieldOffsetFunction();
+		functions.put(function.getName(), function);
+		function = new GetKeyFieldSizeFunction();
+		functions.put(function.getName(), function);
 	}
 
 	public void addTable(IinqTable table) {

@@ -56,6 +56,25 @@ public class IinqTable extends AnnotatedSourceTable {
 		this.insertWritten = insertWritten;
 	}
 
+	public ArrayList<String> getIonKeyFieldSizes() {
+		ArrayList<Integer> indices = getPrimaryKeyIndices();
+		//Collections.sort(indices);
+		ArrayList<String> sizes = new ArrayList<>(indices.size());
+		Iterator<Integer> it = indices.iterator();
+		while (it.hasNext()) {
+			sizes.add(getIonFieldSize(it.next()));
+		}
+		return sizes;
+	}
+
+	public ArrayList<String> getIonFieldSizes() {
+		ArrayList<String> sizes = new ArrayList<>(getNumFields());
+		for (int i = 1, n = getNumFields(); i <= n; i++) {
+			sizes.add(getIonFieldSize(i));
+		}
+		return sizes;
+	}
+
 	public String getIonFieldSize(int fieldNum) {
 		switch (this.getFieldType(fieldNum)) {
 			case Types.INTEGER:
