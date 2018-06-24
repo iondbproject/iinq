@@ -247,6 +247,19 @@ public class IinqDatabase {
 
 	public IinqTable getNewlyCreatedIinqTable() {
 		SourceTable table = schema.getNewlyCreatedTable();
+
+		/* Before we create a new IinqTable object, we must add one to each CHAR and VARCHAR field size to compensate for the NULL character */
+		ArrayList<SourceField> sourceFields = table.getSourceFieldList();
+		Iterator<SourceField> it = sourceFields.iterator();
+		while (it.hasNext()) {
+			SourceField field = it.next();
+			switch (field.getDataType()) {
+				case Types.CHAR:
+				case Types.VARCHAR:
+					field.setColumnSize(field.getColumnSize()+1);
+			}
+		}
+
 		if (table != null) {
 			IinqTable iinqTable = new IinqTable((AnnotatedSourceTable) table);
 			iinqTable.setTableId(tableCount++);

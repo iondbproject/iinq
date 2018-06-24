@@ -10,6 +10,7 @@ import unity.query.LQExprNode;
 import unity.query.LQInsertNode;
 
 import java.sql.SQLException;
+import java.sql.SQLFeatureNotSupportedException;
 import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -48,10 +49,8 @@ public class PreparedInsertFunction extends IinqFunction {
 		preparedStatement = stmt.getParameters().size() > 0;
 
 		String[] fields = new String[count];
-		String field_type;
 
 		ArrayList<Integer> keyIndices = table.getPrimaryKeyIndices();
-		String key_type = table.getSchemaValue(PRIMARY_KEY_TYPE);
 
 		header.append("iinq_prepared_sql ");
 		header.append(getName());
@@ -103,19 +102,25 @@ public class PreparedInsertFunction extends IinqFunction {
 
 		definition.append("\n");
 
-		for (int i = 0; i < fields.length; i++) {
-			field_type = table.getFieldTypeName(i+1);
-			String value_size = table.getSchemaValue(FIELD_SIZE, i+1);
+		for (int i = 1; i <= totalFields; i++) {
+			int fieldType = table.getFieldType(i);
+			String fieldSize = table.getIonFieldSize(i);
 
 			// TODO: add support for byte arrays
-			if (field_type.contains("CHAR")) {
-				definition.append("\tstrcpy(data, value_").append(i + 1).append(");\n");
-			} else {
-				definition.append("\t*(int *) data = value_").append(i + 1).append(";\n");
+			switch (fieldType) {
+				case Types.CHAR:
+				case Types.VARCHAR:
+					definition.append(String.format("\tstrncpy(data, value_%d, %s);\n", i, fieldSize));
+					break;
+				case Types.INTEGER:
+					definition.append(String.format("\t*(int *) data = value_%d;\n", i));
+					break;
+				default:
+					throw new SQLFeatureNotSupportedException("Non-supported data type encountered.");
 			}
 
-			if (i < fields.length - 1) {
-				definition.append("\tdata += ").append(value_size).append(";\n\n");
+			if (i < totalFields) {
+				definition.append(String.format("\tdata += %s;\n\n", fieldSize));
 			}
 		}
 
