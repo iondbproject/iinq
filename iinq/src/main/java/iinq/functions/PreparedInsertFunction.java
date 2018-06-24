@@ -31,9 +31,9 @@ public class PreparedInsertFunction extends IinqFunction {
 		StringBuilder definition = new StringBuilder();
 
 		LQInsertNode insertNode = (LQInsertNode) globalUpdate.getPlan().getLogicalQueryTree().getRoot();
-		IinqTable table = (IinqTable) iinqDatabase.getIinqTable(insertNode.getSourceTable().getTable().getTableName());
+		IinqTable table = iinqDatabase.getIinqTable(insertNode.getSourceTable().getTable().getTableName());
 
-		this.setName("insert_" + table.getTableId());
+		this.setName("iinq_insert_" + table.getTableId());
 
 		/* Number of fields specified for the insert */
 		int count = insertNode.getInsertFields().size();
