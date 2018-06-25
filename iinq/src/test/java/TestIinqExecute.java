@@ -63,10 +63,17 @@ public class TestIinqExecute {
 		IinqExecute.main(null);
 	}
 
+	// TODO: make this test write source files directly to test folder
 	@Test
 	public void testInsertAndSelectSingleTablePlanckUnit() throws IOException {
 		setSystemPropertiesForPlanckUnit();
 
+		Path sourceFile = Paths.get("src/test/c/IinqInsertAndSelectSingleTablePlanckUnitTestCode.c");
+		Path destFile = Paths.get(interfaceUserFile);
+
+		Files.copy(sourceFile, destFile, REPLACE_EXISTING);
+
+		IinqExecute.main(null);
 	}
 
 }

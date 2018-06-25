@@ -128,7 +128,7 @@ public class IinqExecute {
 				/* Verify file contents are as expected*/
 				System.out.println(sql);
 
-				if (!sql.contains("printf")&& !sql.contains("/*") && !sql.contains("//")) {
+				if (!sql.contains("printf")&& !sql.contains("/*") && !sql.contains("//") && sql.contains("SQL_")) {
 
 					/* CREATE TABLE statements exists in code that is not a comment */
 					if ((sql.toUpperCase()).contains("CREATE TABLE")) {

@@ -1,5 +1,6 @@
 package iinq.functions;
 
+// TODO: check that updating a value doesn't violate primary key constraint
 public class UpdateFunction extends IinqFunction {
 	public UpdateFunction() {
 		super("update",
