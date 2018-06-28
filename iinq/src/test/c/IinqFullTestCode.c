@@ -165,7 +165,7 @@ main(
 	printf("SELECT id, name FROM Cats WHERE age < 10;\n");
 	iinq_result_set *rs1 = SQL_select("SELECT id, name FROM Cats WHERE age < 10;");
 
-    while (next(rs1)) {
+    while (iinq_next(rs1)) {
         printf("ID: %i,", iinq_get_int(rs1, 1));
         printf(" name: %s\n", iinq_get_string(rs1, 2));
     }
@@ -214,6 +214,16 @@ main(
     printf("INSERT INTO test2 COLUMNS (id1, id2) VALUES (5, 3);\n");
     SQL_execute("INSERT INTO test2 COLUMNS (id1, id2) VALUES (5, 3);");
     print_table(4);
+
+    /* Test an UPDATE that would violate the primary key constraint */
+    printf("UPDATE test1 SET id1 = 1, id2 = 2 WHERE id1 = 5 AND id2 = 3;\n");
+    SQL_execute("UPDATE test1 SET id1 = 1, id2 = 2 WHERE id1 = 5 AND id2 = 3;");
+    print_table(3);
+
+    /* Test an UPDATE that updates a key field */
+    printf("UPDATE test1 SET id1 = id+1;\n");
+        SQL_execute("UPDATE test1 SET id1 = id1+1;");
+        print_table(3);
 
     printf("DROP TABLE test1;\n");
     SQL_execute("DROP TABLE test1;");
