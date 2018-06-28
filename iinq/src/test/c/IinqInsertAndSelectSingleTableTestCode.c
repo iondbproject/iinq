@@ -53,7 +53,6 @@ cleanup(
 	fremove("ion_mt.tbl");
 }
 
-// TODO: test OR and XOR once implemented
 int
 main(
 		void
@@ -62,13 +61,17 @@ main(
 	cleanup();
 
 	/* CREATE TABLE statement (table_id = 0)*/
-	SQL_execute("CREATE TABLE Table1 (id INT, value INT, primary key(id));");
+	SQL_execute("CREATE TABLE Table1 (ID INT, IntValue INT, CharValue VARCHAR(10), primary key(id));");
 
     /* Insert rows */
 	for (int i = 0; i < 100; i++) {
-        iinq_prepared_sql p1 = SQL_prepare("INSERT INTO Table1 VALUES (?, ?);");
+        iinq_prepared_sql p1 = SQL_prepare("INSERT INTO Table1 VALUES (?, ?, ?);");
         setParam(p1, 1, IONIZE(i,int));
         setParam(p1, 2, IONIZE(100-i,int));
+        if (i % 2)
+            setParam(p1, 3, "odd");
+        else
+            setParam(p1, 3, "even");
         execute(p1);
 	}
 
@@ -77,40 +80,52 @@ main(
 	iinq_result_set *rs1 = SQL_select("SELECT * FROM Table1;\n");
 
     while (iinq_next(rs1)) {
-        printf("ID: %d,", iinq_get_int(rs1, 1));
-        printf(" VALUE: %d\n", iinq_get_int(rs1, 2));
+        printf("ID: %d, ", iinq_get_int(rs1, 1));
+        printf("IntValue: %d, ", iinq_get_int(rs1, 2));
+        printf("CharValue: %s\n", iinq_get_string(rs1, 3));
     }
 
     iinq_close_result_set(rs1);
 
     printf("SELECT * FROM Table1 WHERE id > 50 AND id < 70;\n");
-    rs1 = SQL_select("SELECT * FROM Table1 WHERE id > 50 AND id < 70;\n");
+    rs1 = SQL_select("SELECT * FROM Table1 WHERE id > 50 AND id < 70;");
 
     while (iinq_next(rs1)) {
-        printf("ID: %d,", iinq_get_int(rs1, 1));
-        printf(" VALUE: %d\n", iinq_get_int(rs1, 2));
+        printf("ID: %d, ", iinq_get_int(rs1, 1));
+        printf("IntValue: %d, ", iinq_get_int(rs1, 2));
+        printf("CharValue: %s\n", iinq_get_string(rs1, 3));
     }
 
     iinq_close_result_set(rs1);
 
-    printf("SELECT value, id FROM Table1 WHERE id > 50 AND id < 70;\n");
-    rs1 = SQL_select("SELECT value, id FROM Table1 WHERE id > 50 AND id < 70;\n");
+    printf("SELECT IntValue, id FROM Table1 WHERE id > 50 AND id < 70;\n");
+    rs1 = SQL_select("SELECT IntValue, id FROM Table1 WHERE id > 50 AND id < 70;");
 
     while (iinq_next(rs1)) {
-        printf("VALUE: %d, ", iinq_get_int(rs1, 1));
+        printf("IntValue: %d, ", iinq_get_int(rs1, 1));
         printf("ID: %d\n", iinq_get_int(rs1, 2));
     }
 
     iinq_close_result_set(rs1);
 
-    printf("SELECT value FROM Table1 WHERE id > 50 AND id < 70;\n");
-    rs1 = SQL_select("SELECT value FROM Table1 WHERE id > 50 AND id < 70;\n");
+    printf("SELECT CharValue, IntValue FROM Table1 WHERE id > 50 AND id < 70;\n");
+    rs1 = SQL_select("SELECT CharValue, IntValue FROM Table1 WHERE id > 50 AND id < 70;");
 
     while (iinq_next(rs1)) {
-        printf("VALUE: %d\n", iinq_get_int(rs1, 1));
+        printf("CharValue: %s, ", iinq_get_string(rs1, 1));
+        printf("IntValue: %d\n", iinq_get_int(rs1, 2));
     }
 
     iinq_close_result_set(rs1);
+
+    printf("SELECT * FROM Table1 WHERE CharValue <> 'odd';\n");
+    rs1 = SQL_select("SELECT * FROM Table1 WHERE CharValue <> 'odd';\n");
+
+    while (iinq_next(rs1)) {
+        printf("ID: %d, ", iinq_get_int(rs1, 1));
+        printf("IntValue: %d, ", iinq_get_int(rs1, 2));
+        printf("CharValue: %s\n", iinq_get_string(rs1, 3));
+    }
 
 	SQL_execute("DROP TABLE Table1;");
 

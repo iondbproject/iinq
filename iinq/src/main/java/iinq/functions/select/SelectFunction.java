@@ -25,7 +25,7 @@ class SelectFunction extends IinqFunction {
 						"\tresult_set->record.key     = malloc(dictionary->instance->record.key_size);\n" +
 						"\tresult_set->record.value   = malloc(dictionary->instance->record.value_size);\n" +
 						"\tresult_set->dictionary_ref.cursor = cursor;\n" +
-
+						"\tresult_set->table_id = table_id;\n" +
 						"\tif (num_wheres > 0) {\n" +
 						"\t\twhere_list = va_arg(valist, iinq_where_params_t*);\n" +
 						"\t\tresult_set->wheres = where_list;\n" +
@@ -35,10 +35,8 @@ class SelectFunction extends IinqFunction {
 						"\tresult_set->num_fields = num_fields;\n" +
 						"\tresult_set->offset = malloc(sizeof(unsigned int) * num_fields);\n" +
 						"\tresult_set->fields = fields;\n\n" +
-						"\tunsigned int offset = 0;\n" +
 						"\tfor (i = 0; i < num_fields; i++) {\n" +
-						"\t\tresult_set->offset[i] = offset;\n" +
-						"\t\toffset += calculateOffset(table_id, fields[i]+1) - calculateOffset(table_id, fields[i]);\n" +
+						"\t\tresult_set->offset[i] = calculateOffset(table_id, fields[i]);\n" +
 						"\t}\n" +
 						"\tva_end(valist);\n\n" +
 						// TODO: determine if we need to materialize the query

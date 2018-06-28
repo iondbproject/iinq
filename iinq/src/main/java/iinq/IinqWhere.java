@@ -91,6 +91,10 @@ public class IinqWhere {
 				pos = conditionFields[i].indexOf("!=");
 				len = 2;
 				this.where_operators[i] = "iinq_not_equal";
+			} else if (conditionFields[i].contains("<>")) {
+				pos = conditionFields[i].indexOf("<>");
+				len = 2;
+				this.where_operators[i] = "iinq_not_equal";
 			} else if (conditionFields[i].contains("<=")) {
 				pos = conditionFields[i].indexOf("<=");
 				len = 2;
