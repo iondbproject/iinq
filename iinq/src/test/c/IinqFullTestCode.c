@@ -166,8 +166,8 @@ main(
 	iinq_result_set *rs1 = SQL_select("SELECT id, name FROM Cats WHERE age < 10;");
 
     while (next(rs1)) {
-        printf("ID: %i,", getInt(rs1, 1));
-        printf(" name: %s\n", getString(rs1, 2));
+        printf("ID: %i,", iinq_get_int(rs1, 1));
+        printf(" name: %s\n", iinq_get_string(rs1, 2));
     }
 
     printf("DROP TABLE Cats;\n");

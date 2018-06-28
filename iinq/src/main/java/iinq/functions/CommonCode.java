@@ -8,6 +8,19 @@ public final class CommonCode {
 		EMPTY_RETURN
 	}
 
+	public static String freeMemory(String value) {
+		return "\tif (NULL != " + value + ") {\n" +
+				"\t\tfree(" + value + ");\n" +
+				"\t\t" + value + " = NULL;\n" +
+				"\t}\n\n";
+	}
+
+	public static String destroyCursor(String cursor) {
+		return "\tif (NULL != " + cursor + ") {\n" +
+				"\t\t" + cursor + "->destroy(&" + cursor + ");\n" +
+				"\t}\n\n";
+	}
+
 	public static String
 	error_check(int extraIndents) {
 		StringBuilder errorCheck = new StringBuilder();

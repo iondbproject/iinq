@@ -1,14 +1,20 @@
-package iinq.functions.select;
+package iinq.functions.select.operators.next;
 
 import iinq.functions.IinqFunction;
 
-class NextFunction extends IinqFunction {
-	public NextFunction() {
-		super("next",
-				"ion_boolean_t next(iinq_result_set *select);\n",
-				"ion_boolean_t next(iinq_result_set *select) {\n" +
-						"\tif (select->status.count < select->num_recs-1) {\n" +
-						"\t\tselect->status.count++;\n" +
+public class TableScanNextFunction extends IinqFunction {
+	public TableScanNextFunction() {
+		super("iinq_simple_next",
+				"ion_boolean_t iinq_table_scan_next(iinq_result_set *select);\n",
+				"ion_boolean_t iinq_table_scan_next(iinq_result_set *select) {\n" +
+						"\twhile(cs_cursor_active == select->dictionary_ref.cursor->next(select->dictionary_ref.cursor, &select->record) || cs_cursor_initialized == select->dictionary_ref.cursor->status) {\n" +
+						"\t\tif (!where(select->table_id, &select->record, select->num_wheres, select->wheres))\n" +
+						"\t\t\tcontinue;\n" +
+						"\t\treturn boolean_true;\n" +
+						"\t}\n" +
+						"\treturn boolean_false;\n" +
+						"}\n\n"
+/*						"\t\tselect->status.count++;\n" +
 						"\t\treturn boolean_true;\n\t}\n\n" +
 						"\tselect->status.error = ion_init_master_table();\n" +
 						"\tif (err_ok != select->status.error)\n" +
@@ -27,6 +33,6 @@ class NextFunction extends IinqFunction {
 						"\t\treturn boolean_false;\n\n" +
 						"\tfree(select->value);\n" +
 						"\tfree(select->fields);\n" +
-						"\treturn boolean_false;\n}\n\n");
+						"\treturn boolean_false;\n}\n\n"*/);
 	}
 }

@@ -50,7 +50,6 @@ cleanup(
 	fremove("0.inq");
 	fremove("1.inq");
 	fremove("2.inq");
-	fremove("255.inq");
 	fremove("ion_mt.tbl");
 }
 
@@ -77,33 +76,41 @@ main(
 	printf("SELECT * FROM Table1\n");
 	iinq_result_set *rs1 = SQL_select("SELECT * FROM Table1;\n");
 
-    while (next(rs1)) {
-        printf("ID: %d,", getInt(rs1, 1));
-        printf(" VALUE: %d\n", getInt(rs1, 2));
+    while (iinq_next(rs1)) {
+        printf("ID: %d,", iinq_get_int(rs1, 1));
+        printf(" VALUE: %d\n", iinq_get_int(rs1, 2));
     }
+
+    iinq_close_result_set(rs1);
 
     printf("SELECT * FROM Table1 WHERE id > 50 AND id < 70;\n");
     rs1 = SQL_select("SELECT * FROM Table1 WHERE id > 50 AND id < 70;\n");
 
-    while (next(rs1)) {
-        printf("ID: %d,", getInt(rs1, 1));
-        printf(" VALUE: %d\n", getInt(rs1, 2));
+    while (iinq_next(rs1)) {
+        printf("ID: %d,", iinq_get_int(rs1, 1));
+        printf(" VALUE: %d\n", iinq_get_int(rs1, 2));
     }
+
+    iinq_close_result_set(rs1);
 
     printf("SELECT value, id FROM Table1 WHERE id > 50 AND id < 70;\n");
     rs1 = SQL_select("SELECT value, id FROM Table1 WHERE id > 50 AND id < 70;\n");
 
-    while (next(rs1)) {
-        printf("VALUE: %d, ", getInt(rs1, 1));
-        printf("ID: %d\n", getInt(rs1, 2));
+    while (iinq_next(rs1)) {
+        printf("VALUE: %d, ", iinq_get_int(rs1, 1));
+        printf("ID: %d\n", iinq_get_int(rs1, 2));
     }
+
+    iinq_close_result_set(rs1);
 
     printf("SELECT value FROM Table1 WHERE id > 50 AND id < 70;\n");
     rs1 = SQL_select("SELECT value FROM Table1 WHERE id > 50 AND id < 70;\n");
 
-    while (next(rs1)) {
-        printf("VALUE: %d\n", getInt(rs1, 1));
+    while (iinq_next(rs1)) {
+        printf("VALUE: %d\n", iinq_get_int(rs1, 1));
     }
+
+    iinq_close_result_set(rs1);
 
 	SQL_execute("DROP TABLE Table1;");
 

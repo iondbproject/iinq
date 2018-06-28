@@ -6,52 +6,54 @@ import iinq.functions.IinqFunction;
 class SelectFunction extends IinqFunction {
 	public SelectFunction() {
 		super("iinq_select",
-				"iinq_result_set *iinq_select(iinq_table_id table_id, size_t project_size, int numWheres, iinq_field_num_t num_fields, ...);\n",
-				"iinq_result_set *iinq_select(iinq_table_id table_id, size_t project_size, int numWheres, iinq_field_num_t num_fields, ...) {\n\n" +
+				"iinq_result_set *iinq_select(iinq_table_id table_id, size_t project_size, int num_wheres, iinq_field_num_t num_fields, ...);\n",
+				"iinq_result_set *iinq_select(iinq_table_id table_id, size_t project_size, int num_wheres, iinq_field_num_t num_fields, ...) {\n\n" +
 						"\tint i;\n" +
 						"\tva_list valist;\n" +
 						"\tiinq_where_params_t* where_list = NULL;\n" +
 						"\tva_start(valist, num_fields);\n" +
 						"\tion_err_t                  error;\n" +
-						"\tion_dictionary_t           dictionary;\n" +
-						"\tion_dictionary_handler_t   handler;\n\n" +
-						"\tdictionary.handler = &handler;\n\n" +
-						"\tiinq_result_set *select = malloc(sizeof(iinq_result_set));\n" +
-						"\tselect->status.error              = iinq_open_source(table_id, &dictionary, &handler);\n\n" +
-						CommonCode.errorCheckResultSet("select",true) +
-						"\tion_predicate_t predicate;\n" +
-						"\tdictionary_build_predicate(&predicate, predicate_all_records);\n\n" +
+						"\tiinq_result_set *result_set = malloc(sizeof(iinq_result_set));\n" +
+						"\tion_predicate_t *predicate = &result_set->dictionary_ref.predicate;\n" +
+						"\tdictionary_build_predicate(predicate, predicate_all_records);\n\n" +
+						"\tion_dictionary_t           *dictionary = &result_set->dictionary_ref.dictionary;\n" +
+						"\tion_dictionary_handler_t   *handler = &result_set->dictionary_ref.handler;\n\n" +
+						"\tdictionary->handler = handler;\n" +
+						"\tresult_set->status.error              = iinq_open_source(table_id, dictionary, handler);\n\n" +
 						"\tion_dict_cursor_t *cursor = NULL;\n" +
-						"\tdictionary_find(&dictionary, &predicate, &cursor);\n\n" +
-						"\tion_record_t ion_record;\n" +
-						"\tion_record.key     = malloc(dictionary.instance->record.key_size);\n" +
-						"\tion_record.value   = malloc(dictionary.instance->record.value_size);\n\n" +
-						"\tion_cursor_status_t status;\n\n" +
-						"\tint count = 0;\n" +
-						"\tion_boolean_t condition_satisfied;\n\n" +
-						"\tif (numWheres > 0) {\n" +
-						"\t\twhere_list = va_arg(valist, iinq_where_params_t*);\n\t}\n\n" +
+						"\tdictionary_find(dictionary, predicate, &cursor);\n\n" +
+						"\tresult_set->record.key     = malloc(dictionary->instance->record.key_size);\n" +
+						"\tresult_set->record.value   = malloc(dictionary->instance->record.value_size);\n" +
+						"\tresult_set->dictionary_ref.cursor = cursor;\n" +
+
+						"\tif (num_wheres > 0) {\n" +
+						"\t\twhere_list = va_arg(valist, iinq_where_params_t*);\n" +
+						"\t\tresult_set->wheres = where_list;\n" +
+						"\t}\n\n" +
+						"\tresult_set->num_wheres = num_wheres;\n" +
 						"\tiinq_field_num_t *fields = va_arg(valist, iinq_field_num_t*);\n" +
-						"\tselect->num_fields = num_fields;\n" +
-						"\tselect->fields = malloc(sizeof(iinq_field_num_t) * num_fields);\n" +
-						"\tselect->offset = malloc(sizeof(unsigned int) * num_fields);\n" +
-						"\tmemcpy(select->fields, fields, sizeof(iinq_field_num_t) * num_fields);\n\n" +
+						"\tresult_set->num_fields = num_fields;\n" +
+						"\tresult_set->offset = malloc(sizeof(unsigned int) * num_fields);\n" +
+						"\tresult_set->fields = fields;\n\n" +
 						"\tunsigned int offset = 0;\n" +
-						"\tfor (int i = 0; i < num_fields; i++) {\n" +
-						"\t\tselect->offset[i] = offset;\n" +
+						"\tfor (i = 0; i < num_fields; i++) {\n" +
+						"\t\tresult_set->offset[i] = offset;\n" +
 						"\t\toffset += calculateOffset(table_id, fields[i]+1) - calculateOffset(table_id, fields[i]);\n" +
 						"\t}\n" +
 						"\tva_end(valist);\n\n" +
-						"\tion_dictionary_handler_t   handler_temp;\n" +
+						// TODO: determine if we need to materialize the query
+/*						"\tion_dictionary_handler_t   handler_temp;\n" +
 						"\tion_dictionary_t           dictionary_temp;\n\n" +
 						"\tselect->status.error = ion_init_master_table();\n" +
 						"\tiinq_select_handler_init(&handler_temp);\n" +
-						"\tdictionary_temp.handler = &handler_temp;\n\n" +
-						"\tselect->status.error = ion_master_table_create_dictionary(&handler_temp, &dictionary_temp, key_type_numeric_unsigned, sizeof(unsigned int), project_size, 10);\n" +
-						CommonCode.errorCheckResultSet("select", true) +
+						"\tdictionary_temp.handler = &handler_temp;\n\n" */
+						/*"\tselect->status.error = ion_master_table_create_dictionary(&handler_temp, &dictionary_temp, key_type_numeric_unsigned, sizeof(unsigned int), project_size, 10);\n" +
+						CommonCode.errorCheckResultSet("select", true) +*/
 						"\tion_close_master_table();\n" +
-						"\tselect->id = dictionary_temp.instance->id;\n" +
-						"\twhile ((status = iinq_next_record(cursor, &ion_record)) == cs_cursor_initialized || status == cs_cursor_active) {\n" +
+						"\tresult_set->next = iinq_table_scan_next;\n" +
+						"\tresult_set->destroy = iinq_destroy_table_scan;" +
+						"\tresult_set->dictionary_ref.temp_dictionary = boolean_false;\n\n" +
+/*						"\twhile ((status = select->next(cursor, &ion_record)) == cs_cursor_initialized || status == cs_cursor_active) {\n" +
 						"\t\tcondition_satisfied = where(table_id, &ion_record, numWheres, where_list);\n\n" +
 						"\t\tif (condition_satisfied) {\n" +
 						"\t\t\tion_value_t fieldlist = malloc(project_size);\n" +
@@ -76,10 +78,8 @@ class SelectFunction extends IinqFunction {
 						"\tselect->num_recs = count;\n" +
 						"\tselect->status.count = -1;\n" +
 						"\tselect->table_id = table_id;\n" +
-						"\tselect->value = malloc(project_size);\n" +
-						"\tfree(ion_record.key);\n" +
-						"\tfree(ion_record.value);\n\n" +
-						"\treturn select;\n" +
+						"\tselect->value = malloc(project_size);\n" +*/
+						"\treturn result_set;\n" +
 						"}\n\n");
 	}
 }
