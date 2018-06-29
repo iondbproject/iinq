@@ -49,31 +49,36 @@ import unity.util.StringFunc;
 
 import javax.management.relation.RelationNotFoundException;
 import java.io.*;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.sql.*;
 
 public class IinqExecute {
 
 	/* JVM options */
-	private static String user_file;
+	private static String iinqUserParsedSourceFile;
 	/**
 	 * < Path to iinq_user.c source file. Mandatory for iinq to run.
 	 */
-	private static String function_file;
+	private static String iinqFunctionOutputName;
 	/**
 	 * < Path to iinq_user_functions.c source file. Mandatory for iinq to run.
 	 */
-	private static String function_header_file;
+	private static String iinqFunctionOutputDirectory;
 	/**
 	 * < Path to iinq_user_functions.h source file. Mandatory for iinq to run.
 	 */
-	private static String directory;
+	private static String iinqInterfaceDirectory;
 	/**
 	 * < Path to directory to output UnityJDBC schema files. Mandatory for iinq to run.
 	 */
-	private static boolean use_existing = false;
+	private static boolean useExistingIinqDatabase = false;
 	/**
 	 * < Optional JVM option to use pre-existing database files (i.e. Use tables generated from an earlier IinqExecute).
 	 */
+	private static String defaultFunctionOutputName = "iinq_user_functions";
+
+	private static boolean commentOutExistingFunctions = true;
 
 	private static IinqDatabase iinqDatabase;
 
@@ -84,35 +89,44 @@ public class IinqExecute {
 
 		/* Determine whether the user wants to use an existing database */
 		if (System.getProperty("USE_EXISTING") != null) {
-			use_existing = Boolean.parseBoolean(System.getProperty("USE_EXISTING"));
+			useExistingIinqDatabase = Boolean.parseBoolean(System.getProperty("USE_EXISTING"));
+		}
+
+		if (System.getProperty("COMMENT_OUT_EXISTING_FUNCTIONS") != null) {
+			commentOutExistingFunctions = Boolean.parseBoolean(System.getProperty("COMMENT_OUT_EXISTING_FUNCTIONS"));
 		}
 
 		/* Get file names and directories passed in as JVM options. */
-		user_file = System.getProperty("USER_FILE");
-		function_file = System.getProperty("FUNCTION_FILE");
-		function_header_file = System.getProperty("FUNCTION_HEADER_FILE");
-		directory = System.getProperty("DIRECTORY");
+		iinqUserParsedSourceFile = System.getProperty("USER_FILE");
+		iinqFunctionOutputDirectory = System.getProperty("OUTPUT_DIRECTORY");
+		iinqFunctionOutputName = System.getProperty("OUTPUT_NAME");
+		iinqInterfaceDirectory = System.getProperty("INTERFACE_DIRECTORY");
 
-		if (user_file == null || function_file == null || function_header_file == null || directory == null) {
-			System.err.println("Missing JVM options: USER_FILE, FUNCTION_FILE, FUNCTION_HEADER_FILE, and DIRECTORY " +
+		if (iinqFunctionOutputName == null) {
+			iinqFunctionOutputName = defaultFunctionOutputName;
+		}
+
+		if (iinqUserParsedSourceFile == null || iinqFunctionOutputDirectory == null || iinqInterfaceDirectory == null) {
+			System.err.println("Missing JVM options: USER_FILE, OUTPUT_DIRECTORY, and INTERFACE_DIRECTORY " +
 					"are all required.\nExiting Iinq.");
 			System.exit(-1);
 		}
 
 		try {
 			/* Create a new database if we have to */
-			iinqDatabase = new IinqDatabase(directory, "IinqDB");
+			iinqDatabase = new IinqDatabase(iinqInterfaceDirectory, "IinqDB");
 
 
 			/* Reload the CREATE TABLE statements if we are using an existing database */
-			if (use_existing) {
+			if (useExistingIinqDatabase) {
 				reload_tables();
 			}
 
-			in = new FileInputStream(user_file);
+			in = new FileInputStream(iinqUserParsedSourceFile);
 
 			/* Create output file */
-			File output_file = new File(function_file);
+			new File(iinqFunctionOutputDirectory).mkdirs();
+			File output_file = Paths.get(iinqFunctionOutputDirectory, iinqFunctionOutputName + ".c").toFile();
 			output_file.createNewFile();
 			out = new FileOutputStream(output_file, false);
 
@@ -120,7 +134,7 @@ public class IinqExecute {
 			BufferedWriter buff_out = new BufferedWriter(new OutputStreamWriter(out));
 
 			String sql;
-			buff_out.write("#include \"iinq_user_functions.h\"\n\n");
+			buff_out.write("#include \""+ iinqFunctionOutputName +".h\"\n\n");
 
 			/* File is read line by line */
 			// TODO: make this more robust
@@ -164,9 +178,8 @@ public class IinqExecute {
 			buff_in.close();
 			buff_out.close();
 
-			write_headers();
-			setup();
-			function_close();
+			writeFunctionHeaderFile();
+			overwriteUserFile();
 
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -188,9 +201,9 @@ public class IinqExecute {
 		iinqDatabase.reloadTablesFromXML();
 	}
 
-	// TODO: move setup code into other iinq functions (to allow iinq to run in a single pass)
-	private static void setup() throws IOException {
-		String path = user_file;
+	// TODO: move overwriteUserFile code into other iinq functions (to allow iinq to run in a single pass)
+	private static void overwriteUserFile() throws IOException {
+		String path = iinqUserParsedSourceFile;
 		BufferedReader inFile = new BufferedReader(new FileReader(path));
 
 		StringBuilder contents = new StringBuilder();
@@ -206,9 +219,9 @@ public class IinqExecute {
 		while (null != (line = inFile.readLine())) {
 			if (!line.contains("/*") && !line.contains("//") && !line.contains("printf")) {
 				/* Comment out old iinq function call */
-				if ((line.contains("create_table") || line.contains("insert")
-						|| line.contains("update") || line.contains("delete_record") || line.contains("iinq_select")
-						|| line.contains("drop_table"))) {
+				if (commentOutExistingFunctions && (line.contains("create_table(") || line.contains("iinq_insert")
+						|| line.contains("update(") || line.contains("delete_record(") || line.contains("iinq_select(")
+						|| line.contains("drop_table("))) {
 					contents.append("/* ").append(line).append(" */\n");
 				} else if (line.contains("SQL_execute") || line.contains("SQL_prepare")) {
 					if ((line.toUpperCase()).contains("INSERT")) {
@@ -310,48 +323,41 @@ public class IinqExecute {
 		outFile.close();
 	}
 
-	private static void
-	print_top_header(FileOutputStream out) throws IOException {
-		String contents = "";
-		contents += "/********************************************************************/\n";
-		contents += "/*              Code generated by IinqExecute.java                  */\n";
-		contents += "/********************************************************************/\n\n";
-		contents += "#if !defined(IINQ_USER_FUNCTIONS_H_)\n" + "#define IINQ_USER_FUNCTIONS_H_\n\n";
-		contents += "#if defined(__cplusplus)\n" + "extern \"C\" {\n" + "#endif\n\n";
+	private static String
+	generateTopHeader(String outputDirectory, String libraryDirectory) throws IOException {
+		StringBuilder contents = new StringBuilder();
+		contents.append("/********************************************************************/\n" +
+				"/*              Code generated by IinqExecute.java                  */\n" +
+				"/********************************************************************/\n\n" +
+				"#if !defined(IINQ_USER_FUNCTIONS_H_)\n" + "#define IINQ_USER_FUNCTIONS_H_\n\n" +
+				"#if defined(__cplusplus)\n" + "extern \"C\" {\n" + "#endif\n\n");
 
-		/* Include other headers*/
-		// TODO: make the includes work from other directories
-		contents += "#include \"../../dictionary/dictionary_types.h\"\n" +
-				"#include \"../../dictionary/dictionary.h\"\n" +
-				"#include \"../iinq.h\"\n" + "#include \"iinq_functions.h\"\n\n";
+		Path libraryRelativeToOutput = Paths.get(outputDirectory).relativize(Paths.get(libraryDirectory)).normalize();
+		contents.append(String.format("#include \"%s\"\n", Paths.get(libraryRelativeToOutput.toString(), "../../dictionary/dictionary_types.h").normalize()));
+		contents.append(String.format("#include \"%s\"\n", Paths.get(libraryRelativeToOutput.toString(), "../../dictionary/dictionary.h").normalize()));
+		contents.append(String.format("#include \"%s\"\n", Paths.get(libraryRelativeToOutput.toString(), "../iinq.h").normalize()));
+		contents.append(String.format("#include \"%s\"\n\n", Paths.get(libraryRelativeToOutput.toString(), "iinq_functions.h").normalize()));
 
-		out.write(contents.getBytes());
+		return contents.toString();
 	}
 
 	private static void
-	write_headers() throws IOException {
+	writeFunctionHeaderFile() throws IOException {
 		/* Write header file */
-		String header_path = function_header_file;
+		Path headerFilePath = Paths.get(iinqFunctionOutputDirectory, iinqFunctionOutputName + ".h");
 
-		/* Create schema table header file */
-		String contents = "";
+		/* Create header file for generated functions*/
+		StringBuilder contents = new StringBuilder();
 
-		File output_file = new File(header_path);
-
-		/* Create header file if it does not previously exist*/
-		if (!output_file.exists()) {
-			output_file.createNewFile();
-		}
+		File output_file = new File(headerFilePath.toUri());
 
 		FileOutputStream header = new FileOutputStream(output_file, false);
 
-		print_top_header(header);
+		contents.append(generateTopHeader(iinqFunctionOutputDirectory, iinqInterfaceDirectory));
+		contents.append(iinqDatabase.getFunctionHeaders());
+		contents.append("\n#if defined(__cplusplus)\n" + "}\n" + "#endif\n" + "\n" + "#endif\n");
 
-		contents += iinqDatabase.getFunctionHeaders();
-
-		contents += "\n#if defined(__cplusplus)\n" + "}\n" + "#endif\n" + "\n" + "#endif\n";
-
-		header.write(contents.getBytes());
+		header.write(contents.toString().getBytes());
 
 		header.close();
 	}
@@ -429,30 +435,5 @@ public class IinqExecute {
 		sql = StringFunc.verifyTerminator(sql);
 
 		iinqDatabase.executeDropTable(sql);
-	}
-
-	private static void
-	function_close() throws IOException {
-		/* Closes insert functions because there do not exist any more commands to be read */
-		String path = function_file;
-		BufferedReader file = new BufferedReader(new FileReader(path));
-
-		String contents = "";
-		String line;
-
-		while (null != (line = file.readLine())) {
-			if (!((line.contains("/* INSERT 1 */")) || (line.contains("/* INSERT 2 */"))
-					|| (line.contains("/* INSERT 3 */")) || (line.contains("/* INSERT 4 */")))) {
-				contents += line + '\n';
-			}
-		}
-
-		File ex_output_file = new File(path);
-		FileOutputStream out = new FileOutputStream(ex_output_file, false);
-
-		out.write(contents.getBytes());
-
-		file.close();
-		out.close();
 	}
 }
