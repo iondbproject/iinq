@@ -18,7 +18,7 @@ public class ExecuteFunction extends IinqFunction implements CalculatedFunction 
 	}
 
 	public ExecuteFunction() {
-		super("execute", "void execute(iinq_prepared_sql p);\n", null);
+		super("execute", "void execute(iinq_prepared_sql *p);\n", null);
 	}
 
 	public ExecuteFunction append(ExecuteFunction ex2) {
@@ -40,16 +40,14 @@ public class ExecuteFunction extends IinqFunction implements CalculatedFunction 
 	}
 
 	public String generateDefinition() {
-		StringBuilder def = new StringBuilder("void execute(iinq_prepared_sql p) {\n" +
-				"\tswitch (p.table) {\n");
+		StringBuilder def = new StringBuilder("void execute(iinq_prepared_sql *p) {\n" +
+				"\tswitch (p->table) {\n");
 		for (Map.Entry<Integer, executeCallData> entry : tableIdToFunctionCall.entrySet()) {
 			def.append(String.format("\t\tcase %d: {\n", entry.getKey()));
-			def.append(String.format("\t\t\tiinq_execute(%d, p.key, p.value, iinq_insert_t);\n", entry.getValue().tableId));
+			def.append(String.format("\t\t\tiinq_execute(%d, p->key, p->value, iinq_insert_t);\n", entry.getValue().tableId));
 			def.append("\t\t\tbreak;\n\t\t}\n");
 		}
 		def.append("\t}\n" +
-				"\tfree(p.value);\n" +
-				"\tfree(p.key);\n" +
 				"}\n\n");
 		setDefinition(def.toString());
 		return def.toString();

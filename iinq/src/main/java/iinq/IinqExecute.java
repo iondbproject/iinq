@@ -218,7 +218,7 @@ public class IinqExecute {
 						if (index != -1) {
 							contents.append(line, 0, index).append(iinqDatabase.getInsert(insertCount).generateFunctionCall());
 						} else {
-							contents.append("\t").append(CommonCode.wrapInExecuteFunction(iinqDatabase.getInsert(insertCount).generateFunctionCall()));
+							contents.append("\t").append(CommonCode.instantaneousExecution(iinqDatabase.getInsert(insertCount).generateFunctionCall()));
 						}
 
 						contents.append(";\n");

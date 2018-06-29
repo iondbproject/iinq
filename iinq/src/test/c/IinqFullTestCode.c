@@ -103,7 +103,7 @@ main(
 
 	/* Test prepared statements */
 	printf("INSERT INTO Dogs VALUES ('1', 'Black Lab', 'Minnie', 5, 'Penticton'); (prepared)\n");
-	iinq_prepared_sql p1 = SQL_prepare("INSERT INTO Dogs VALUES ('1', (?), 'Minnie', (?), 'Penticton');");
+	iinq_prepared_sql *p1 = SQL_prepare("INSERT INTO Dogs VALUES ('1', (?), 'Minnie', (?), 'Penticton');");
 	setParam(p1, 2, "Black Lab");
 	setParam(p1, 4, IONIZE(5,int));
 	execute(p1);
@@ -121,10 +121,11 @@ main(
 	print_table(2);
 
     printf("INSERT INTO Cats VALUES (5, 'Minnie', 6); (prepared)\n");
-	iinq_prepared_sql p2 = SQL_prepare(""INSERT INTO Cats VALUES (5, ?, (?));"");
+	iinq_prepared_sql *p2 = SQL_prepare(""INSERT INTO Cats VALUES (5, ?, (?));"");
 	setParam(p2, 2, "Minnie");
 	setParam(p2, 3, IONIZE(6,int));
 	execute(p2);
+	iinq_close_statement(p2);
 	print_table(2);
 
 	/* Test DELETE with multiple conditions */
@@ -170,6 +171,8 @@ main(
         printf(" name: %s\n", iinq_get_string(rs1, 2));
     }
 
+    iinq_close_result_set(rs1);
+
     printf("DROP TABLE Cats;\n");
 	SQL_execute("DROP TABLE Cats;");
 	printf("DROP TABLE Dogs;\n");
@@ -193,9 +196,11 @@ main(
 
     printf("INSERT INTO test1 COLUMNS (id1, id2) VALUES (1, 2); (prepared)\n");
     execute(p1);
+    iinq_close_statement(p1);
     print_table(3);
     printf("INSERT INTO test2 COLUMNS (id1, id2) VALUES (1, 2); (prepared)\n");
     execute(p2);
+    iinq_close_statement(p2);
     print_table(4);
 
     // TODO: print keys
@@ -222,8 +227,8 @@ main(
 
     /* Test an UPDATE that updates a key field */
     printf("UPDATE test1 SET id1 = id+1;\n");
-        SQL_execute("UPDATE test1 SET id1 = id1+1;");
-        print_table(3);
+    SQL_execute("UPDATE test1 SET id1 = id1+1;");
+    print_table(3);
 
     printf("DROP TABLE test1;\n");
     SQL_execute("DROP TABLE test1;");

@@ -52,7 +52,7 @@ public class PreparedInsertFunction extends IinqFunction {
 
 		ArrayList<Integer> keyIndices = table.getPrimaryKeyIndices();
 
-		header.append("iinq_prepared_sql ");
+		header.append("iinq_prepared_sql *");
 		header.append(getName());
 		header.append("(");
 
@@ -79,12 +79,12 @@ public class PreparedInsertFunction extends IinqFunction {
 		definition.append(header.toString());
 		header.append(";\n");
 		definition.append(" {\n");
-		definition.append("\tiinq_prepared_sql p = {0};\n");
+		definition.append("\tiinq_prepared_sql *p = malloc(sizeof(iinq_prepared_sql));\n");
 
-		definition.append("\tp.table = ").append(table.getTableId()).append(";\n");
-		definition.append("\tp.value = malloc(").append(table.getSchemaValue(VALUE_SIZE)).append(");\n");
-		definition.append("\tunsigned char\t*data = p.value;\n");
-		definition.append("\tp.key = malloc(").append(table.generateIonKeySize()).append(");\n");
+		definition.append("\tp->table = ").append(table.getTableId()).append(";\n");
+		definition.append("\tp->value = malloc(").append(table.getSchemaValue(VALUE_SIZE)).append(");\n");
+		definition.append("\tunsigned char\t*data = p->value;\n");
+		definition.append("\tp->key = malloc(").append(table.generateIonKeySize()).append(");\n");
 
 		Iterator<Integer> it = keyIndices.iterator();
 		StringBuilder offset = new StringBuilder();
@@ -93,9 +93,9 @@ public class PreparedInsertFunction extends IinqFunction {
 			int keyField = it.next();
 			String fieldSize = table.getIonFieldSize(keyField);
 			if (table.getFieldType(keyField) == Types.INTEGER) {
-				definition.append(String.format("\t*(int *) (p.key+%s) = value_%d;\n", offset, keyField));
+				definition.append(String.format("\t*(int *) (p->key+%s) = value_%d;\n", offset, keyField));
 			} else {
-				definition.append(String.format("\tstrncpy(p.key+%s, value_%d, %s);\n", offset.toString(), keyField, fieldSize));
+				definition.append(String.format("\tstrncpy(p->key+%s, value_%d, %s);\n", offset.toString(), keyField, fieldSize));
 			}
 			offset.append("+").append(fieldSize);
 		}

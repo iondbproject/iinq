@@ -88,7 +88,7 @@ public final class CommonCode {
 
 	}
 
-	public static String wrapInExecuteFunction(String codeFragment) {
-		return "execute(" + codeFragment + ")";
+	public static String instantaneousExecution(String codeFragment) {
+		return "iinq_execute_instantaneous(" + codeFragment + ")";
 	}
 }

@@ -64,8 +64,8 @@ main(
 	SQL_execute("CREATE TABLE Table1 (ID INT, IntValue INT, CharValue VARCHAR(10), primary key(id));");
 
     /* Insert rows */
+    iinq_prepared_sql *p1 = SQL_prepare("INSERT INTO Table1 VALUES (?, ?, ?);");
 	for (int i = 0; i < 100; i++) {
-        iinq_prepared_sql p1 = SQL_prepare("INSERT INTO Table1 VALUES (?, ?, ?);");
         setParam(p1, 1, IONIZE(i,int));
         setParam(p1, 2, IONIZE(100-i,int));
         if (i % 2)
@@ -74,6 +74,7 @@ main(
             setParam(p1, 3, "even");
         execute(p1);
 	}
+	iinq_close_statement(p1);
 
 	/* Test query */
 	printf("SELECT * FROM Table1\n");
