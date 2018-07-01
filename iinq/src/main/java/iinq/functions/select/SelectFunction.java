@@ -29,7 +29,9 @@ class SelectFunction extends IinqFunction {
 						"\tif (num_wheres > 0) {\n" +
 						"\t\twhere_list = va_arg(valist, iinq_where_params_t*);\n" +
 						"\t\tresult_set->wheres = where_list;\n" +
-						"\t}\n\n" +
+						"\t} else {\n" +
+						"\t\tresult_set->wheres = NULL;\n" +
+						"\t}\n" +
 						"\tresult_set->num_wheres = num_wheres;\n" +
 						"\tiinq_field_num_t *fields = va_arg(valist, iinq_field_num_t*);\n" +
 						"\tresult_set->num_fields = num_fields;\n" +

@@ -64,7 +64,6 @@ public class TestIinqExecute {
 		IinqExecute.main(null);
 	}
 
-	// TODO: make this test write source files directly to test folder
 	@Test
 	public void testInsertAndSelectSingleTablePlanckUnit() throws IOException {
 		setSystemPropertiesForPlanckUnit();

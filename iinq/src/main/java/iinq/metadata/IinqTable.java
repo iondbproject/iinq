@@ -159,7 +159,7 @@ public class IinqTable extends AnnotatedSourceTable {
 		} else {
 			switch (keyFields.get(0).getDataType()) {
 				case Types.INTEGER:
-					return "key_type_numeric_unsigned";
+					return "key_type_numeric_signed";
 				case Types.CHAR:
 				case Types.VARCHAR:
 					return "key_type_char_array";
