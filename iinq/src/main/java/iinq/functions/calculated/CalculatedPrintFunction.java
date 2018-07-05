@@ -89,11 +89,22 @@ public class CalculatedPrintFunction extends IinqFunction implements CalculatedF
 				"\tion_cursor_status_t cursor_status;\n" +
 				"\n" +
 				"\tion_record_t ion_record;\n" +
+				"\tion_record.key;\n" +
+				"\tion_record.value;\n" +
 				"\tswitch(tableId) {\n");
 		for (Map.Entry<Integer, PrintParams> entry : tablePrintParams.entrySet()) {
 			def.append(String.format("\t\tcase %d:\n",entry.getKey()));
 			def.append(String.format("\t\t\tion_record.key = malloc(%s);\n",entry.getValue().keySize));
+			def.append("\t\t\tif (NULL == ion_record.key) {\n" +
+					"\t\t\t\terror = err_out_of_memory;\n" +
+					"\t\t\t\tgoto END;\n" +
+					"\t\t\t}\n");
 			def.append(String.format("\t\t\tion_record.value = malloc(%s);\n",entry.getValue().valueSize));
+			def.append("\t\t\tif (NULL == ion_record.value) {\n" +
+					"\t\t\t\tfree(ion_record.key);\n" +
+					"\t\t\t\terror = err_out_of_memory;\n" +
+					"\t\t\t\tgoto END;\n" +
+					"\t\t\t}\n");
 			def.append("\t\t\tbreak;\n");
 		}
 		def.append("\t}\n\n" +
