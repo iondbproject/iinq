@@ -62,8 +62,8 @@ public class UpdateFunction extends IinqFunction {
 				"\t\t\tunsigned char *value;\n" +
 				"\t\t\tif (updates[i].implicit_field != 0) {\n" +
 				"\t\t\t\tint new_value;\n" +
-				"\t\t\t\tvalue = ion_record.value + calculateOffset(table_id, updates[i].implicit_field);\n\n" +
-				"\t\t\t\tswitch (updates[i].operator) {\n" +
+				"\t\t\t\tvalue = (char *) ion_record.value + calculateOffset(table_id, updates[i].implicit_field);\n\n" +
+				"\t\t\t\tswitch (updates[i].math_operator) {\n" +
 				"\t\t\t\t\tcase iinq_add :\n" +
 				"\t\t\t\t\t\tnew_value = (NEUTRALIZE(value, int) + NEUTRALIZE(updates[i].field_value, int));\n" +
 				"\t\t\t\t\t\tbreak;\n" +
@@ -77,23 +77,23 @@ public class UpdateFunction extends IinqFunction {
 				"\t\t\t\t\t\tnew_value = (NEUTRALIZE(value, int) / NEUTRALIZE(updates[i].field_value, int));\n" +
 				"\t\t\t\t\t\tbreak;\n\t\t\t\t}\n" +
 				"\t\t\t\tif (iinq_is_key_field(table_id, updates[i].update_field)) {\n" +
-				"\t\t\t\t\t*(int *) (new_key+iinq_calculate_key_offset(table_id, updates[i].update_field)) = new_value;\n" +
+				"\t\t\t\t\t*(int *) ((char *) new_key+iinq_calculate_key_offset(table_id, updates[i].update_field)) = new_value;\n" +
 				"\t\t\t\t\tkey_changed = boolean_true;\n" +
 				"\t\t\t\t}\n" +
-				"\t\t\t\tvalue = ion_record.value + calculateOffset(table_id, updates[i].update_field);\n" +
+				"\t\t\t\tvalue = (char *) ion_record.value + calculateOffset(table_id, updates[i].update_field);\n" +
 				"\t\t\t\t*(int *) value = new_value;\n\t\t\t}\n" +
 				"\t\t\telse {\n" +
-				"\t\t\t\tvalue = ion_record.value + calculateOffset(table_id, updates[i].update_field);\n" +
+				"\t\t\t\tvalue = (char *) ion_record.value + calculateOffset(table_id, updates[i].update_field);\n" +
 				"\t\t\t\tif (getFieldType(table_id, updates[i].update_field) == iinq_int) {\n" +
 				"\t\t\t\t\tif (iinq_is_key_field(table_id, updates[i].update_field)) {\n" +
-				"\t\t\t\t\t\t*(int *) (new_key+iinq_calculate_key_offset(table_id, updates[i].update_field)) = NEUTRALIZE(updates[i].field_value, int);\n" +
+				"\t\t\t\t\t\t*(int *) ((char *) new_key+iinq_calculate_key_offset(table_id, updates[i].update_field)) = NEUTRALIZE(updates[i].field_value, int);\n" +
 				"\t\t\t\t\t\tkey_changed = boolean_true;\n" +
 				"\t\t\t\t\t}\n" +
 				"\t\t\t\t\t*(int *) value = NEUTRALIZE(updates[i].field_value, int);\n\t\t\t\t}\n" +
 				"\t\t\t\telse {\n" +
 				"\t\t\t\t\tsize_t size = calculateOffset(table_id, updates[i].update_field+1)-calculateOffset(table_id, updates[i].update_field);\n" +
 				"\t\t\t\t\tif (iinq_is_key_field(table_id, updates[i].update_field)) {\n" +
-				"\t\t\t\t\t\tstrncpy(new_key+iinq_calculate_key_offset(table_id, updates[i].update_field), updates[i].field_value, size);\n" +
+				"\t\t\t\t\t\tstrncpy((char *) new_key+iinq_calculate_key_offset(table_id, updates[i].update_field), updates[i].field_value, size);\n" +
 				"\t\t\t\t\t\tkey_changed = boolean_true;\n" +
 				"\t\t\t\t\t}\n" +
 				"\t\t\t\t\tstrncpy(value, updates[i].field_value, size);\n\t\t\t\t}\n\t\t\t}\n\t\t}\n\n" +

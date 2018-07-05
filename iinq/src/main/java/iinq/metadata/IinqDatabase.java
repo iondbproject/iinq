@@ -80,7 +80,8 @@ public class IinqDatabase {
 	}
 
 	public void generateCalculatedDefinitions() {
-		calculatedFunctions.generateDefinitions();
+		if (calculatedFunctions != null)
+			calculatedFunctions.generateDefinitions();
 	}
 
 	public void addIinqTable(IinqTable table) {

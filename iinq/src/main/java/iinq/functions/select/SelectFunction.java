@@ -12,18 +12,38 @@ class SelectFunction extends IinqFunction {
 						"\tva_list valist;\n" +
 						"\tiinq_where_params_t* where_list = NULL;\n" +
 						"\tva_start(valist, num_fields);\n" +
-						"\tion_err_t                  error;\n" +
 						"\tiinq_result_set *result_set = malloc(sizeof(iinq_result_set));\n" +
+						// TODO: should we have the user allocate the result set for us?
+						"\tif (NULL == result_set)\n" +
+						"\t\treturn NULL;\n" +
 						"\tion_predicate_t *predicate = &result_set->dictionary_ref.predicate;\n" +
-						"\tdictionary_build_predicate(predicate, predicate_all_records);\n\n" +
+						"\tresult_set->status.error = dictionary_build_predicate(predicate, predicate_all_records);\n\n" +
+						"\tif (err_ok != result_set->status.error) {\n" +
+						"\t\treturn result_set;\n" +
+						"\t}\n\n" +
 						"\tion_dictionary_t           *dictionary = &result_set->dictionary_ref.dictionary;\n" +
 						"\tion_dictionary_handler_t   *handler = &result_set->dictionary_ref.handler;\n\n" +
 						"\tdictionary->handler = handler;\n" +
 						"\tresult_set->status.error              = iinq_open_source(table_id, dictionary, handler);\n\n" +
+						"\tif (err_ok != result_set->status.error) {\n" +
+						"\t\treturn result_set;\n" +
+						"\t}\n\n" +
 						"\tion_dict_cursor_t *cursor = NULL;\n" +
-						"\tdictionary_find(dictionary, predicate, &cursor);\n\n" +
+						"\tresult_set->status.error = dictionary_find(dictionary, predicate, &cursor);\n\n" +
+						"\tif (err_ok != result_set->status.error) {\n" +
+						"\t\treturn result_set;\n" +
+						"\t}\n\n" +
 						"\tresult_set->record.key     = malloc(dictionary->instance->record.key_size);\n" +
+						"\tif (NULL == result_set->record.key) {\n" +
+						"\t\tresult_set->status.error = err_out_of_memory;\n" +
+						"\t\treturn result_set;\n" +
+						"\t}\n" +
 						"\tresult_set->record.value   = malloc(dictionary->instance->record.value_size);\n" +
+						"\tif (NULL == result_set->record.value) {\n" +
+						"\t\tresult_set->status.error = err_out_of_memory;\n" +
+						"\t\tfree(result_set->record.key);\n" +
+						"\t\treturn result_set;\n" +
+						"\t}\n" +
 						"\tresult_set->dictionary_ref.cursor = cursor;\n" +
 						"\tresult_set->table_id = table_id;\n" +
 						"\tif (num_wheres > 0) {\n" +
@@ -35,7 +55,13 @@ class SelectFunction extends IinqFunction {
 						"\tresult_set->num_wheres = num_wheres;\n" +
 						"\tiinq_field_num_t *fields = va_arg(valist, iinq_field_num_t*);\n" +
 						"\tresult_set->num_fields = num_fields;\n" +
-						"\tresult_set->offset = malloc(sizeof(unsigned int) * num_fields);\n" +
+						"\tresult_set->offset = malloc(sizeof(unsigned int) * num_fields);\n\n" +
+						"\tif (NULL == result_set->offset) {\n" +
+						"\t\tfree(result_set->record.value);\n" +
+						"\t\tfree(result_set->record.key);\n" +
+						"\t\tresult_set->status.error = err_out_of_memory;\n" +
+						"\t\treturn result_set;\n" +
+						"\t}\n" +
 						"\tresult_set->fields = fields;\n\n" +
 						"\tfor (i = 0; i < num_fields; i++) {\n" +
 						"\t\tresult_set->offset[i] = calculateOffset(table_id, fields[i]);\n" +
@@ -51,7 +77,7 @@ class SelectFunction extends IinqFunction {
 						CommonCode.errorCheckResultSet("select", true) +*/
 						"\tion_close_master_table();\n" +
 						"\tresult_set->next = iinq_table_scan_next;\n" +
-						"\tresult_set->destroy = iinq_destroy_table_scan;" +
+						"\tresult_set->destroy = iinq_destroy_table_scan;\n" +
 						"\tresult_set->dictionary_ref.temp_dictionary = boolean_false;\n\n" +
 /*						"\twhile ((status = select->next(cursor, &ion_record)) == cs_cursor_initialized || status == cs_cursor_active) {\n" +
 						"\t\tcondition_satisfied = where(table_id, &ion_record, numWheres, where_list);\n\n" +

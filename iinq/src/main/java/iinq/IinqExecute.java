@@ -52,6 +52,7 @@ import java.io.*;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.sql.*;
+import java.util.ArrayList;
 
 public class IinqExecute {
 
@@ -332,11 +333,19 @@ public class IinqExecute {
 				"#if !defined(IINQ_USER_FUNCTIONS_H_)\n" + "#define IINQ_USER_FUNCTIONS_H_\n\n" +
 				"#if defined(__cplusplus)\n" + "extern \"C\" {\n" + "#endif\n\n");
 
-		Path libraryRelativeToOutput = Paths.get(outputDirectory).relativize(Paths.get(libraryDirectory)).normalize();
-		contents.append(String.format("#include \"%s\"\n", Paths.get(libraryRelativeToOutput.toString(), "../../dictionary/dictionary_types.h").normalize()));
-		contents.append(String.format("#include \"%s\"\n", Paths.get(libraryRelativeToOutput.toString(), "../../dictionary/dictionary.h").normalize()));
-		contents.append(String.format("#include \"%s\"\n", Paths.get(libraryRelativeToOutput.toString(), "../iinq.h").normalize()));
-		contents.append(String.format("#include \"%s\"\n\n", Paths.get(libraryRelativeToOutput.toString(), "iinq_functions.h").normalize()));
+		if (File.separatorChar != '/') {
+			Path libraryRelativeToOutput = Paths.get(outputDirectory).relativize(Paths.get(libraryDirectory)).normalize();
+			contents.append(String.format("#include \"%s\"\n", Paths.get(libraryRelativeToOutput.toString(), "../../dictionary/dictionary_types.h").normalize()).replace(File.separatorChar, '/'));
+			contents.append(String.format("#include \"%s\"\n", Paths.get(libraryRelativeToOutput.toString(), "../../dictionary/dictionary.h").normalize()).replace(File.separatorChar, '/'));
+			contents.append(String.format("#include \"%s\"\n", Paths.get(libraryRelativeToOutput.toString(), "../iinq.h").normalize()).replace(File.separatorChar, '/'));
+			contents.append(String.format("#include \"%s\"\n\n", Paths.get(libraryRelativeToOutput.toString(), "iinq_functions.h").normalize()).replace(File.separatorChar, '/'));
+		} else {
+			Path libraryRelativeToOutput = Paths.get(outputDirectory).relativize(Paths.get(libraryDirectory)).normalize();
+			contents.append(String.format("#include \"%s\"\n", Paths.get(libraryRelativeToOutput.toString(), "../../dictionary/dictionary_types.h").normalize()));
+			contents.append(String.format("#include \"%s\"\n", Paths.get(libraryRelativeToOutput.toString(), "../../dictionary/dictionary.h").normalize()));
+			contents.append(String.format("#include \"%s\"\n", Paths.get(libraryRelativeToOutput.toString(), "../iinq.h").normalize()));
+			contents.append(String.format("#include \"%s\"\n\n", Paths.get(libraryRelativeToOutput.toString(), "iinq_functions.h").normalize()));
+		}
 
 		return contents.toString();
 	}
@@ -384,10 +393,8 @@ public class IinqExecute {
 
 	private static void
 	calculate_functions(BufferedWriter out) throws IOException {
-		if (iinqDatabase.getTableCount() > 0) {
-			iinqDatabase.generateCalculatedDefinitions();
-			out.write(iinqDatabase.getFunctionDefinitions());
-		}
+		iinqDatabase.generateCalculatedDefinitions();
+		out.write(iinqDatabase.getFunctionDefinitions());
 	}
 
 	private static void
