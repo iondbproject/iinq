@@ -506,8 +506,7 @@ public class IinqBuilder extends QueryBuilder
 		GQTableRef tref = (GQTableRef) node.getContent();
 		String tableName = tref.getTable().getTableName();		
 		tableName = StringFunc.undelimitName(tableName, '"');
-		
-		// TODO: Fill this in
+
 		query.setParameter("source", tableName);
 
 		// Set the table

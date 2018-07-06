@@ -71,26 +71,25 @@ public class CalculatedPrintFunction extends IinqFunction implements CalculatedF
 				"\tion_dictionary_t dictionary;\n" +
 				"\tion_dictionary_handler_t handler;\n" +
 				"\n" +
+				"\tion_cursor_status_t cursor_status;\n" +
+				"\n" +
+				"\tion_record_t ion_record;\n" +
+				"\tion_record.key = NULL;\n" +
+				"\tion_record.value = NULL;\n" +
+				"\tion_dict_cursor_t *cursor = NULL;\n" +
+				"\n" +
 				"\tdictionary.handler = &handler;\n" +
 				"\n" +
 				"\tion_err_t error = iinq_open_source(tableId, &dictionary, &handler);\n" +
 				"\n" +
 				"\tif (err_ok != error) {\n" +
-				"\t\tprintf(\"Print error: %d\", error);\n" +
 				"\t\tgoto END;\n" +
 				"\t}\n" +
 				"\n" +
 				"\tion_predicate_t predicate;\n" +
 				"\tdictionary_build_predicate(&predicate, predicate_all_records);\n" +
 				"\n" +
-				"\tion_dict_cursor_t *cursor = NULL;\n" +
 				"\tdictionary_find(&dictionary, &predicate, &cursor);\n" +
-				"\n" +
-				"\tion_cursor_status_t cursor_status;\n" +
-				"\n" +
-				"\tion_record_t ion_record;\n" +
-				"\tion_record.key;\n" +
-				"\tion_record.value;\n" +
 				"\tswitch(tableId) {\n");
 		for (Map.Entry<Integer, PrintParams> entry : tablePrintParams.entrySet()) {
 			def.append(String.format("\t\tcase %d:\n",entry.getKey()));
@@ -101,7 +100,6 @@ public class CalculatedPrintFunction extends IinqFunction implements CalculatedF
 					"\t\t\t}\n");
 			def.append(String.format("\t\t\tion_record.value = malloc(%s);\n",entry.getValue().valueSize));
 			def.append("\t\t\tif (NULL == ion_record.value) {\n" +
-					"\t\t\t\tfree(ion_record.key);\n" +
 					"\t\t\t\terror = err_out_of_memory;\n" +
 					"\t\t\t\tgoto END;\n" +
 					"\t\t\t}\n");
@@ -119,7 +117,14 @@ public class CalculatedPrintFunction extends IinqFunction implements CalculatedF
 				"END:\n" +
 				"\tif (NULL != cursor) {\n" +
 				"\t\tcursor->destroy(&cursor);\n" +
-				"\t}\n" +
+				"\t}\n\n" +
+				"\tif (NULL != ion_record.key) {\n" +
+				"\t\tfree(ion_record.key);\n" +
+				"\t};\n\n" +
+				"\tif (NULL != ion_record.value) {\n" +
+				"\t\tfree(ion_record.value);\n" +
+				"\t};\n\n" +
+				"\tion_close_dictionary(&dictionary);\n\n" +
 				"\treturn error;\n" +
 				"}\n" +
 				"\n");

@@ -93,7 +93,7 @@ public class PreparedInsertFunction extends IinqFunction {
 			int keyField = it.next();
 			String fieldSize = table.getIonFieldSize(keyField);
 			if (table.getFieldType(keyField) == Types.INTEGER) {
-				definition.append(String.format("\t* ((int *)p->key+%s) = value_%d;\n", offset, keyField));
+				definition.append(String.format("\t* (int *) ((char*)p->key+%s) = value_%d;\n", offset, keyField));
 			} else {
 				definition.append(String.format("\tstrncpy((char *)p->key+%s, value_%d, %s);\n", offset.toString(), keyField, fieldSize));
 			}

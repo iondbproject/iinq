@@ -119,6 +119,7 @@ public class UpdateFunction extends IinqFunction {
 				"\t\t}\n\t}\n\n" +
 				"\tcursor_temp->destroy(&cursor_temp);\n" +
 				"\tion_delete_dictionary(&dictionary_temp, dictionary_temp.instance->id);\n" +
+				"\tion_close_dictionary(&dictionary);\n" +
 				"\tion_close_master_table();\n" +
 				"\tfree(new_key);\n" +
 				"\tfree(ion_record.key);\n" +

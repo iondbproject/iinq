@@ -58,6 +58,7 @@ public class DeleteFunction extends IinqFunction {
 						"\tcursor_temp->destroy(&cursor_temp);\n" +
 						"\terror = ion_delete_dictionary(&dictionary_temp, dictionary_temp.instance->id);\n\n" +
 						CommonCode.error_check() +
+						"\tion_close_dictionary(&dictionary);\n" +
 						"\tion_close_master_table();\n" +
 						"\tfree(ion_record.key);\n" +
 						"\tfree(ion_record.value);\n" +
