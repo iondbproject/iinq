@@ -751,7 +751,7 @@ iinq_get_suite1(
 
 void
 run_all_tests_iinq_device(
-	int records
+	unsigned int records
 ) {
 	num_records = records;
 

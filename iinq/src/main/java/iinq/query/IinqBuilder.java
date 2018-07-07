@@ -3,6 +3,7 @@ package iinq.query;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.Iterator;
 
 import iinq.metadata.IinqDatabase;
 import unity.annotation.SourceField;
@@ -84,9 +85,20 @@ public class IinqBuilder extends QueryBuilder
 		
 		boolean selectAll = node.isSelectAll();
 		Attribute[] attr = null;
-		StringBuilder fields = new StringBuilder();
+		//StringBuilder fields = new StringBuilder();
+		ArrayList<LQExprNode> expList = node.getExpressions();
+		Iterator<LQExprNode> it = expList.iterator();
+		ArrayList<String> fieldList = new ArrayList<>();
+		ArrayList<Integer> fieldListNums = new ArrayList<>();
+		while (it.hasNext()) {
+			LQExprNode expNode = it.next();
+			fieldList.add(expNode.getFieldReference().getName());
+			fieldListNums.add(expNode.getFieldReference().getField().getOrdinalPosition());
+		}
+		query.setParameter("fieldList", fieldList);
+		query.setParameter("fieldListNums", fieldListNums);
 		
-		if (selectAll)
+/*		if (selectAll)
 		{   // SELECT * handled differently as do not know what attributes will be returned
 		    node.setSelectAll(true);
 		    fields.append("*"); //$NON-NLS-1$
@@ -139,7 +151,7 @@ public class IinqBuilder extends QueryBuilder
     			    fields.append(", "); //$NON-NLS-1$
     			fields.append(name);			
     		}
-		}
+		}*/
 		
 		// Create output relation
 		// Default is that no attributes have been defined for relation.  Need to wait until get fields from output when query is run.
@@ -153,7 +165,7 @@ public class IinqBuilder extends QueryBuilder
         node.getChild(0).setOutputRelation(r);
                 
         // Set the query parameter for field filter        
-        query.setParameter("fields", fields.toString());                      //$NON-NLS-1$
+       // query.setParameter("fields", fields.toString());                      //$NON-NLS-1$
 	}
 	
 

@@ -157,7 +157,6 @@ public class IinqExecutor {
 
 		}
 
-		// TODO revise IinqUpdate to use IinqWhere object
 		return new IinqUpdate(table.getTableId(), where, num_fields, fieldList);
 	}
 

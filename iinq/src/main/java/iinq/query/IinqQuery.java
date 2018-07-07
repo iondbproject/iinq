@@ -223,19 +223,6 @@ public class IinqQuery extends WebQuery {
 		// first thing we will need is the table name for the query
 		returnValue.put("table_name", this.parameters.get("source"));
 
-		// TODO: move this to appropriate spot
-		ArrayList<LQExprNode> expList = this.proj.getExpressions();
-		Iterator<LQExprNode> it = expList.iterator();
-		ArrayList<String> fieldList = new ArrayList<>();
-		ArrayList<Integer> fieldListNums = new ArrayList<>();
-		while (it.hasNext()) {
-			LQExprNode expNode = it.next();
-			fieldList.add(expNode.getFieldReference().getName());
-			fieldListNums.add(expNode.getFieldReference().getField().getOrdinalPosition());
-		}
-		this.parameters.put("fieldList", fieldList);
-		this.parameters.put("fieldListNums", fieldListNums);
-
 		// if there is a predicate, create a function definition for it
 		if (this.parameters.containsKey("filter")) {
 			/*try {
