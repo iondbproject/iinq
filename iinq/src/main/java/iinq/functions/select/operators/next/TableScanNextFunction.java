@@ -2,7 +2,7 @@ package iinq.functions.select.operators.next;
 
 import iinq.functions.IinqFunction;
 
-public class TableScanNextFunction extends IinqFunction {
+public class TableScanNextFunction extends OperatorNextFunction {
 	public TableScanNextFunction() {
 		super("iinq_simple_next",
 				"ion_boolean_t iinq_table_scan_next(iinq_result_set *select);\n",

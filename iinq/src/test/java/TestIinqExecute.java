@@ -47,6 +47,7 @@ public class TestIinqExecute {
 		setSystemPropertiesForIinqInterface();
 		Path sourceFile = Paths.get("src/test/c/IinqFullTestCode.c");
 		Path destFile = Paths.get(interfaceUserFile);
+		System.setProperty("DEBUG", "true");
 
 		Files.copy(sourceFile, destFile, REPLACE_EXISTING);
 
@@ -68,6 +69,7 @@ public class TestIinqExecute {
 	public void testInsertAndSelectSingleTablePlanckUnit() throws IOException {
 		setSystemPropertiesForPlanckUnit();
 		System.setProperty("COMMENT_OUT_EXISTING_FUNCTIONS", "false");
+		System.setProperty("DEBUG", "true");
 
 		Path sourceFile = Paths.get("src/test/c/IinqInsertAndSelectSingleTablePlanckUnitTestCode.c");
 		Path destFile = Paths.get(testingUserFile);

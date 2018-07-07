@@ -81,6 +81,8 @@ public class IinqExecute {
 
 	private static boolean commentOutExistingFunctions = true;
 
+	private static boolean debug = false;
+
 	private static IinqDatabase iinqDatabase;
 
 	public static void main(String args[]) {
@@ -95,6 +97,10 @@ public class IinqExecute {
 
 		if (System.getProperty("COMMENT_OUT_EXISTING_FUNCTIONS") != null) {
 			commentOutExistingFunctions = Boolean.parseBoolean(System.getProperty("COMMENT_OUT_EXISTING_FUNCTIONS"));
+		}
+
+		if (System.getProperty("DEBUG") != null) {
+			debug = Boolean.parseBoolean(System.getProperty("DEBUG"));
 		}
 
 		/* Get file names and directories passed in as JVM options. */
@@ -115,7 +121,7 @@ public class IinqExecute {
 
 		try {
 			/* Create a new database if we have to */
-			iinqDatabase = new IinqDatabase(iinqInterfaceDirectory, "IinqDB");
+			iinqDatabase = new IinqDatabase(iinqInterfaceDirectory, "IinqDB", debug);
 
 
 			/* Reload the CREATE TABLE statements if we are using an existing database */
@@ -361,6 +367,10 @@ public class IinqExecute {
 		File output_file = new File(headerFilePath.toUri());
 
 		FileOutputStream header = new FileOutputStream(output_file, false);
+
+		if (debug) {
+			contents.append("#define IINQ_DEBUG		1");
+		}
 
 		contents.append(generateTopHeader(iinqFunctionOutputDirectory, iinqInterfaceDirectory));
 		contents.append(iinqDatabase.getFunctionHeaders());

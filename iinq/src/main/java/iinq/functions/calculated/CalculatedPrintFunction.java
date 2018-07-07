@@ -27,8 +27,8 @@ public class CalculatedPrintFunction extends IinqFunction implements CalculatedF
 	}
 
 	public CalculatedPrintFunction() {
-		super("print_table",
-				"ion_err_t print_table(iinq_table_id tableId);\n",
+		super("iinq_print_table",
+				"ion_err_t iinq_print_table(iinq_table_id tableId);\n",
 				null);
 	}
 
@@ -67,7 +67,7 @@ public class CalculatedPrintFunction extends IinqFunction implements CalculatedF
 
 	public String generateDefinition() {
 		StringBuilder def = new StringBuilder();
-		def.append("ion_err_t print_table(iinq_table_id tableId) {\n" +
+		def.append("ion_err_t iinq_print_table(iinq_table_id tableId) {\n" +
 				"\tion_dictionary_t dictionary;\n" +
 				"\tion_dictionary_handler_t handler;\n" +
 				"\n" +
@@ -83,7 +83,7 @@ public class CalculatedPrintFunction extends IinqFunction implements CalculatedF
 				"\tion_err_t error = iinq_open_source(tableId, &dictionary, &handler);\n" +
 				"\n" +
 				"\tif (err_ok != error) {\n" +
-				"\t\tgoto END;\n" +
+				"\t\treturn error;\n" +
 				"\t}\n" +
 				"\n" +
 				"\tion_predicate_t predicate;\n" +

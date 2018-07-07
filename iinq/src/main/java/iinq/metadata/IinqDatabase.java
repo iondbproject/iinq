@@ -50,8 +50,9 @@ public class IinqDatabase {
 	private HashMap<Integer, String> tableIds = new HashMap<>();
 	private HashMap<String, IinqTable> iinqTables = new HashMap<>();
 	private CalculatedFunctions calculatedFunctions = null;
+	private boolean debug;
 
-	public IinqDatabase(String directory, String databaseName) throws ClassNotFoundException, SQLException {
+	public IinqDatabase(String directory, String databaseName, boolean debug) throws ClassNotFoundException, SQLException {
 		this.schema = new IinqSchema();
 		this.databaseName = databaseName;
 		this.directory = directory;
@@ -65,6 +66,11 @@ public class IinqDatabase {
 		this.schema.addDatabase(db);
 		this.unityConnection = new UnityConnection(this.schema, new Properties());
 		this.executor = new IinqExecutor(this);
+		this.debug = debug;
+	}
+
+	public IinqDatabase(String directory, String databaseName) throws ClassNotFoundException, SQLException {
+		this(directory, databaseName, false);
 	}
 
 	public IinqCreateTable getCreateTable(int i) {
@@ -116,7 +122,7 @@ public class IinqDatabase {
 			createWritten = true;
 		}
 		if (calculatedFunctions == null) {
-			calculatedFunctions = new CalculatedFunctions();
+			calculatedFunctions = new CalculatedFunctions(debug);
 			functions.putAll(calculatedFunctions.getFunctions());
 		}
 

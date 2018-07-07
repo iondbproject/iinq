@@ -3,7 +3,7 @@ package iinq.functions.select.operators.destroy;
 import iinq.functions.CommonCode;
 import iinq.functions.IinqFunction;
 
-public class TableScanDestroyFunction extends IinqFunction {
+public class TableScanDestroyFunction extends OperatorDestroyFunction {
 	public TableScanDestroyFunction() {
 		super("iinq_destroy_table_scan",
 				"void iinq_destroy_table_scan(iinq_result_set **result_set);\n",
