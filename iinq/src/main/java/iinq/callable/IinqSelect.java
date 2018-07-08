@@ -36,6 +36,7 @@
 package iinq.callable;
 
 import iinq.IinqWhere;
+import iinq.functions.select.operators.SelectOperator;
 
 import java.util.ArrayList;
 
@@ -47,9 +48,10 @@ public class IinqSelect implements Callable{
     public String project_size;
     public ArrayList<Integer> fields;
     public String return_value;
+    public SelectOperator operator;
 
     public IinqSelect(int table_id, int num_fields, IinqWhere where, String project_size, ArrayList<Integer> field_list,
-                      String return_value) {
+                      String return_value, SelectOperator operator) {
         this.table_id = table_id;
         this.num_fields = num_fields;
         if (where != null) {
@@ -61,6 +63,7 @@ public class IinqSelect implements Callable{
         this.project_size = project_size;
         fields = field_list;
         this.return_value = return_value;
+        this.operator = operator;
     }
 
     public String generateFunctionCall() {

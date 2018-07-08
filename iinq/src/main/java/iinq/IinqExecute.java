@@ -298,8 +298,7 @@ public class IinqExecute {
 					IinqSelect select = iinqDatabase.getSelect(selectCount);
 
 					if (select != null) {
-						contents.append(select.return_value).append(" = iinq_select(").append(select.table_id).append(", ")
-								.append(select.project_size).append(", ").append(select.num_wheres).append(", ").append(select.num_fields);
+						contents.append(String.format("%s = %s(%d, %s, %d, %d", select.return_value, select.operator.getInitFunction().getName(), select.table_id, select.project_size, select.num_wheres, select.num_fields));
 
 						if (select.num_wheres > 0) {
 							contents.append(", ");

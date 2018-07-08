@@ -36,6 +36,7 @@
 
 import static org.junit.Assert.fail;
 
+import iinq.metadata.IinqDatabase;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -59,6 +60,7 @@ public class TestIinqQuery
     private static GlobalSchema metadata = null;
     private static Connection con = null;
     private static String url="jdbc:unity://data/xspec/IonDBDemo.xml";
+    private static IinqDatabase iinqDatabase;
 
 	/**
 	 * Initializes a IINQ JDBC connection.
@@ -68,8 +70,9 @@ public class TestIinqQuery
 	 */
 	@BeforeClass
 	public static void init() throws Exception {
-
-        System.out.println("\nRegistering driver.");
+		iinqDatabase = new IinqDatabase("data/xspec/", "IonDBTest", true);
+		iinqDatabase.reloadTablesFromXML();
+/*        System.out.println("\nRegistering driver.");
         Class.forName("unity.jdbc.UnityDriver");
 
         System.out.println("\nGetting connection: " + url);
@@ -104,7 +107,7 @@ public class TestIinqQuery
 				}
 				System.out.println();
 			}
-		}
+		}*/
 
     }
 
@@ -134,7 +137,7 @@ public class TestIinqQuery
 				"";
 		/* SELECT * FROM table does not require metadata
 		 * The two function calls below should have the same result */
-		TestIinq.runSQLQuery("SELECT * FROM int_table;", answer, metadata);
+		TestIinq.runSQLQuery("SELECT * FROM int_table;", answer, iinqDatabase);
 		TestIinq.runSQLQuery("SELECT * FROM int_table;", answer);
 	}
 
@@ -148,7 +151,7 @@ public class TestIinqQuery
 				"";
 		/* SELECT * FROM table does not require metadata
 		 * The two function calls below should have the same result */
-		TestIinq.runSQLQuery("SELECT attr0 FROM int_table;", answer, metadata);
+		TestIinq.runSQLQuery("SELECT attr0 FROM int_table;", answer, iinqDatabase);
 		TestIinq.runSQLQuery("SELECT attr0 FROM int_table;", answer);
 	}
 
@@ -163,7 +166,7 @@ public class TestIinqQuery
                 "";
 		/* SELECT * FROM table does not require metadata
 		 * The two function calls below should have the same result */
-        TestIinq.runSQLQuery("SELECT * FROM test1;", answer, metadata);
+        TestIinq.runSQLQuery("SELECT * FROM test1;", answer, iinqDatabase);
         TestIinq.runSQLQuery("SELECT * FROM test1;", answer);
 	}
 
@@ -176,7 +179,7 @@ public class TestIinqQuery
 		String answer = "Al 'Adliyah, 498.75, 21.0"
 		                +"\nTotal results: 3458";
 		
-		TestIinq.runSQLQuery("SELECT col1, col2, col3 FROM test1;", answer, metadata);
+		TestIinq.runSQLQuery("SELECT col1, col2, col3 FROM test1;", answer, iinqDatabase);
 	}
 
 	/**
@@ -290,11 +293,11 @@ public class TestIinqQuery
         String answer = "Total results: 292";
 
         // String filter
-        TestIinq.runSQLQuery("SELECT col1, col2, col3, col4 FROM test1 WHERE col2 = 'United Kingdom';", answer, metadata);
+        TestIinq.runSQLQuery("SELECT col1, col2, col3, col4 FROM test1 WHERE col2 = 'United Kingdom';", answer, iinqDatabase);
         
         // Number filter
         answer = "Total results: 1";
-        TestIinq.runSQLQuery("SELECT col1, col2, col3, col4 FROM test1 WHERE col1 = 31.02;", answer, metadata);
+        TestIinq.runSQLQuery("SELECT col1, col2, col3, col4 FROM test1 WHERE col1 = 31.02;", answer, iinqDatabase);
     }
         
     /**
@@ -306,26 +309,26 @@ public class TestIinqQuery
         String answer = "Total results: 1724";
         
         // >
-        TestIinq.runSQLQuery("SELECT col1, col2, col3, col4 FROM test1 WHERE col2 > 'United Kingdom';", answer, metadata);
+        TestIinq.runSQLQuery("SELECT col1, col2, col3, col4 FROM test1 WHERE col2 > 'United Kingdom';", answer, iinqDatabase);
  
         // >=
         answer = "Total results: 2016";
-        TestIinq.runSQLQuery("SELECT col1, col2, col3, col4 FROM test1 WHERE col2 >= 'United Kingdom';", answer, metadata);
+        TestIinq.runSQLQuery("SELECT col1, col2, col3, col4 FROM test1 WHERE col2 >= 'United Kingdom';", answer, iinqDatabase);
  
         // <
         answer = "Total results: 1442";
-        TestIinq.runSQLQuery("SELECT col1, col2, col3, col4 FROM test1 WHERE col2 < 'United Kingdom';", answer, metadata);
+        TestIinq.runSQLQuery("SELECT col1, col2, col3, col4 FROM test1 WHERE col2 < 'United Kingdom';", answer, iinqDatabase);
  
         // <=
         answer = "Total results: 1734";
-        TestIinq.runSQLQuery("SELECT col1, col2, col3, col4 FROM test1 WHERE col2 <= 'United Kingdom';", answer, metadata);
+        TestIinq.runSQLQuery("SELECT col1, col2, col3, col4 FROM test1 WHERE col2 <= 'United Kingdom';", answer, iinqDatabase);
  
         // !=
         answer = "Total results: 3166";
-        TestIinq.runSQLQuery("SELECT col1, col2, col3, col4 FROM test1 WHERE col2 <> 'United Kingdom';", answer, metadata);
+        TestIinq.runSQLQuery("SELECT col1, col2, col3, col4 FROM test1 WHERE col2 <> 'United Kingdom';", answer, iinqDatabase);
         
         answer = "Total results: 3166";
-        TestIinq.runSQLQuery("SELECT col1, col2, col3, col4 FROM test1 WHERE col2 != 'United Kingdom';", answer, metadata);
+        TestIinq.runSQLQuery("SELECT col1, col2, col3, col4 FROM test1 WHERE col2 != 'United Kingdom';", answer, iinqDatabase);
     }
 
     /**
@@ -342,7 +345,7 @@ public class TestIinqQuery
                 +"\nLafayette, United States, 44157.33, 6783.0"
                 +"\nSandy Springs, United States, 29055.38, 881.0"                
                 +"\nTotal results: 2";
-        TestIinq.runSQLQuery("SELECT col1, col2, col3, col4 FROM test1 WHERE col3 > 27300;", answer, metadata);
+        TestIinq.runSQLQuery("SELECT col1, col2, col3, col4 FROM test1 WHERE col3 > 27300;", answer, iinqDatabase);
  
         // >=
         answer = "Total columns: 4"
@@ -351,7 +354,7 @@ public class TestIinqQuery
                 +"\nLausanne, Switzerland, 27300.0, 600.0"
                 +"\nSandy Springs, United States, 29055.38, 881.0"
                 +"\nTotal results: 3";
-        TestIinq.runSQLQuery("SELECT col1, col2, col3, col4 FROM test1 WHERE col3 >= 27300;", answer, metadata);
+        TestIinq.runSQLQuery("SELECT col1, col2, col3, col4 FROM test1 WHERE col3 >= 27300;", answer, iinqDatabase);
  
         // <
         answer = "Total columns: 4"
@@ -359,16 +362,16 @@ public class TestIinqQuery
                 +"\nCoconut Grove, United States, 1.9, 2.0"
                 +"\nMorges, Switzerland, 0.99, 1.0"
                 +"\nTotal results: 2";
-        TestIinq.runSQLQuery("SELECT col1, col2, col3, col4 FROM test1 WHERE col1 < 2.1;", answer, metadata);
+        TestIinq.runSQLQuery("SELECT col1, col2, col3, col4 FROM test1 WHERE col1 < 2.1;", answer, iinqDatabase);
  
         // <=        
-        TestIinq.runSQLQuery("SELECT col1, col2, col3, col4 FROM test1 WHERE col1 <= 2.1;", answer, metadata);
+        TestIinq.runSQLQuery("SELECT col1, col2, col3, col4 FROM test1 WHERE col1 <= 2.1;", answer, iinqDatabase);
 
 		// !=
         answer = "Total results: 3457";
-        TestIinq.runSQLQuery("SELECT col1, col2, col3, col4 FROM test1 WHERE col1 <> 2.1;", answer, metadata);
+        TestIinq.runSQLQuery("SELECT col1, col2, col3, col4 FROM test1 WHERE col1 <> 2.1;", answer, iinqDatabase);
                 
-        TestIinq.runSQLQuery("SELECT col1, col2, col3, col4 FROM test1 WHERE col1 != 2.1;", answer, metadata);
+        TestIinq.runSQLQuery("SELECT col1, col2, col3, col4 FROM test1 WHERE col1 != 2.1;", answer, iinqDatabase);
     }
 
 	/**
@@ -380,7 +383,7 @@ public class TestIinqQuery
 		String answer;
 		answer = "";
 
-		TestIinq.runSQLQuery("SELECT col3, col4 FROM test1 WHERE col3 = 5 AND col4 <> \'Hello\'", answer, metadata);
+		TestIinq.runSQLQuery("SELECT col3, col4 FROM test1 WHERE col3 = 5 AND col4 <> \'Hello\'", answer, iinqDatabase);
 	}
 
 	/**
@@ -400,7 +403,7 @@ public class TestIinqQuery
                 +"\nSandy Springs, United States, 29055.38, 881.0"
                 +"\nLafayette, United States, 44157.33, 6783.0"
                 +"\nTotal results: 6";
-        TestIinq.runSQLQuery("SELECT col1, col2, col3, col4 FROM test1 WHERE col3 > 26000 ORDER BY col3 ASC;", answer, metadata);
+        TestIinq.runSQLQuery("SELECT col1, col2, col3, col4 FROM test1 WHERE col3 > 26000 ORDER BY col3 ASC;", answer, iinqDatabase);
        
 		// DESC
         answer = "Total columns: 4"
@@ -413,7 +416,7 @@ public class TestIinqQuery
                  +"\nCheltenham, United Kingdom, 26600.0, 3500.0"
                  +"\nTotal results: 6";
         
-        TestIinq.runSQLQuery("SELECT col1, col2, col3, col4 FROM test1 WHERE col3 > 26000 ORDER BY col4 DESC;", answer, metadata);
+        TestIinq.runSQLQuery("SELECT col1, col2, col3, col4 FROM test1 WHERE col3 > 26000 ORDER BY col4 DESC;", answer, iinqDatabase);
 	}
 
 

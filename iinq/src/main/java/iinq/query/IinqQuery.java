@@ -225,11 +225,6 @@ public class IinqQuery extends WebQuery {
 
 		// if there is a predicate, create a function definition for it
 		if (this.parameters.containsKey("filter")) {
-			/*try {
-				returnValue.put("predicate", generatePredicateFunction(0));
-			} catch (RequiresSchemaException e) {
-				e.printStackTrace();
-			}*/
 			Object filter = this.parameters.get("filter");
 			if (filter instanceof ArrayList) {
 				if (((ArrayList) filter).get(0) instanceof String) {
@@ -240,6 +235,10 @@ public class IinqQuery extends WebQuery {
 					returnValue.put("where", where);
 				}
 			}
+		}
+
+		if (hasOrderBy()) {
+
 		}
 
 /*		// is select all

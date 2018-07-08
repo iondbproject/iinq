@@ -2,6 +2,7 @@ package iinq.functions.select;
 
 import iinq.functions.IinqFunction;
 import iinq.functions.select.operators.destroy.TableScanDestroyFunction;
+import iinq.functions.select.operators.init.TableScanInitFunction;
 import iinq.functions.select.operators.next.TableScanNextFunction;
 
 import java.util.HashMap;
@@ -14,7 +15,7 @@ public class SelectFunctions {
 		functions.put(function.getName(), function);
 		function = new GetStringFunction();
 		functions.put(function.getName(), function); */
-		function = new SelectFunction();
+		function = new TableScanInitFunction();
 		functions.put(function.getName(), function);
 		// TODO: determine what next functions to generate
 		function = new TableScanNextFunction();

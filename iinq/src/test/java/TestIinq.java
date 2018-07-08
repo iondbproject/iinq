@@ -38,6 +38,7 @@ import static org.junit.Assert.assertNotEquals;
 
 import java.util.HashMap;
 
+import iinq.metadata.IinqDatabase;
 import iinq.query.IinqBuilder;
 import iinq.query.IinqQuery;
 import unity.annotation.GlobalSchema;
@@ -61,10 +62,10 @@ public class TestIinq
 	 *     SQL query to be ran
 	 * @param answer
 	 *     Expected result from SQL query
-	 * @param metadata 
-	 *     expected value for metadata
+	 * @param db
+	 *     expected value for database
 	 **/
-	public static void runSQLQuery(String sql, String answer, GlobalSchema metadata)
+	public static void runSQLQuery(String sql, String answer, IinqDatabase db)
 	{
 		System.out.println("\nTesting query: \n" + sql);		
 		try 
@@ -74,9 +75,9 @@ public class TestIinq
 	    	// Parse semantic query string into a parse tree
 			GlobalParser kingParser;
 			GlobalQuery gq;
-			if (null != metadata) {
+			if (null != db.getSchema()) {
 				kingParser = new GlobalParser(false, true);
-				gq = kingParser.parse(sql, metadata);
+				gq = kingParser.parse(sql, db.getSchema());
 			}
 			else {
 				kingParser = new GlobalParser(false, false);
@@ -88,7 +89,7 @@ public class TestIinq
 	        Optimizer opt = new Optimizer(gq, false, null);
 	        gq = opt.optimize();
 	        
-	        IinqBuilder builder = new IinqBuilder(gq.getLogicalQueryTree().getRoot(), null);
+	        IinqBuilder builder = new IinqBuilder(gq.getLogicalQueryTree().getRoot(), db);
 			IinqQuery query = builder.toQuery();
 			
 			// Validate that code is generated as expected

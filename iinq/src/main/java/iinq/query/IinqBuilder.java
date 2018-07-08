@@ -6,6 +6,7 @@ import java.util.Date;
 import java.util.Iterator;
 
 import iinq.metadata.IinqDatabase;
+import iinq.metadata.IinqTable;
 import unity.annotation.SourceField;
 import unity.engine.Attribute;
 import unity.engine.Relation;
@@ -471,7 +472,9 @@ public class IinqBuilder extends QueryBuilder
 	protected void buildOrderBy(LQOrderByNode node, WebQuery query) throws SQLException
 	{
 	    StringBuilder sort = new StringBuilder("sort 0");
-
+		int limit = 0;
+		IinqSort iinqSort = new IinqSort(limit);
+		IinqTable table = this.database.getIinqTable(query.getParameter("source"));
         // Note: IINQ has support for sort mode.  Using auto for now.  Reference: http://docs.IINQ.com/Documentation/IINQ/latest/SearchReference/Sort
 	    // 0 means no limit on elements to sort
 	    
@@ -487,15 +490,21 @@ public class IinqBuilder extends QueryBuilder
             String sqlDirection = node.getDirection(i);
             
             sort.append(' ');
-            if (sqlDirection.equals("ASC"))
-                sort.append("+");
-            else
-                sort.append("-");
-            sort.append(fieldName);            
+			IinqSort.DIRECTION direction;
+            if (sqlDirection.equals("ASC")) {
+				sort.append("+");
+				direction = IinqSort.DIRECTION.ASC;
+			} else {
+				sort.append("-");
+				direction = IinqSort.DIRECTION.DESC;
+			}
+            sort.append(fieldName);
+            iinqSort.addSortElement(direction, table.getTableId(), table.getFieldPosition(fieldName));
         }
     
         // Set sort expression
-        query.setParameter("sort", sort.toString());  				
+        query.setParameter("iinqSort", iinqSort);
+        query.setParameter("sort", sort.toString());
 	}
 		
 	/**

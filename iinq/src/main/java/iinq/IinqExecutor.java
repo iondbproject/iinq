@@ -10,6 +10,7 @@ import iinq.callable.update.ImplicitFieldInfo;
 import iinq.callable.update.UpdateField;
 import iinq.functions.calculated.ExecuteFunction;
 import iinq.functions.PreparedInsertFunction;
+import iinq.functions.select.operators.TableScanOperator;
 import iinq.metadata.IinqDatabase;
 import iinq.metadata.IinqTable;
 import iinq.query.IinqBuilder;
@@ -300,6 +301,6 @@ public class IinqExecutor {
 		String project_size = table.generateProjectionSize(fieldNums);
 
 
-		return new IinqSelect(table.getTableId(), num_fields, where, project_size, fieldNums, null);
+		return new IinqSelect(table.getTableId(), num_fields, where, project_size, fieldNums, null, new TableScanOperator());
 	}
 }
