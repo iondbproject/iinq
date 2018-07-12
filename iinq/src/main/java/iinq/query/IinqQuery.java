@@ -238,7 +238,7 @@ public class IinqQuery extends WebQuery {
 		}
 
 		if (hasOrderBy()) {
-
+			IinqSort iinqSort = (IinqSort) this.getParameterObject("iinqSort");
 		}
 
 /*		// is select all

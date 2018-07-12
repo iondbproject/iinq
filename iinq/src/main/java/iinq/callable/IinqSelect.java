@@ -64,10 +64,11 @@ public class IinqSelect implements Callable{
         fields = field_list;
         this.return_value = return_value;
         this.operator = operator;
+        this.operator.setIinqSelect(this);
     }
 
     public String generateFunctionCall() {
-        return null;
+        return operator.generateInitFunctionCall();
     }
 }
 

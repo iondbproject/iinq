@@ -1,18 +1,24 @@
 package iinq.functions.select.operators;
 
+import iinq.callable.IinqSelect;
 import iinq.functions.select.operators.destroy.OperatorDestroyFunction;
 import iinq.functions.select.operators.init.OperatorInitFunction;
 import iinq.functions.select.operators.next.OperatorNextFunction;
 
 public abstract class SelectOperator {
-	private OperatorInitFunction initFunction;
-	private OperatorNextFunction nextFunction;
-	private OperatorDestroyFunction destroyFunction;
+	protected OperatorInitFunction initFunction;
+	protected OperatorNextFunction nextFunction;
+	protected OperatorDestroyFunction destroyFunction;
+	protected IinqSelect iinqSelect;
 
 	public SelectOperator(OperatorInitFunction initFunction, OperatorNextFunction nextFunction, OperatorDestroyFunction destroyFunction) {
 		this.initFunction = initFunction;
 		this.nextFunction = nextFunction;
 		this.destroyFunction = destroyFunction;
+	}
+
+	public void setIinqSelect(IinqSelect iinqSelect) {
+		this.iinqSelect = iinqSelect;
 	}
 
 	public OperatorDestroyFunction getDestroyFunction() {
@@ -26,4 +32,6 @@ public abstract class SelectOperator {
 	public OperatorInitFunction getInitFunction() {
 		return initFunction;
 	}
+
+	public abstract String generateInitFunctionCall();
 }

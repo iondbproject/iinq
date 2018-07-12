@@ -55,7 +55,7 @@ public class IinqCreateTable implements Callable {
     }
 
     public IinqCreateTable(IinqTable table) {
-        this(table.getTableId(), table.getIonKeyType(), table.generateIonKeySize(), table.generateIonValueSize());
+        this(table.getTableId(), table.getIonKeyType(), table.generateIonKeySize(), table.generateIonValueSize() + " + IINQ_BITS_FOR_NULL(" + table.getNumFields() + ")");
     }
 }
 

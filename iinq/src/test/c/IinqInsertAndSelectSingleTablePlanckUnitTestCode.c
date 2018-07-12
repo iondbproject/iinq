@@ -57,7 +57,7 @@ test_create_table1(
 	#endif
 
 	ion_err_t error =
-	SQL_execute("CREATE TABLE Table1 (ID INT, CharValue VARCHAR(30), IntValue INT, primary key(ID));");
+ 	SQL_execute("CREATE TABLE Table1 (ID INT, CharValue VARCHAR(30), IntValue INT, primary key(ID));");
 
 	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, err_ok, error);
 
@@ -67,17 +67,17 @@ test_create_table1(
 	iinq_open_source(0, &dictionary, &handler);
 	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, key_type_numeric_signed, dictionary.instance->key_type);
 	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, sizeof(int), dictionary.instance->record.key_size);
-	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, (sizeof(int) * 2)+(sizeof(char) * 31), dictionary.instance->record.value_size);
+	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, (sizeof(int) * 2)+(sizeof(char) * 31) + IINQ_BITS_FOR_NULL(3), dictionary.instance->record.value_size);
 	PLANCK_UNIT_ASSERT_TRUE(tc, iinq_is_key_field(0, 1));
 	PLANCK_UNIT_ASSERT_FALSE(tc, iinq_is_key_field(0, 2));
 	PLANCK_UNIT_ASSERT_FALSE(tc, iinq_is_key_field(0, 3));
 	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, iinq_int, getFieldType(0, 1));
 	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, iinq_null_terminated_string, getFieldType(0, 2));
 	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, iinq_int, getFieldType(0, 3));
-	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, 0, calculateOffset(0, 1));
-	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, sizeof(int), calculateOffset(0, 2));
-	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, sizeof(int)+sizeof(char)*31, calculateOffset(0, 3));
-	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, sizeof(int)*2+sizeof(char)*31, calculateOffset(0, 4));
+	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, IINQ_BITS_FOR_NULL(3), calculateOffset(0, 1));
+	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, IINQ_BITS_FOR_NULL(3)+sizeof(int), calculateOffset(0, 2));
+	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, IINQ_BITS_FOR_NULL(3)+sizeof(int)+sizeof(char)*31, calculateOffset(0, 3));
+	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, IINQ_BITS_FOR_NULL(3)+sizeof(int)*2+sizeof(char)*31, calculateOffset(0, 4));
 	ion_close_dictionary(&dictionary);
 }
 
@@ -110,15 +110,31 @@ test_insert_prepared_record_table1(
 	char	*char_value,
 	int		int_value
 ) {
-	iinq_prepared_sql *p = SQL_prepare("INSERT INTO Table1 VALUES (?, ?, ?);");
-	setParam(p, 1, IONIZE(id, int));
-	setParam(p, 2, char_value);
-	setParam(p, 3, IONIZE(int_value, int));
+ 	iinq_prepared_sql *p = SQL_prepare("INSERT INTO Table1 VALUES (?, ?, ?);");
+
+	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, 0x1, iinq_check_null_indicator(p->value, 1));
+	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, 0x2, iinq_check_null_indicator(p->value, 2));
+	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, 0x4, iinq_check_null_indicator(p->value, 3));
+
+	iinq_set_param(p, 1, IONIZE(id, int));
+    PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, 0x0, iinq_check_null_indicator(p->value, 1));
+    PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, 0x2, iinq_check_null_indicator(p->value, 2));
+    PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, 0x4, iinq_check_null_indicator(p->value, 3));
+
+	iinq_set_param(p, 2, char_value);
+    PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, 0x0, iinq_check_null_indicator(p->value, 1));
+    PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, 0x0, iinq_check_null_indicator(p->value, 2));
+    PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, 0x4, iinq_check_null_indicator(p->value, 3));
+
+	iinq_set_param(p, 3, IONIZE(int_value, int));
+    PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, 0x0, iinq_check_null_indicator(p->value, 1));
+    PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, 0x0, iinq_check_null_indicator(p->value, 2));
+    PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, 0x0, iinq_check_null_indicator(p->value, 3));
 
 	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, 0, p->table);
-	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, id, NEUTRALIZE(p->value, int));
-	PLANCK_UNIT_ASSERT_STR_ARE_EQUAL(tc, char_value, ((char*) p->value+sizeof(int)));
-	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, int_value, NEUTRALIZE((char*)p->value+sizeof(int)+sizeof(char)*31, int));
+	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, id, NEUTRALIZE(((char *)p->value)+IINQ_BITS_FOR_NULL(3), int));
+	PLANCK_UNIT_ASSERT_STR_ARE_EQUAL(tc, char_value, ((char*) p->value)+sizeof(int)+IINQ_BITS_FOR_NULL(3));
+	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, int_value, NEUTRALIZE(((char*)p->value+sizeof(int))+sizeof(char)*31+IINQ_BITS_FOR_NULL(3), int));
 
 	ion_err_t error = execute(p);
 
@@ -136,7 +152,7 @@ test_insert_record_table1(
 	char	*char_value,
 	int		int_value
 ) {
-	iinq_execute_instantaneous(iinq_insert_0(id, char_value, int_value));
+	iinq_execute_instantaneous(iinq_insert_0(IONIZE(id, int), char_value, IONIZE(int_value, int)));
 
 	PLANCK_UNIT_ASSERT_TRUE(tc, __IINQ_RESERVED == NULL);
 	test_record_exists_table1(tc, id);
@@ -210,7 +226,8 @@ test_select_all_records_table1(
 
 	start_time = ion_time();
 
-	iinq_result_set *rs1 = SQL_select("SELECT * FROM Table1;");
+ 	iinq_result_set *rs1 = SQL_select("SELECT * FROM Table1;");
+
 
 	end_time = ion_time();
 	#if OUTPUT_TIMES
@@ -233,9 +250,9 @@ test_select_all_records_table1(
 	PLANCK_UNIT_ASSERT_FALSE(tc, rs1->dictionary_ref.temp_dictionary);
 	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, 0, rs1->table_id);
 
-	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, 0, rs1->offset[0]);
-	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, sizeof(int), rs1->offset[1]);
-	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, sizeof(int)+sizeof(char)*31, rs1->offset[2]);
+	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, IINQ_BITS_FOR_NULL(3), rs1->offset[0]);
+	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, IINQ_BITS_FOR_NULL(3)+sizeof(int), rs1->offset[1]);
+	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, IINQ_BITS_FOR_NULL(3)+sizeof(int)+sizeof(char)*31, rs1->offset[2]);
 
 	unsigned int count1 = 0;
 	unsigned int count2 = 0;
@@ -277,7 +294,7 @@ test_select_field_list_table1(
 
 	start_time = ion_time();
 
-	iinq_result_set *rs1 = SQL_select("SELECT IntValue, ID FROM Table1;");
+ 	iinq_result_set *rs1 = SQL_select("SELECT IntValue, ID FROM Table1;");
 
 	end_time = ion_time();
 	#if OUTPUT_TIMES
@@ -299,8 +316,8 @@ test_select_field_list_table1(
 	PLANCK_UNIT_ASSERT_FALSE(tc, rs1->dictionary_ref.temp_dictionary);
 	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, 0, rs1->table_id);
 
-	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, sizeof(int)+sizeof(char)*31, rs1->offset[0]);
-	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, 0, rs1->offset[1]);
+	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, IINQ_BITS_FOR_NULL(3)+sizeof(int)+sizeof(char)*31, rs1->offset[0]);
+	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, IINQ_BITS_FOR_NULL(3), rs1->offset[1]);
 
 	unsigned int count1 = 0;
 	unsigned int count2 = 0;
@@ -340,7 +357,7 @@ test_select_all_where_greater_than_table1(
 
 	start_time = ion_time();
 
-	iinq_result_set *rs1 = SQL_select("SELECT * FROM Table1 WHERE ID > 50;");
+ 	iinq_result_set *rs1 = SQL_select("SELECT * FROM Table1 WHERE ID > 50;");
 
 	end_time = ion_time();
 	#if OUTPUT_TIMES
@@ -363,9 +380,9 @@ test_select_all_where_greater_than_table1(
 	PLANCK_UNIT_ASSERT_FALSE(tc, rs1->dictionary_ref.temp_dictionary);
 	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, 0, rs1->table_id);
 
-	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, 0, rs1->offset[0]);
-	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, sizeof(int), rs1->offset[1]);
-	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, sizeof(int)+sizeof(char)*31, rs1->offset[2]);
+	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, IINQ_BITS_FOR_NULL(3), rs1->offset[0]);
+	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, IINQ_BITS_FOR_NULL(3)+sizeof(int), rs1->offset[1]);
+	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, IINQ_BITS_FOR_NULL(3)+sizeof(int)+sizeof(char)*31, rs1->offset[2]);
 
 	while (iinq_next(rs1)) {
 		#if OUTPUT_QUERY_RESULTS
@@ -395,7 +412,7 @@ test_select_all_where_greater_than_equal_table1(
 
 	start_time = ion_time();
 
-	iinq_result_set *rs1 = SQL_select("SELECT * FROM Table1 WHERE ID >= 50;");
+ 	iinq_result_set *rs1 = SQL_select("SELECT * FROM Table1 WHERE ID >= 50;");
 
 	end_time = ion_time();
 	#if OUTPUT_TIMES
@@ -418,9 +435,9 @@ test_select_all_where_greater_than_equal_table1(
 	PLANCK_UNIT_ASSERT_FALSE(tc, rs1->dictionary_ref.temp_dictionary);
 	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, 0, rs1->table_id);
 
-	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, 0, rs1->offset[0]);
-	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, sizeof(int), rs1->offset[1]);
-	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, sizeof(int)+sizeof(char)*31, rs1->offset[2]);
+	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, IINQ_BITS_FOR_NULL(3), rs1->offset[0]);
+	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, IINQ_BITS_FOR_NULL(3)+sizeof(int), rs1->offset[1]);
+	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, IINQ_BITS_FOR_NULL(3)+sizeof(int)+sizeof(char)*31, rs1->offset[2]);
 
 	while (iinq_next(rs1)) {
 		#if OUTPUT_QUERY_RESULTS
@@ -450,7 +467,7 @@ test_select_all_where_less_than_table1(
 
 	start_time = ion_time();
 
-	iinq_result_set *rs1 = SQL_select("SELECT * FROM Table1 WHERE ID < 50;");
+ 	iinq_result_set *rs1 = SQL_select("SELECT * FROM Table1 WHERE ID < 50;");
 
 	end_time = ion_time();
 	#if OUTPUT_TIMES
@@ -473,9 +490,9 @@ test_select_all_where_less_than_table1(
 	PLANCK_UNIT_ASSERT_FALSE(tc, rs1->dictionary_ref.temp_dictionary);
 	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, 0, rs1->table_id);
 
-	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, 0, rs1->offset[0]);
-	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, sizeof(int), rs1->offset[1]);
-	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, sizeof(int)+sizeof(char)*31, rs1->offset[2]);
+	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, IINQ_BITS_FOR_NULL(3), rs1->offset[0]);
+	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, IINQ_BITS_FOR_NULL(3)+sizeof(int), rs1->offset[1]);
+	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, IINQ_BITS_FOR_NULL(3)+sizeof(int)+sizeof(char)*31, rs1->offset[2]);
 
 	while (iinq_next(rs1)) {
 		#if OUTPUT_QUERY_RESULTS
@@ -505,8 +522,7 @@ test_select_all_where_less_than_equal_table1(
 
 	start_time = ion_time();
 
-/*     iinq_result_set *rs1 = SQL_select("SELECT * FROM Table1 WHERE ID <= 50;"); */
-	iinq_result_set *rs1 = iinq_select(0, sizeof(int)+(sizeof(char) * 31)+sizeof(int), 1, 3, IINQ_CONDITION_LIST(IINQ_CONDITION(1, iinq_less_than_equal_to, IONIZE(50, int))), IINQ_SELECT_LIST(1, 2, 3));
+    iinq_result_set *rs1 = SQL_select("SELECT * FROM Table1 WHERE ID <= 50;");
 
 	end_time = ion_time();
 	#if OUTPUT_TIMES
@@ -529,9 +545,9 @@ test_select_all_where_less_than_equal_table1(
 	PLANCK_UNIT_ASSERT_FALSE(tc, rs1->dictionary_ref.temp_dictionary);
 	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, 0, rs1->table_id);
 
-	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, 0, rs1->offset[0]);
-	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, sizeof(int), rs1->offset[1]);
-	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, sizeof(int)+sizeof(char)*31, rs1->offset[2]);
+	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, IINQ_BITS_FOR_NULL(3), rs1->offset[0]);
+	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, IINQ_BITS_FOR_NULL(3)+sizeof(int), rs1->offset[1]);
+	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, IINQ_BITS_FOR_NULL(3)+sizeof(int)+sizeof(char)*31, rs1->offset[2]);
 
 	while (iinq_next(rs1)) {
 		#if OUTPUT_QUERY_RESULTS
@@ -561,7 +577,7 @@ test_select_all_where_not_equal_table1(
 
 	start_time = ion_time();
 
-	iinq_result_set *rs1 = SQL_select("SELECT * FROM Table1 WHERE ID <> 50;");
+ 	iinq_result_set *rs1 = SQL_select("SELECT * FROM Table1 WHERE ID <> 50;");
 
 	end_time = ion_time();
 	#if OUTPUT_TIMES
@@ -584,9 +600,9 @@ test_select_all_where_not_equal_table1(
 	PLANCK_UNIT_ASSERT_FALSE(tc, rs1->dictionary_ref.temp_dictionary);
 	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, 0, rs1->table_id);
 
-	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, 0, rs1->offset[0]);
-	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, sizeof(int), rs1->offset[1]);
-	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, sizeof(int)+sizeof(char)*31, rs1->offset[2]);
+	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, IINQ_BITS_FOR_NULL(3), rs1->offset[0]);
+	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, IINQ_BITS_FOR_NULL(3)+sizeof(int), rs1->offset[1]);
+	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, IINQ_BITS_FOR_NULL(3)+sizeof(int)+sizeof(char)*31, rs1->offset[2]);
 
 	while (iinq_next(rs1)) {
 		#if OUTPUT_QUERY_RESULTS
@@ -608,7 +624,7 @@ test_select_all_where_not_equal_table1(
 	#endif
 
 	start_time = ion_time();
-	rs1 = SQL_select("SELECT * FROM Table1 WHERE ID <> 50;");
+ 	rs1 = SQL_select("SELECT * FROM Table1 WHERE ID <> 50;");
 
 	end_time = ion_time();
 	#if OUTPUT_TIMES
@@ -631,9 +647,9 @@ test_select_all_where_not_equal_table1(
 	PLANCK_UNIT_ASSERT_FALSE(tc, rs1->dictionary_ref.temp_dictionary);
 	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, 0, rs1->table_id);
 
-	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, 0, rs1->offset[0]);
-	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, sizeof(int), rs1->offset[1]);
-	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, sizeof(int)+sizeof(char)*31, rs1->offset[2]);
+	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, IINQ_BITS_FOR_NULL(3), rs1->offset[0]);
+	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, IINQ_BITS_FOR_NULL(3)+sizeof(int), rs1->offset[1]);
+	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, IINQ_BITS_FOR_NULL(3)+sizeof(int)+sizeof(char)*31, rs1->offset[2]);
 
 	while (iinq_next(rs1)) {
 		#if OUTPUT_QUERY_RESULTS
@@ -663,7 +679,7 @@ test_select_all_where_multiple_conditions_table1(
 
 	start_time = ion_time();
 
-	iinq_result_set *rs1 = SQL_select("SELECT * FROM Table1 WHERE ID < 50 AND IntValue <> 50;");
+ 	iinq_result_set *rs1 = SQL_select("SELECT * FROM Table1 WHERE ID < 50 AND IntValue <> 50;");
 
 	end_time = ion_time();
 	#if OUTPUT_TIMES
@@ -686,9 +702,9 @@ test_select_all_where_multiple_conditions_table1(
 	PLANCK_UNIT_ASSERT_FALSE(tc, rs1->dictionary_ref.temp_dictionary);
 	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, 0, rs1->table_id);
 
-	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, 0, rs1->offset[0]);
-	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, sizeof(int), rs1->offset[1]);
-	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, sizeof(int)+sizeof(char)*31, rs1->offset[2]);
+	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, IINQ_BITS_FOR_NULL(3), rs1->offset[0]);
+	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, IINQ_BITS_FOR_NULL(3)+sizeof(int), rs1->offset[1]);
+	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, IINQ_BITS_FOR_NULL(3)+sizeof(int)+sizeof(char)*31, rs1->offset[2]);
 
 	while (iinq_next(rs1)) {
 		#if OUTPUT_QUERY_RESULTS
@@ -716,7 +732,7 @@ test_drop_table1(
 	#endif
 
 	ion_err_t error =
-	SQL_execute("DROP TABLE Table1;");
+ 	SQL_execute("DROP TABLE Table1;");
 
 	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, err_ok, error);
 

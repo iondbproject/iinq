@@ -58,7 +58,7 @@ public class PreparedInsertFunction extends IinqFunction {
 
 		for (int j = 1; j <= totalFields; j++) {
 			if (table.getFieldType(j) == Types.INTEGER) {
-				header.append("int value_").append(j);
+				header.append("int *value_").append(j);
 			} else {
 				header.append("char *value_").append(j);
 			}
@@ -80,11 +80,23 @@ public class PreparedInsertFunction extends IinqFunction {
 		header.append(";\n");
 		definition.append(" {\n");
 		definition.append("\tiinq_prepared_sql *p = malloc(sizeof(iinq_prepared_sql));\n");
-
+		definition.append("\tif(NULL == p) {\n" +
+				"\t\treturn NULL;\n" +
+				"\t}\n\n");
 		definition.append("\tp->table = ").append(table.getTableId()).append(";\n");
-		definition.append("\tp->value = malloc(").append(table.getSchemaValue(VALUE_SIZE)).append(");\n");
-		definition.append("\tunsigned char\t*data = p->value;\n");
-		definition.append("\tp->key = malloc(").append(table.generateIonKeySize()).append(");\n");
+		definition.append(String.format("\tp->value = malloc(%s + IINQ_BITS_FOR_NULL(%d));\n", table.generateIonValueSize(), totalFields));
+		definition.append("\tif (NULL == p->value) {\n" +
+				"\t\tfree(p);\n" +
+				"\t\treturn NULL;\n" +
+				"\t}\n\n");
+		definition.append("\tiinq_null_indicator_t *null_indicators = p->value;\n");
+		definition.append(String.format("\tunsigned char *data = ((char *) p->value + IINQ_BITS_FOR_NULL(%d));\n", table.getNumFields()));
+		definition.append(String.format("\tp->key = malloc(%s);\n", table.generateIonKeySize()));
+		definition.append("\tif (NULL == p->key) {\n" +
+				"\t\tfree(p->value);\n" +
+				"\t\tfree(p);\n" +
+				"\t\treturn NULL;\n" +
+				"\t}\n\n");
 
 		Iterator<Integer> it = keyIndices.iterator();
 		StringBuilder offset = new StringBuilder();
@@ -92,28 +104,33 @@ public class PreparedInsertFunction extends IinqFunction {
 		while (it.hasNext()) {
 			int keyField = it.next();
 			String fieldSize = table.getIonFieldSize(keyField);
+			definition.append(String.format("\tif(NULL != value_%d) {\n", keyField));
 			if (table.getFieldType(keyField) == Types.INTEGER) {
-				definition.append(String.format("\t* (int *) ((char*)p->key+%s) = value_%d;\n", offset, keyField));
+				definition.append(String.format("\t\t* (int *) ((char*)p->key+%s) = NEUTRALIZE(value_%d, int);\n", offset, keyField));
 			} else {
-				definition.append(String.format("\tstrncpy((char *)p->key+%s, value_%d, %s);\n", offset.toString(), keyField, fieldSize));
+				definition.append(String.format("\t\tstrncpy((char *)p->key+%s, value_%d, %s);\n", offset.toString(), keyField, fieldSize));
 			}
+			definition.append("\t}\n\n");
 			offset.append("+").append(fieldSize);
 		}
-
-		definition.append("\n");
 
 		for (int i = 1; i <= totalFields; i++) {
 			int fieldType = table.getFieldType(i);
 			String fieldSize = table.getIonFieldSize(i);
 
+			definition.append(String.format("\tif (NULL == value_%d) {\n", i));
+			definition.append(String.format("\t\tiinq_set_null_indicator(null_indicators, %d);\n", i));
+			definition.append("\t} else {\n");
+			definition.append(String.format("\t\tiinq_clear_null_indicator(null_indicators, %d);\n", i));
+
 			// TODO: add support for byte arrays
 			switch (fieldType) {
 				case Types.CHAR:
 				case Types.VARCHAR:
-					definition.append(String.format("\tstrncpy(data, value_%d, %s);\n", i, fieldSize));
+					definition.append(String.format("\t\tstrncpy(data, value_%d, %s);\n", i, fieldSize));
 					break;
 				case Types.INTEGER:
-					definition.append(String.format("\t*(int *) data = value_%d;\n", i));
+					definition.append(String.format("\t\t*(int *) data = NEUTRALIZE(value_%d, int);\n", i));
 					break;
 				default:
 					throw new SQLFeatureNotSupportedException("Non-supported data type encountered.");
@@ -122,6 +139,7 @@ public class PreparedInsertFunction extends IinqFunction {
 			if (i < totalFields) {
 				definition.append(String.format("\tdata += %s;\n\n", fieldSize));
 			}
+			definition.append("\t}\n");
 		}
 
 		definition.append("\n\treturn p;\n");

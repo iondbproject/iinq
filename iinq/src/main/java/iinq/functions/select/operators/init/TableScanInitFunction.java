@@ -6,8 +6,8 @@ import iinq.functions.IinqFunction;
 public class TableScanInitFunction extends OperatorInitFunction {
 	public TableScanInitFunction() {
 		super("iinq_table_scan_init",
-				"iinq_result_set *iinq_table_scan_init(iinq_table_id table_id, size_t project_size, int num_wheres, iinq_field_num_t num_fields, ...);\n",
-				"iinq_result_set *iinq_table_scan_init(iinq_table_id table_id, size_t project_size, int num_wheres, iinq_field_num_t num_fields, ...) {\n\n" +
+				"iinq_result_set *iinq_table_scan_init(iinq_table_id table_id, int num_wheres, iinq_field_num_t num_fields, ...);\n",
+				"iinq_result_set *iinq_table_scan_init(iinq_table_id table_id, int num_wheres, iinq_field_num_t num_fields, ...) {\n\n" +
 						"\tint i;\n" +
 						"\tva_list valist;\n" +
 						"\tiinq_where_params_t* where_list = NULL;\n" +

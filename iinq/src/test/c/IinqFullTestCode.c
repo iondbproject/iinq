@@ -104,8 +104,8 @@ main(
 	/* Test prepared statements */
 	printf("INSERT INTO Dogs VALUES ('1', 'Black Lab', 'Minnie', 5, 'Penticton'); (prepared)\n");
 	iinq_prepared_sql *p1 = SQL_prepare("INSERT INTO Dogs VALUES ('1', (?), 'Minnie', (?), 'Penticton');");
-	setParam(p1, 2, "Black Lab");
-	setParam(p1, 4, IONIZE(5,int));
+	iinq_set_param(p1, 2, "Black Lab");
+	iinq_set_param(p1, 4, IONIZE(5,int));
 	execute(p1);
 	iinq_close_statement(p1);
 	iinq_print_table(1);
@@ -123,8 +123,8 @@ main(
 
     printf("INSERT INTO Cats VALUES (5, 'Minnie', 6); (prepared)\n");
 	iinq_prepared_sql *p2 = SQL_prepare(""INSERT INTO Cats VALUES (5, ?, (?));"");
-	setParam(p2, 2, "Minnie");
-	setParam(p2, 3, IONIZE(6,int));
+	iinq_set_param(p2, 2, "Minnie");
+	iinq_set_param(p2, 3, IONIZE(6,int));
 	execute(p2);
 	iinq_close_statement(p2);
 	iinq_print_table(2);
@@ -189,11 +189,11 @@ main(
     p1 = SQL_prepare("INSERT INTO test1 COLUMNS (id1, id2) VALUES (?, ?);");
     p2 = SQL_prepare("INSERT INTO test2 COLUMNS (id1, id2) VALUES (?, ?);");
 
-    setParam(p1, 1, IONIZE(1,int));
-    setParam(p1, 2, IONIZE(2,int));
+    iinq_set_param(p1, 1, IONIZE(1,int));
+    iinq_set_param(p1, 2, IONIZE(2,int));
 
-    setParam(p2, 1, IONIZE(1,int));
-    setParam(p2, 2, IONIZE(2,int));
+    iinq_set_param(p2, 1, IONIZE(1,int));
+    iinq_set_param(p2, 2, IONIZE(2,int));
 
     printf("INSERT INTO test1 COLUMNS (id1, id2) VALUES (1, 2); (prepared)\n");
     execute(p1);

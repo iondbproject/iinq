@@ -175,6 +175,9 @@ public class IinqExecute {
 					else if ((sql.toUpperCase()).contains("DROP TABLE")) {
 						drop_table(sql);
 					} else if ((sql.toUpperCase()).contains("SELECT")) {
+						if (sql.contains("SELECT * FROM Table1 WHERE ID <= 50;")){
+							System.out.println();
+						}
 						select(sql);
 					}
 				}
@@ -298,25 +301,13 @@ public class IinqExecute {
 					IinqSelect select = iinqDatabase.getSelect(selectCount);
 
 					if (select != null) {
-						contents.append(String.format("%s = %s(%d, %s, %d, %d", select.return_value, select.operator.getInitFunction().getName(), select.table_id, select.project_size, select.num_wheres, select.num_fields));
-
-						if (select.num_wheres > 0) {
-							contents.append(", ");
-							contents.append(select.where.generateIinqConditionList());
-						}
-
-						contents.append(", IINQ_SELECT_LIST(");
-						for (int i = 0; i < select.num_fields; i++) {
-							contents.append(select.fields.get(i)).append(", ");
-						}
-						contents.setLength(contents.length() - 2);
-
-						contents.append("));\n");
+						contents.append(select.generateFunctionCall());
 					}
 					selectCount++;
 				} else {
 					contents.append(line).append('\n');
 				}
+
 
 			} else {
 				contents.append(line).append('\n');
@@ -337,6 +328,8 @@ public class IinqExecute {
 				"/********************************************************************/\n\n" +
 				"#if !defined(IINQ_USER_FUNCTIONS_H_)\n" + "#define IINQ_USER_FUNCTIONS_H_\n\n" +
 				"#if defined(__cplusplus)\n" + "extern \"C\" {\n" + "#endif\n\n");
+
+		contents.append("#include <limits.h>\n");
 
 		if (File.separatorChar != '/') {
 			Path libraryRelativeToOutput = Paths.get(outputDirectory).relativize(Paths.get(libraryDirectory)).normalize();
@@ -367,11 +360,12 @@ public class IinqExecute {
 
 		FileOutputStream header = new FileOutputStream(output_file, false);
 
+		contents.append(generateTopHeader(iinqFunctionOutputDirectory, iinqInterfaceDirectory));
+
 		if (debug) {
-			contents.append("#define IINQ_DEBUG		1");
+			contents.append("#define IINQ_DEBUG		1\n");
 		}
 
-		contents.append(generateTopHeader(iinqFunctionOutputDirectory, iinqInterfaceDirectory));
 		contents.append(iinqDatabase.getFunctionHeaders());
 		contents.append("\n#if defined(__cplusplus)\n" + "}\n" + "#endif\n" + "\n" + "#endif\n");
 

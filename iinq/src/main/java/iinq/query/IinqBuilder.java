@@ -499,7 +499,8 @@ public class IinqBuilder extends QueryBuilder
 				direction = IinqSort.DIRECTION.DESC;
 			}
             sort.append(fieldName);
-            iinqSort.addSortElement(direction, table.getTableId(), table.getFieldPosition(fieldName));
+            int fieldNum = table.getFieldPosition(fieldName);
+            iinqSort.addSortElement(direction, table.getTableId(), fieldNum, table.getFieldType(fieldNum));
         }
     
         // Set sort expression

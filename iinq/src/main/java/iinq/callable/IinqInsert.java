@@ -43,6 +43,7 @@ import unity.query.GQFieldRef;
 import unity.query.LQExprNode;
 import unity.query.LQInsertNode;
 
+import java.sql.Types;
 import java.util.ArrayList;
 import java.util.HashMap;
 
@@ -87,6 +88,7 @@ public class IinqInsert implements Callable{
         return insertFunction.getName() + "(" + getFunctionArguments() + ")";
     }
 
+
     private String createFunctionArguments(IinqTable table, LQInsertNode insertNode, boolean preparedStatement) {
         HashMap<Integer, String> map = new HashMap<>();
         ArrayList<GQFieldRef> insertFields = insertNode.getInsertFields();
@@ -94,15 +96,19 @@ public class IinqInsert implements Callable{
         for (int i = 0, n = insertFields.size(); i < n; i ++) {
             InsertFieldElement arg = getArgument(insertFields.get(i), insertValues.get(i));
             if (preparedStatement && arg.value.equals("?"))
-                arg.value = table.getNullValue(arg.fieldNum);
-            map.put(arg.fieldNum, arg.value);
+                arg.value = "NULL";
+            else if (insertFields.get(i).getField().getDataType() == Types.INTEGER) {
+                map.put(arg.fieldNum, String.format("IONIZE(%s, int)", arg.value));
+            } else {
+                map.put(arg.fieldNum, arg.value);
+            }
         }
         StringBuilder arguments = new StringBuilder();
         for (int i = 1, n = table.getNumFields(); i <= n; i++) {
             if (map.containsKey(i)) {
                 arguments.append(map.get(i));
             } else {
-                arguments.append(table.getNullValue(i));
+                arguments.append("NULL");
             }
             arguments.append(", ");
         }
