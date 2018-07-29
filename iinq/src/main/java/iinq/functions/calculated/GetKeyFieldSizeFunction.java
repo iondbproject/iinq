@@ -13,7 +13,7 @@ public class GetKeyFieldSizeFunction extends IinqFunction implements CalculatedF
 
 	public GetKeyFieldSizeFunction() {
 		super ("iinq_get_key_field_size",
-				"size_t iinq_get_key_field_size(iinq_table_id table_id, iinq_field_num_t field_num);\n",
+				"size_t iinq_get_key_field_size(iinq_table_id_t table_id, iinq_field_num_t field_num);\n",
 				null);
 	}
 
@@ -33,7 +33,7 @@ public class GetKeyFieldSizeFunction extends IinqFunction implements CalculatedF
 
 	public String generateDefinition() {
 		StringBuilder def = new StringBuilder();
-		def.append("size_t iinq_get_key_field_size(iinq_table_id table_id, iinq_field_num_t field_num) {\n");
+		def.append("size_t iinq_get_key_field_size(iinq_table_id_t table_id, iinq_field_num_t field_num) {\n");
 		def.append("\tswitch (table_id) {\n");
 		for (Map.Entry<Integer, String> entry : keyFieldCases.entrySet()) {
 			def.append(String.format("\t\tcase %d:\n", entry.getKey()));

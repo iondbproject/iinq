@@ -1,6 +1,6 @@
 /******************************************************************************/
 /**
- @file		    IinqSelect.java
+ @file		    IinqProjection.java
  @author		Dana Klamut, Kai Neubauer
  @copyright	    Copyright 2018
  The University of British Columbia,
@@ -35,40 +35,54 @@
 
 package iinq.callable;
 
-import iinq.IinqWhere;
-import iinq.functions.select.operators.SelectOperator;
+import iinq.functions.select.operators.ProjectionOperator;
 
 import java.util.ArrayList;
+import java.util.Iterator;
 
-public class IinqSelect implements Callable{
-    public int table_id;
-    public int num_wheres;
-    public int num_fields;
-    public IinqWhere where;
-    public String project_size;
-    public ArrayList<Integer> fields;
-    public String return_value;
-    public SelectOperator operator;
+public class IinqProjection implements Callable{
+    protected ArrayList<Integer> fieldList;
+    protected ProjectionOperator operator;
 
-    public IinqSelect(int table_id, int num_fields, IinqWhere where, String project_size, ArrayList<Integer> field_list,
-                      String return_value, SelectOperator operator) {
-        this.table_id = table_id;
-        this.num_fields = num_fields;
-        if (where != null) {
-            this.where = where;
-            num_wheres = where.getNum_conditions();
-        } else {
-            num_wheres = 0;
-        }
-        this.project_size = project_size;
-        fields = field_list;
-        this.return_value = return_value;
+    public IinqProjection(ArrayList<Integer> fieldList) {
+        this.fieldList = fieldList;
+    }
+
+    public void setOperator(ProjectionOperator operator) {
         this.operator = operator;
-        this.operator.setIinqSelect(this);
+    }
+
+    public int getNumFields() {
+        return fieldList.size();
+    }
+
+    public ArrayList<Integer> getFieldList() {
+        return fieldList;
+    }
+
+    public String getIinqProjectionList() {
+        StringBuilder list = new StringBuilder();
+        Iterator<Integer> it = fieldList.iterator();
+
+        list.append("IINQ_PROJECTION_LIST(");
+
+        while (it.hasNext()) {
+            list.append(it.next());
+            list.append(", ");
+        }
+
+        list.setLength(list.length()-2);
+        list.append(")");
+
+        return list.toString();
+    }
+
+    public void setFieldList(ArrayList<Integer> fieldList) {
+        this.fieldList = fieldList;
     }
 
     public String generateFunctionCall() {
-        return operator.generateInitFunctionCall();
+        return String.format("%s(%s, %d, %s)", operator.generateInitFunctionCall(), operator.getInputOperators().get(0).generateInitFunctionCall(), getNumFields(), getIinqProjectionList());
     }
 }
 

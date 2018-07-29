@@ -6,7 +6,8 @@ import iinq.callable.*;
 import iinq.callable.update.IinqUpdate;
 import iinq.functions.*;
 import iinq.functions.calculated.CalculatedFunctions;
-import iinq.functions.select.SelectFunctions;
+import iinq.functions.select.operators.IinqOperator;
+import iinq.query.IinqQuery;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
@@ -44,12 +45,14 @@ public class IinqDatabase {
 	private ArrayList<IinqInsert> inserts = new ArrayList<>();
 	private ArrayList<IinqUpdate> updates = new ArrayList<>();
 	private ArrayList<IinqDelete> deletes = new ArrayList<>();
-	private ArrayList<IinqSelect> selects = new ArrayList<>();
+	private ArrayList<IinqQuery> queries = new ArrayList<>();
 	private HashMap<String, IinqFunction> functions = new HashMap<>();
 	private ArrayList<Integer> droppedTableIds = new ArrayList<>();
 	private HashMap<Integer, String> tableIds = new HashMap<>();
 	private HashMap<String, IinqTable> iinqTables = new HashMap<>();
+	private HashMap<String, String> operatorStructDefinitions = new HashMap<>();
 	private CalculatedFunctions calculatedFunctions = null;
+	private HashMap<String, IinqOperator> operators = new HashMap<>();
 	private boolean debug;
 
 	public IinqDatabase(String directory, String databaseName, boolean debug) throws ClassNotFoundException, SQLException {
@@ -347,17 +350,29 @@ public class IinqDatabase {
 	}
 
 	public void executeQuery(String sql, String return_val) throws SQLException, RelationNotFoundException, IOException, InvalidArgumentException {
-		IinqSelect select = executor.executeQuery(sql);
-		select.return_value = return_val;
-		selects.add(select);
-		if (!selectWritten) {
-			SelectFunctions selectFunctions = new SelectFunctions();
-			functions.putAll(selectFunctions.getFunctions());
-			selectWritten = true;
+		IinqQuery query = executor.executeQuery(sql);
+		operators.putAll(query.getOperators());
+		queries.add(query);
+	}
+
+	public IinqQuery getQuery(int i) {
+		return queries.get(i);
+	}
+
+	public void addOperatorFunctions() {
+		for (Map.Entry<String, IinqOperator> entry : operators.entrySet()) {
+			functions.putAll(entry.getValue().getOperatorFunctions());
+			operatorStructDefinitions.putAll(entry.getValue().getStructDefinitions());
 		}
 	}
 
-	public IinqSelect getSelect(int i) {
-		return selects.get(i);
+	public String getOperatorStructDefinitions() {
+		StringBuilder definitions = new StringBuilder();
+
+		for (Map.Entry<String, String> entry : operatorStructDefinitions.entrySet()) {
+			definitions.append(entry.getValue());
+		}
+
+		return definitions.toString();
 	}
 }

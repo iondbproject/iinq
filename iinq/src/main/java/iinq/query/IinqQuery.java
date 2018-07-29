@@ -1,32 +1,36 @@
 package iinq.query;
 
 import com.sun.javaws.exceptions.InvalidArgumentException;
-import iinq.IinqWhere;
+import iinq.IinqSelection;
 import iinq.functions.PredicateFunction;
+import iinq.functions.select.operators.IinqOperator;
 import iinq.metadata.IinqDatabase;
 import iinq.metadata.IinqTable;
-import iinq.query.RequiresSchemaException;
 import unity.annotation.SourceField;
 import unity.annotation.SourceTable;
 import unity.generic.query.WebQuery;
-import unity.query.LQExprNode;
 
 import javax.management.relation.RelationNotFoundException;
 import java.io.*;
 import java.sql.SQLFeatureNotSupportedException;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Iterator;
 
 
 /**
  * Stores a representation of an IINQ query.
  */
 public class IinqQuery extends WebQuery {
-	// Enables comments with in code output
+	// Enables comments within code output
 	private static final boolean DEBUG = true;
 	private IinqDatabase database;
+	private HashMap<String, IinqOperator> operators = new HashMap<>();
+	private ArrayList<IinqOperator> operatorCallChain = new ArrayList<>();
 	private HashMap<String, Object> queryCode;
+
+	public boolean isSelectAll() {
+		return proj.isSelectAll();
+	}
 
 	/**
 	 *  Writes a query function to a C source file that contains the dummy function call (query_init_SQL). Any generated functions are declared within the single source file.
@@ -142,15 +146,6 @@ public class IinqQuery extends WebQuery {
 	}
 
 	/**
-	 * Checks whether the query has SELECT * as its SELECT clause.
-	 *
-	 * @return true if it is SELECT *, false if it is not
-	 */
-	public boolean isSelectAll() {
-		return ((String) this.parameters.get("fields")).equals("*");
-	}
-
-	/**
 	 * Checks whether a schema was given for the query.
 	 *
 	 * @return true if a schema was given, false if it was not.
@@ -229,16 +224,15 @@ public class IinqQuery extends WebQuery {
 			if (filter instanceof ArrayList) {
 				if (((ArrayList) filter).get(0) instanceof String) {
 					ArrayList<String> filterList = (ArrayList<String>) filter;
-					IinqWhere where = new IinqWhere(filterList.size());
 					IinqTable table = database.getIinqTable(tableName);
-					where.generateWhere(filterList.toArray(new String[filterList.size()]),table);
+					IinqSelection where = new IinqSelection(filterList, table);
 					returnValue.put("where", where);
 				}
 			}
 		}
 
 		if (hasOrderBy()) {
-			IinqSort iinqSort = (IinqSort) this.getParameterObject("iinqSort");
+			returnValue.put("iinqSort", (IinqSort) this.getParameterObject("iinqSort"));
 		}
 
 /*		// is select all
@@ -425,5 +419,25 @@ public class IinqQuery extends WebQuery {
 	public SourceTable getTable(String tableName) {
 		this.getRelation();
 		return this.proj.getDatabase().getDatabase().getSourceTables().get(tableName);
+	}
+
+	public void addOperator(IinqOperator operator) {
+		if (!operators.containsKey(operator.getName())) {
+			operators.put(operator.getName(), operator);
+		}
+
+		operatorCallChain.add(operator);
+	}
+
+	public IinqOperator getNewestOperator() {
+		return operatorCallChain.get(operatorCallChain.size()-1);
+	}
+
+	public String getFunctionCall() {
+		return operatorCallChain.get(operatorCallChain.size()-1).generateInitFunctionCall();
+	}
+
+	public HashMap<String, IinqOperator> getOperators() {
+		return operators;
 	}
 }

@@ -5,21 +5,28 @@ import iinq.functions.IinqFunction;
 
 public class TableScanDestroyFunction extends OperatorDestroyFunction {
 	public TableScanDestroyFunction() {
-		super("iinq_destroy_table_scan",
-				"void iinq_destroy_table_scan(iinq_result_set **result_set);\n",
-				"void iinq_destroy_table_scan(iinq_result_set **result_set) {\n" +
-						CommonCode.freeMemory("(*result_set)->record.key") +
-						CommonCode.freeMemory("(*result_set)->record.value") +
-						"\tif ((*result_set)->dictionary_ref.temp_dictionary) {\n" +
-						"\t\tion_init_master_table();\n" +
-						"\t\tion_delete_dictionary(&(*result_set)->dictionary_ref.dictionary, (*result_set)->dictionary_ref.dictionary.instance->id);\n" +
-						"\t} else {\n" +
-						"\t\tion_close_dictionary(&(*result_set)->dictionary_ref.dictionary);\n" +
-						"\t}\n\n" +
-						CommonCode.destroyCursor("(*result_set)->dictionary_ref.cursor") +
-						CommonCode.freeMemory("(*result_set)->offset") +
-						"\tfree(*result_set);\n" +
-						"\t*result_set = NULL;\n" +
+		super("iinq_table_scan_destroy",
+				"void iinq_table_scan_destroy(iinq_query_operator_t **operator);\n",
+				"void iinq_table_scan_destroy(iinq_query_operator_t **operator) {\n" +
+						"\tiinq_table_scan_t *table_scan = (iinq_table_scan_t *) (*operator)->instance;\n" +
+						"\n" +
+						"\tif (NULL != table_scan->record.key) {\n" +
+						"\t\tfree(table_scan->record.key);\n" +
+						"\t}\n" +
+						"\n" +
+						"\tif (NULL != table_scan->record.value) {\n" +
+						"\t\tfree(table_scan->record.value);\n" +
+						"\t}\n" +
+						"\n" +
+						"\tion_close_dictionary(&table_scan->dictionary);\n" +
+						"\n" +
+						"\tif (NULL != table_scan->cursor) {\n" +
+						"\t\ttable_scan->cursor->destroy(&table_scan->cursor);\n" +
+						"\t}\n" +
+						"\n" +
+						"\tfree(table_scan);\n" +
+						"\tfree(*operator);\n" +
+						"\t*operator = NULL;\n" +
 						"}\n\n"
 
 		);

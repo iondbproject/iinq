@@ -106,7 +106,7 @@ main(
 	iinq_prepared_sql *p1 = SQL_prepare("INSERT INTO Dogs VALUES ('1', (?), 'Minnie', (?), 'Penticton');");
 	iinq_set_param(p1, 2, "Black Lab");
 	iinq_set_param(p1, 4, IONIZE(5,int));
-	execute(p1);
+	iinq_execute_prepared(p1);
 	iinq_close_statement(p1);
 	iinq_print_table(1);
 
@@ -125,7 +125,7 @@ main(
 	iinq_prepared_sql *p2 = SQL_prepare(""INSERT INTO Cats VALUES (5, ?, (?));"");
 	iinq_set_param(p2, 2, "Minnie");
 	iinq_set_param(p2, 3, IONIZE(6,int));
-	execute(p2);
+	iinq_execute_prepared(p2);
 	iinq_close_statement(p2);
 	iinq_print_table(2);
 
@@ -165,7 +165,7 @@ main(
 
 	/* Test query */
 	printf("SELECT id, name FROM Cats WHERE age < 10;\n");
-	iinq_result_set *rs1 = SQL_select("SELECT id, name FROM Cats WHERE age < 10;");
+	iinq_result_set_t *rs1 = SQL_select("SELECT id, name FROM Cats WHERE age < 10;");
 
     while (iinq_next(rs1)) {
         printf("ID: %i,", iinq_get_int(rs1, 1));
@@ -196,14 +196,14 @@ main(
     iinq_set_param(p2, 2, IONIZE(2,int));
 
     printf("INSERT INTO test1 COLUMNS (id1, id2) VALUES (1, 2); (prepared)\n");
-    execute(p1);
+    iinq_execute_prepared(p1);
     iinq_close_statement(p1);
     iinq_print_table(3);
     printf("KEYS:\n");
     iinq_print_keys(3);
 
     printf("INSERT INTO test2 COLUMNS (id1, id2) VALUES (1, 2); (prepared)\n");
-    execute(p2);
+    iinq_execute_prepared(p2);
     iinq_close_statement(p2);
     iinq_print_table(4);
     printf("KEYS:\n");

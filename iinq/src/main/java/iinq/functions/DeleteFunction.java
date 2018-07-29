@@ -7,8 +7,8 @@ import iinq.functions.IinqFunction;
 public class DeleteFunction extends IinqFunction {
 	public DeleteFunction() {
 		super("delete",
-				"void delete_record(iinq_table_id table_id, int num_wheres, ...);\n",
-				"void delete_record(iinq_table_id table_id, int num_wheres, ...) {\n\n" +
+				"void delete_record(iinq_table_id_t table_id, int num_wheres, ...);\n",
+				"void delete_record(iinq_table_id_t table_id, int num_wheres, ...) {\n\n" +
 						"\tva_list valist;\n" +
 						"\tva_start(valist, num_wheres);\n\n" +
 						"\tion_err_t                  error;\n" +
@@ -38,7 +38,7 @@ public class DeleteFunction extends IinqFunction {
 						"\tiinq_where_params_t *wheres = NULL;\n" +
 						"\tif (num_wheres > 0)\n" +
 						"\t\twheres = va_arg(valist, iinq_where_params_t*);\n" +
-						"\twhile ((status = iinq_next_record(cursor, &ion_record)) == cs_cursor_initialized || status == cs_cursor_active) {\n" +
+						"\twhile ((status = cursor->next(cursor, &ion_record)) == cs_cursor_initialized || status == cs_cursor_active) {\n" +
 						"\t\tcondition_satisfied = where(table_id, &ion_record, num_wheres, wheres);\n\n" +
 						"\t\tif (condition_satisfied) {\n" +
 						"\t\t\terror = dictionary_insert(&dictionary_temp, ion_record.key, IONIZE(0, char)).error;\n\n" +
@@ -51,7 +51,7 @@ public class DeleteFunction extends IinqFunction {
 						"\tdictionary_build_predicate(&predicate_temp, predicate_all_records);\n\n" +
 						"\tion_dict_cursor_t *cursor_temp = NULL;\n" +
 						"\tdictionary_find(&dictionary_temp, &predicate_temp, &cursor_temp);\n\n" +
-						"\twhile ((status = iinq_next_record(cursor_temp, &ion_record)) == cs_cursor_initialized || status == cs_cursor_active) {\n" +
+						"\twhile ((status = cursor_temp->next(cursor_temp, &ion_record)) == cs_cursor_initialized || status == cs_cursor_active) {\n" +
 						"\t\terror = dictionary_delete(&dictionary, ion_record.key).error;\n\n" +
 						CommonCode.error_check(1) +
 						"\t}\n\n" +

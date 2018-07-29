@@ -84,7 +84,7 @@ public class PreparedInsertFunction extends IinqFunction {
 				"\t\treturn NULL;\n" +
 				"\t}\n\n");
 		definition.append("\tp->table = ").append(table.getTableId()).append(";\n");
-		definition.append(String.format("\tp->value = malloc(%s + IINQ_BITS_FOR_NULL(%d));\n", table.generateIonValueSize(), totalFields));
+		definition.append(String.format("\tp->value = malloc(%s);\n", table.generateIonValueSize()));
 		definition.append("\tif (NULL == p->value) {\n" +
 				"\t\tfree(p);\n" +
 				"\t\treturn NULL;\n" +

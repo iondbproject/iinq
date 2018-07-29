@@ -4,8 +4,8 @@ package iinq.functions;
 public class UpdateFunction extends IinqFunction {
 	public UpdateFunction() {
 		super("update",
-				"void update(iinq_table_id table_id, int num_wheres, int num_update, ...);\n",
-				"void update(iinq_table_id table_id, int num_wheres, int num_update, ...) {\n\n" +
+				"void update(iinq_table_id_t table_id, int num_wheres, int num_update, ...);\n",
+				"void update(iinq_table_id_t table_id, int num_wheres, int num_update, ...) {\n\n" +
 				"\tva_list valist;\n" +
 				"\tva_start(valist, num_update);\n\n" +
 				"\tion_err_t                  error;\n" +
@@ -38,7 +38,7 @@ public class UpdateFunction extends IinqFunction {
 				"\tiinq_where_params_t *wheres = NULL;\n" +
 				"\tif (num_wheres > 0)\n" +
 				"\t\twheres = va_arg(valist, iinq_where_params_t*);\n" +
-				"\twhile ((status = iinq_next_record(cursor, &ion_record)) == cs_cursor_initialized || status == cs_cursor_active) {\n" +
+				"\twhile ((status = cursor->next(cursor, &ion_record)) == cs_cursor_initialized || status == cs_cursor_active) {\n" +
 				"\t\tcondition_satisfied = where(table_id, &ion_record, num_wheres, wheres);\n\n" +
 				"\t\tif (condition_satisfied) {\n" +
 				"\t\t\terror = dictionary_insert(&dictionary_temp, ion_record.key, ion_record.value).error;\n\n" +
@@ -54,7 +54,7 @@ public class UpdateFunction extends IinqFunction {
 				"\tdictionary_build_predicate(&predicate_temp, predicate_all_records);\n\n" +
 				"\tion_dict_cursor_t *cursor_temp = NULL;\n" +
 				"\tdictionary_find(&dictionary_temp, &predicate_temp, &cursor_temp);\n\n" +
-				"\twhile ((status = iinq_next_record(cursor_temp, &ion_record)) == cs_cursor_initialized || status == cs_cursor_active) {\n" +
+				"\twhile ((status = cursor_temp->next(cursor_temp, &ion_record)) == cs_cursor_initialized || status == cs_cursor_active) {\n" +
 				/* Always copy the original key in case we change it */
 				"\t\tion_boolean_t key_changed = boolean_false;\n" +
 				"\t\tmemcpy(new_key, ion_record.key, dictionary.instance->record.key_size);\n" +
@@ -62,7 +62,7 @@ public class UpdateFunction extends IinqFunction {
 				"\t\t\tunsigned char *value;\n" +
 				"\t\t\tif (updates[i].implicit_field != 0) {\n" +
 				"\t\t\t\tint new_value;\n" +
-				"\t\t\t\tvalue = (char *) ion_record.value + calculateOffset(table_id, updates[i].implicit_field);\n\n" +
+				"\t\t\t\tvalue = (char *) ion_record.value + iinq_calculate_offset(table_id, updates[i].implicit_field);\n\n" +
 				"\t\t\t\tswitch (updates[i].math_operator) {\n" +
 				"\t\t\t\t\tcase iinq_add :\n" +
 				"\t\t\t\t\t\tnew_value = (NEUTRALIZE(value, int) + NEUTRALIZE(updates[i].field_value, int));\n" +
@@ -80,18 +80,18 @@ public class UpdateFunction extends IinqFunction {
 				"\t\t\t\t\t*(int *) ((char *) new_key+iinq_calculate_key_offset(table_id, updates[i].update_field)) = new_value;\n" +
 				"\t\t\t\t\tkey_changed = boolean_true;\n" +
 				"\t\t\t\t}\n" +
-				"\t\t\t\tvalue = (char *) ion_record.value + calculateOffset(table_id, updates[i].update_field);\n" +
+				"\t\t\t\tvalue = (char *) ion_record.value + iinq_calculate_offset(table_id, updates[i].update_field);\n" +
 				"\t\t\t\t*(int *) value = new_value;\n\t\t\t}\n" +
 				"\t\t\telse {\n" +
-				"\t\t\t\tvalue = (char *) ion_record.value + calculateOffset(table_id, updates[i].update_field);\n" +
-				"\t\t\t\tif (getFieldType(table_id, updates[i].update_field) == iinq_int) {\n" +
+				"\t\t\t\tvalue = (char *) ion_record.value + iinq_calculate_offset(table_id, updates[i].update_field);\n" +
+				"\t\t\t\tif (iinq_get_field_type(table_id, updates[i].update_field) == iinq_int) {\n" +
 				"\t\t\t\t\tif (iinq_is_key_field(table_id, updates[i].update_field)) {\n" +
 				"\t\t\t\t\t\t*(int *) ((char *) new_key+iinq_calculate_key_offset(table_id, updates[i].update_field)) = NEUTRALIZE(updates[i].field_value, int);\n" +
 				"\t\t\t\t\t\tkey_changed = boolean_true;\n" +
 				"\t\t\t\t\t}\n" +
 				"\t\t\t\t\t*(int *) value = NEUTRALIZE(updates[i].field_value, int);\n\t\t\t\t}\n" +
 				"\t\t\t\telse {\n" +
-				"\t\t\t\t\tsize_t size = calculateOffset(table_id, updates[i].update_field+1)-calculateOffset(table_id, updates[i].update_field);\n" +
+				"\t\t\t\t\tsize_t size = iinq_calculate_offset(table_id, updates[i].update_field+1)-iinq_calculate_offset(table_id, updates[i].update_field);\n" +
 				"\t\t\t\t\tif (iinq_is_key_field(table_id, updates[i].update_field)) {\n" +
 				"\t\t\t\t\t\tstrncpy((char *) new_key+iinq_calculate_key_offset(table_id, updates[i].update_field), updates[i].field_value, size);\n" +
 				"\t\t\t\t\t\tkey_changed = boolean_true;\n" +

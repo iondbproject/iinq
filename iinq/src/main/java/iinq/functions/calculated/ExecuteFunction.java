@@ -3,22 +3,16 @@ package iinq.functions.calculated;
 import iinq.functions.IinqFunction;
 import iinq.metadata.IinqTable;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
 
 public class ExecuteFunction extends IinqFunction implements CalculatedFunction {
-	private HashMap<Integer, executeCallData> tableIdToFunctionCall = new HashMap<>();
-
-	private class executeCallData {
-		int tableId;
-
-		private executeCallData(int tableId) {
-			this.tableId = tableId;
-		}
-	}
+	private HashMap<Integer, String> tableIdToFunctionCall = new HashMap<>();
 
 	public ExecuteFunction() {
-		super("execute", "ion_err_t execute(iinq_prepared_sql *p);\n", null);
+		super("iinq_execute_prepared", "ion_err_t iinq_execute_prepared(iinq_prepared_sql *p);\n", null);
 	}
 
 	public ExecuteFunction append(ExecuteFunction ex2) {
@@ -31,21 +25,28 @@ public class ExecuteFunction extends IinqFunction implements CalculatedFunction 
 	}
 
 	public void addTable(IinqTable iinqTable) {
-		if (!containsTable(iinqTable))
-			addCallData(iinqTable.getTableId());
-	}
-
-	private void addCallData(int tableId) {
-		tableIdToFunctionCall.put(tableId, new executeCallData(tableId));
+		StringBuilder keyCheck = new StringBuilder();
+		ArrayList<Integer> keyIndices = iinqTable.getPrimaryKeyIndices();
+		Iterator<Integer> it = keyIndices.iterator();
+		keyCheck.append("\t\t\tif (");
+		while (it.hasNext()) {
+			keyCheck.append(String.format("iinq_check_null_indicator(p->value, %d) || ", it.next()));
+		}
+		keyCheck.setLength(keyCheck.length()-4);
+		keyCheck.append(") {\n");
+		keyCheck.append("\t\t\t\treturn err_unable_to_insert;\n" +
+				"\t\t\t}\n");
+		tableIdToFunctionCall.put(iinqTable.getTableId(), keyCheck.toString());
 	}
 
 	public String generateDefinition() {
-		StringBuilder def = new StringBuilder("ion_err_t execute(iinq_prepared_sql *p) {\n" +
+		StringBuilder def = new StringBuilder("ion_err_t iinq_execute_prepared(iinq_prepared_sql *p) {\n" +
 				"\tswitch (p->table) {\n");
-		for (Map.Entry<Integer, executeCallData> entry : tableIdToFunctionCall.entrySet()) {
+		for (Map.Entry<Integer, String> entry : tableIdToFunctionCall.entrySet()) {
 			def.append(String.format("\t\tcase %d: {\n", entry.getKey()));
-			def.append(String.format("\t\t\treturn iinq_execute(%d, p->key, p->value, iinq_insert_t);\n", entry.getValue().tableId));
-			def.append("\t\t\tbreak;\n\t\t}\n");
+			def.append(entry.getValue());
+			def.append(String.format("\t\t\treturn iinq_execute(%d, p->key, p->value, iinq_insert_t);\n", entry.getKey()));
+			def.append("\t\t}\n");
 		}
 		def.append("\t}\n" +
 				"}\n\n");

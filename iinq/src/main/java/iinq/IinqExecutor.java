@@ -3,18 +3,21 @@ package iinq;
 import com.sun.javaws.exceptions.InvalidArgumentException;
 import iinq.callable.IinqDelete;
 import iinq.callable.IinqInsert;
-import iinq.callable.IinqSelect;
+import iinq.callable.IinqProjection;
 import iinq.callable.update.IinqUpdate;
 import iinq.callable.update.IinqUpdateFieldList;
 import iinq.callable.update.ImplicitFieldInfo;
 import iinq.callable.update.UpdateField;
 import iinq.functions.calculated.ExecuteFunction;
 import iinq.functions.PreparedInsertFunction;
+import iinq.functions.select.operators.ExternalSortOperator;
+import iinq.functions.select.operators.IinqOperator;
 import iinq.functions.select.operators.TableScanOperator;
 import iinq.metadata.IinqDatabase;
 import iinq.metadata.IinqTable;
 import iinq.query.IinqBuilder;
 import iinq.query.IinqQuery;
+import iinq.query.IinqSort;
 import unity.annotation.AnnotatedSourceDatabase;
 import unity.jdbc.UnityPreparedStatement;
 import unity.parser.GlobalParser;
@@ -28,6 +31,7 @@ import java.sql.Statement;
 import java.sql.Types;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 
 public class IinqExecutor {
 	private IinqDatabase iinqDatabase;
@@ -93,17 +97,10 @@ public class IinqExecutor {
 			}
 		}
 
-		String[] conditionFields = new String[num_conditions];
-
-		for (int i = 0; i < num_conditions; i++) {
-			conditionFields[i] = conditions.get(i);
-		}
-
 		/* Calculate number of fields to update in statement */
 		int num_fields = updateNode.getNumFields();
 
-		IinqWhere where = new IinqWhere(num_conditions);
-		where.generateWhere(conditionFields, table);
+		IinqSelection where = new IinqSelection(conditions, table);
 
 		String[] fields = new String[updateNode.getNumFields()];
 		LQExprNode[] fieldValues = new LQExprNode[updateNode.getNumFields()];
@@ -230,16 +227,9 @@ public class IinqExecutor {
 			throw new SQLException("Delete attempted on non-existent table: " + table_name);
 		}
 
-		String[] conditionFields = new String[num_conditions];
+		IinqSelection iinqSelection = new IinqSelection(conditions, iinqTable);
 
-		for (int i = 0; i < num_conditions; i++) {
-			conditionFields[i] = conditions.get(i);
-		}
-
-		IinqWhere iinqWhere = new IinqWhere(num_conditions);
-		iinqWhere.generateWhere(conditionFields, iinqTable);
-
-		return new IinqDelete(iinqTable.getTableId(), iinqWhere);
+		return new IinqDelete(iinqTable.getTableId(), iinqSelection);
 	}
 
 	public int executeDropTable(String sql) throws SQLException {
@@ -270,7 +260,7 @@ public class IinqExecutor {
 		return table.getTableId();
 	}
 
-	public IinqSelect executeQuery(String sql) throws SQLException, RelationNotFoundException, IOException, InvalidArgumentException {
+	public IinqQuery executeQuery(String sql) throws SQLException, RelationNotFoundException, IOException, InvalidArgumentException {
 		// Parse semantic query string into a parse tree
 		GlobalParser kingParser;
 		GlobalQuery gq;
@@ -284,23 +274,20 @@ public class IinqExecutor {
 
 		// Optimize logical query tree before execution
 		Optimizer opt = new Optimizer(gq, false, null);
-		gq = opt.optimize();
+		gq = opt.optimize();gq.printTree();
 
 		IinqBuilder builder = new IinqBuilder(gq.getLogicalQueryTree().getRoot(), iinqDatabase);
 		IinqQuery query = builder.toQuery();
 		HashMap<String, Object> code = query.generateCode();
-		IinqWhere where;
-		where = (IinqWhere) code.get("where");
+		IinqSelection where;
+		where = (IinqSelection) code.get("where");
 
 		IinqTable table = iinqDatabase.getIinqTable(query.getTableName());
 
-		ArrayList<String> fields = (ArrayList<String>) query.getParameterObject("fieldList");
 		ArrayList<Integer> fieldNums = (ArrayList<Integer>) query.getParameterObject("fieldListNums");
-		int num_fields = fields.size();
 
 		String project_size = table.generateProjectionSize(fieldNums);
 
-
-		return new IinqSelect(table.getTableId(), num_fields, where, project_size, fieldNums, null, new TableScanOperator());
+		return query;
 	}
 }

@@ -14,7 +14,7 @@ public class PrintKeysFunction extends IinqFunction implements CalculatedFunctio
 
 	public PrintKeysFunction() {
 		super("iinq_print_keys",
-				"ion_err_t iinq_print_keys(iinq_table_id table_id);\n",
+				"ion_err_t iinq_print_keys(iinq_table_id_t table_id);\n",
 				null);
 	}
 
@@ -72,7 +72,7 @@ public class PrintKeysFunction extends IinqFunction implements CalculatedFunctio
 
 	public String generateDefinition() {
 		StringBuilder def = new StringBuilder();
-		def.append("ion_err_t iinq_print_keys(iinq_table_id table_id) {\n" +
+		def.append("ion_err_t iinq_print_keys(iinq_table_id_t table_id) {\n" +
 				"\tion_dictionary_t 			dictionary;\n" +
 				"\tion_dictionary_handler_t		handler;\n" +
 				"\tion_err_t					error;\n" +

@@ -28,7 +28,7 @@ public class CalculatedPrintFunction extends IinqFunction implements CalculatedF
 
 	public CalculatedPrintFunction() {
 		super("iinq_print_table",
-				"ion_err_t iinq_print_table(iinq_table_id tableId);\n",
+				"ion_err_t iinq_print_table(iinq_table_id_t table_id);\n",
 				null);
 	}
 
@@ -75,7 +75,7 @@ public class CalculatedPrintFunction extends IinqFunction implements CalculatedF
 
 	public String generateDefinition() {
 		StringBuilder def = new StringBuilder();
-		def.append("ion_err_t iinq_print_table(iinq_table_id tableId) {\n" +
+		def.append("ion_err_t iinq_print_table(iinq_table_id_t table_id) {\n" +
 				"\tion_dictionary_t dictionary;\n" +
 				"\tion_dictionary_handler_t handler;\n" +
 				"\n" +
@@ -88,7 +88,7 @@ public class CalculatedPrintFunction extends IinqFunction implements CalculatedF
 				"\n" +
 				"\tdictionary.handler = &handler;\n" +
 				"\n" +
-				"\tion_err_t error = iinq_open_source(tableId, &dictionary, &handler);\n" +
+				"\tion_err_t error = iinq_open_source(table_id, &dictionary, &handler);\n" +
 				"\n" +
 				"\tif (err_ok != error) {\n" +
 				"\t\treturn error;\n" +
@@ -98,7 +98,7 @@ public class CalculatedPrintFunction extends IinqFunction implements CalculatedF
 				"\tdictionary_build_predicate(&predicate, predicate_all_records);\n" +
 				"\n" +
 				"\tdictionary_find(&dictionary, &predicate, &cursor);\n" +
-				"\tswitch(tableId) {\n");
+				"\tswitch(table_id) {\n");
 		for (Map.Entry<Integer, PrintParams> entry : tablePrintParams.entrySet()) {
 			def.append(String.format("\t\tcase %d:\n",entry.getKey()));
 			def.append(String.format("\t\t\tion_record.key = malloc(%s);\n", entry.getValue().keySize));
@@ -116,7 +116,7 @@ public class CalculatedPrintFunction extends IinqFunction implements CalculatedF
 		def.append("\t}\n\n" +
 				"\tunsigned char *value;\n" +
 				"\tiinq_null_indicator_t *null_indicators;\n" +
-				"\tswitch (tableId) {\n");
+				"\tswitch (table_id) {\n");
 		for (Map.Entry<Integer, PrintParams> entry : tablePrintParams.entrySet()) {
 			def.append(String.format("\t\tcase %d:\n",entry.getKey()));
 			def.append(entry.getValue().printCode);

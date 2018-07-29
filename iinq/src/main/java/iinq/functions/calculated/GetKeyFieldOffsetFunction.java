@@ -13,7 +13,7 @@ public class GetKeyFieldOffsetFunction extends IinqFunction implements Calculate
 
 	public GetKeyFieldOffsetFunction() {
 		super("iinq_calculate_key_offset",
-				"unsigned int iinq_calculate_key_offset(iinq_table_id table_id, iinq_field_num_t field_num);\n",
+				"size_t iinq_calculate_key_offset(iinq_table_id_t table_id, iinq_field_num_t field_num);\n",
 				null);
 	}
 
@@ -27,7 +27,8 @@ public class GetKeyFieldOffsetFunction extends IinqFunction implements Calculate
 		Iterator<Integer> indicesIt = indices.iterator();
 		Iterator<String> sizesIt = sizes.iterator();
 		while (indicesIt.hasNext()) {
-			offsetCase.append(String.format("\t\t\t\tcase %d:\n\t\t\t\t\treturn %s;\n", indicesIt.next(), offset.toString()));
+			offsetCase.append(String.format("\t\t\t\tcase %d:\n" +
+					"\t\t\t\t\treturn %s;\n", indicesIt.next(), offset.toString()));
 			offset.append(" + ");
 			offset.append(sizesIt.next());
 		}
@@ -37,7 +38,7 @@ public class GetKeyFieldOffsetFunction extends IinqFunction implements Calculate
 
 	public String generateDefinition() {
 		StringBuilder def = new StringBuilder();
-		def.append("unsigned int iinq_calculate_key_offset(iinq_table_id table_id, iinq_field_num_t field_num) {\n" +
+		def.append("size_t iinq_calculate_key_offset(iinq_table_id_t table_id, iinq_field_num_t field_num) {\n" +
 				"\tswitch (table_id) {\n");
 		for (Map.Entry<Integer, String> entry : tableOffsetCases.entrySet()) {
 			def.append(String.format("\t\tcase %d:\n", entry.getKey()));

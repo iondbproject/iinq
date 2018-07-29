@@ -26,6 +26,22 @@ public class IinqTable extends AnnotatedSourceTable {
 		}
 	}
 
+	public IinqTable(IinqTable table) {
+		super(table.getCatalogName(), table.getSchemaName(), table.getTableName(), table.getComment(), new HashMap<>(), null);
+		HashMap<String, SourceField> sourceFields = new HashMap<>();
+		Iterator<SourceField> it = table.getSourceFieldList().iterator();
+		while (it.hasNext()) {
+			SourceField field = it.next();
+			SourceField fieldCopy = new SourceField(field.getTableCatalog(), field.getTableSchema(),
+					field.getTableName(), field.getColumnName(), field.getDataType(), field.getDataTypeName(),
+					field.getColumnSize(), field.getDecimalDigits(), field.getNumberPrecisionRadix(),
+					field.getNullable(), field.getRemarks(), field.getDefaultValue(), field.getCharacterOctetLength(),
+					field.getOrdinalPosition(), null);
+			this.addField(fieldCopy);
+		}
+		//setSourceFields(sourceFields);
+	}
+
 	private AnnotatedSourceTable getAnnotatedSourceTable() {
 		return annotatedSourceTable;
 	}
@@ -109,6 +125,7 @@ public class IinqTable extends AnnotatedSourceTable {
 		}
 
 		// TODO: add support for more data types
+		value_calculation.append(String.format("IINQ_BITS_FOR_NULL(%d)+",getNumFields()));
 		if (int_count > 0) {
 			value_calculation.append("(sizeof(int) * ").append(int_count).append(")+");
 		}

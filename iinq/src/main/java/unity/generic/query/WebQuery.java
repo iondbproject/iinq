@@ -6,6 +6,8 @@ import java.util.HashMap;
 import java.util.Properties;
 import java.util.TreeMap;
 
+import iinq.functions.select.operators.IinqOperator;
+import iinq.functions.select.operators.ProjectionOperator;
 import unity.engine.Relation;
 import unity.operators.ArrayListScan;
 import unity.operators.Operator;

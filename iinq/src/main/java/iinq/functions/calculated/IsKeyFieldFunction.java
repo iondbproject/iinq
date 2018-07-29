@@ -13,7 +13,7 @@ public class IsKeyFieldFunction extends IinqFunction implements CalculatedFuncti
 
 	public IsKeyFieldFunction() {
 		super("iinq_is_key_field",
-				"ion_boolean_t iinq_is_key_field(iinq_table_id table_id, iinq_field_num_t field_num);\n",
+				"ion_boolean_t iinq_is_key_field(iinq_table_id_t table_id, iinq_field_num_t field_num);\n",
 				null);
 	}
 
@@ -24,7 +24,7 @@ public class IsKeyFieldFunction extends IinqFunction implements CalculatedFuncti
 	public String generateDefinition() {
 		StringBuilder def = new StringBuilder();
 
-		def.append("ion_boolean_t iinq_is_key_field(iinq_table_id table_id, iinq_field_num_t field_num) {\n" +
+		def.append("ion_boolean_t iinq_is_key_field(iinq_table_id_t table_id, iinq_field_num_t field_num) {\n" +
 						"\tswitch (table_id) {\n");
 
 		for (Map.Entry<Integer, ArrayList<Integer>> entry : keyIndices.entrySet()) {

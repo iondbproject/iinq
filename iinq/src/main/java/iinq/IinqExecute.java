@@ -44,6 +44,7 @@ import iinq.functions.*;
 import iinq.metadata.IinqDatabase;
 
 import com.sun.javaws.exceptions.InvalidArgumentException;
+import iinq.query.IinqQuery;
 import org.xml.sax.SAXException;
 import unity.util.StringFunc;
 
@@ -52,7 +53,6 @@ import java.io.*;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.sql.*;
-import java.util.ArrayList;
 
 public class IinqExecute {
 
@@ -183,7 +183,7 @@ public class IinqExecute {
 				}
 			}
 
-			calculate_functions(buff_out);
+			calculateFunctions(buff_out);
 
 			buff_in.close();
 			buff_out.close();
@@ -298,10 +298,12 @@ public class IinqExecute {
 					/* Add select function call */
 					contents.append("/* " + line + " */\n");
 
-					IinqSelect select = iinqDatabase.getSelect(selectCount);
+					IinqQuery select = iinqDatabase.getQuery(selectCount);
 
 					if (select != null) {
-						contents.append(select.generateFunctionCall());
+						contents.append(line.substring(0, line.indexOf("SQL_select")));
+						contents.append(select.getFunctionCall());
+						contents.append(";\n");
 					}
 					selectCount++;
 				} else {
@@ -366,6 +368,7 @@ public class IinqExecute {
 			contents.append("#define IINQ_DEBUG		1\n");
 		}
 
+		contents.append(iinqDatabase.getOperatorStructDefinitions());
 		contents.append(iinqDatabase.getFunctionHeaders());
 		contents.append("\n#if defined(__cplusplus)\n" + "}\n" + "#endif\n" + "\n" + "#endif\n");
 
@@ -395,8 +398,9 @@ public class IinqExecute {
 	}
 
 	private static void
-	calculate_functions(BufferedWriter out) throws IOException {
+	calculateFunctions(BufferedWriter out) throws IOException {
 		iinqDatabase.generateCalculatedDefinitions();
+		iinqDatabase.addOperatorFunctions();
 		out.write(iinqDatabase.getFunctionDefinitions());
 	}
 

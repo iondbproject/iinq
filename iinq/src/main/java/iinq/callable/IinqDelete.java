@@ -35,17 +35,17 @@
 
 package iinq.callable;
 
-import iinq.IinqWhere;
+import iinq.IinqSelection;
 
 public class IinqDelete implements Callable {
     private int tableId;
     private int numWheres;
-    private IinqWhere where;
+    private IinqSelection where;
 
-    public IinqDelete(int tableId, IinqWhere where) {
+    public IinqDelete(int tableId, IinqSelection where) {
         this.tableId = tableId;
         if (where != null) {
-            numWheres = where.getNum_conditions();
+            numWheres = where.getNumConditions();
             this.where = where;
         } else {
             numWheres = 0;

@@ -3,8 +3,14 @@ package iinq.query;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.Iterator;
 
+import iinq.IinqSelection;
+import iinq.callable.IinqProjection;
+import iinq.functions.select.operators.ProjectionOperator;
+import iinq.functions.select.operators.SelectionOperator;
+import iinq.functions.select.operators.TableScanOperator;
 import iinq.metadata.IinqDatabase;
 import iinq.metadata.IinqTable;
 import unity.annotation.SourceField;
@@ -78,26 +84,54 @@ public class IinqBuilder extends QueryBuilder
 	@Override
 	protected void buildProjection(LQProjNode node, WebQuery query) throws SQLException 
 	{	    
-	    if (node != this.firstProj)
-	        return;
+	    /*if (node != this.firstProj)
+	        return;*/
 	    
 	    // Set the query's projection node
 		query.setProjection(node);
-		
+		// we do not need to process two projections in a row
+		if (((IinqQuery) query).getNewestOperator() instanceof ProjectionOperator) {
+			return;
+		}
+		IinqTable table = (IinqTable) query.getParameterObject("projectionTable");
+		boolean tableProjection = node.getChild().getType() != LQTreeConstants.TABLE;
 		boolean selectAll = node.isSelectAll();
 		Attribute[] attr = null;
 		//StringBuilder fields = new StringBuilder();
 		ArrayList<LQExprNode> expList = node.getExpressions();
 		Iterator<LQExprNode> it = expList.iterator();
-		ArrayList<String> fieldList = new ArrayList<>();
+		HashSet<String> fieldList = new HashSet<>();
 		ArrayList<Integer> fieldListNums = new ArrayList<>();
+		int count = 1;
 		while (it.hasNext()) {
 			LQExprNode expNode = it.next();
 			fieldList.add(expNode.getFieldReference().getName());
-			fieldListNums.add(expNode.getFieldReference().getField().getOrdinalPosition());
+			fieldListNums.add(table.getFieldPosition(expNode.getFieldReference().getName()));
+			table.getField(expNode.getFieldReference().getName()).setOrdinalPosition(count++);
+		}
+		Iterator<SourceField> projFieldIt = table.getSourceFieldList().iterator();
+		while (projFieldIt.hasNext()) {
+			String fieldName = projFieldIt.next().getColumnName();
+			if (!fieldList.contains(fieldName)) {
+				table.removeField(fieldName);
+			}
 		}
 		query.setParameter("fieldList", fieldList);
 		query.setParameter("fieldListNums", fieldListNums);
+
+		if (node.getChild().getType() == LQTreeConstants.TABLE) {
+			query.setParameter("projectionTable", database.getIinqTable(query.getParameter("source")));
+		} else {
+			table = new IinqTable(database.getIinqTable(query.getParameter("source")));
+			query.setParameter("projectionTable", table);
+		}
+
+		// Only a single selection operation is allowed for now. If a second selection operation is attempted after a projection (potential for field numbers to change), the selection will fail
+		if (query.getParameter("selection") != null) {
+			query.setParameter("selectionFinished", true);
+		}
+
+		((IinqQuery) query).addOperator(new ProjectionOperator(new IinqProjection(fieldListNums), ((IinqQuery) query).getNewestOperator()));
 		
 /*		if (selectAll)
 		{   // SELECT * handled differently as do not know what attributes will be returned
@@ -255,12 +289,31 @@ public class IinqBuilder extends QueryBuilder
             buildHaving(node, query);
             return;
         }
-        
-        LQCondNode condition = node.getCondition();     
-       
+
+        if (query.getParameterObject("selectionFinished") != null) {
+        	throw new SQLException("All selections must be done on a single projection. A selection was attempted after a projection may have altered field numbers. ");
+		}
+
+        LQCondNode condition = node.getCondition();
+
         ArrayList<String> whereFilter = new ArrayList<>();
-        whereFilter.add(this.buildCondition(condition, query));
-        
+        String selectionString = this.buildCondition(condition, query);
+        whereFilter.add(selectionString);
+
+        SelectionOperator selectOp;
+
+        if (query.getParameter("selection") == null) {
+			selectOp = new SelectionOperator(((IinqQuery) query).getNewestOperator());
+			((IinqQuery) query).addOperator(selectOp);
+		} else {
+			selectOp = (SelectionOperator) query.getParameterObject("selection");
+		}
+
+
+		selectOp.addCondition(selectionString, (IinqTable) query.getParameterObject("projectionTable"));
+
+        query.setParameter("selection", selectOp);
+
         Object currentWhereFilter = query.getParameterObject("filter");
         if (currentWhereFilter == null)
             query.setParameter("filter", whereFilter);
@@ -530,9 +583,13 @@ public class IinqBuilder extends QueryBuilder
 		tableName = StringFunc.undelimitName(tableName, '"');
 
 		query.setParameter("source", tableName);
+		// create a copy of the table to manipulate for projections
+		query.setParameter("projectionTable", new IinqTable(database.getIinqTable(tableName)));
 
 		// Set the table
 		this.table = tref.getTable();
+
+		((IinqQuery) query).addOperator(new TableScanOperator(database.getIinqTable(tableName)));
 	}
 
 

@@ -35,20 +35,20 @@
 
 package iinq.callable.update;
 
-import iinq.IinqWhere;
+import iinq.IinqSelection;
 import iinq.callable.Callable;
 
 public class IinqUpdate implements Callable {
     private int tableId;
     private int numWheres;
     private int numUpdates;
-    private IinqWhere where;
+    private IinqSelection where;
     private IinqUpdateFieldList updateFieldList;
 
-    public IinqUpdate(int tableId, IinqWhere where, int num_u, IinqUpdateFieldList fieldList) {
+    public IinqUpdate(int tableId, IinqSelection where, int num_u, IinqUpdateFieldList fieldList) {
         this.tableId = tableId;
         if (where != null) {
-            this.numWheres = where.getNum_conditions();
+            this.numWheres = where.getNumConditions();
             this.where = where;
         } else {
             numWheres = 0;
