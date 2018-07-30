@@ -279,14 +279,12 @@ public class IinqExecutor {
 		IinqBuilder builder = new IinqBuilder(gq.getLogicalQueryTree().getRoot(), iinqDatabase);
 		IinqQuery query = builder.toQuery();
 		HashMap<String, Object> code = query.generateCode();
-		IinqSelection where;
-		where = (IinqSelection) code.get("where");
 
 		IinqTable table = iinqDatabase.getIinqTable(query.getTableName());
 
 		ArrayList<Integer> fieldNums = (ArrayList<Integer>) query.getParameterObject("fieldListNums");
 
-		String project_size = table.generateProjectionSize(fieldNums);
+//		String project_size = table.generateProjectionSize(fieldNums);
 
 		return query;
 	}

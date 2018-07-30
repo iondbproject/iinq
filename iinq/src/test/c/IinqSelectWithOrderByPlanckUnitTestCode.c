@@ -71,13 +71,13 @@ test_create_table1(
 	PLANCK_UNIT_ASSERT_TRUE(tc, iinq_is_key_field(0, 1));
 	PLANCK_UNIT_ASSERT_FALSE(tc, iinq_is_key_field(0, 2));
 	PLANCK_UNIT_ASSERT_FALSE(tc, iinq_is_key_field(0, 3));
-	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, iinq_int, getFieldType(0, 1));
-	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, iinq_null_terminated_string, getFieldType(0, 2));
-	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, iinq_int, getFieldType(0, 3));
-	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, IINQ_BITS_FOR_NULL(3), calculateOffset(0, 1));
-	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, IINQ_BITS_FOR_NULL(3)+sizeof(int), calculateOffset(0, 2));
-	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, IINQ_BITS_FOR_NULL(3)+sizeof(int)+sizeof(char)*31, calculateOffset(0, 3));
-	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, IINQ_BITS_FOR_NULL(3)+sizeof(int)*2+sizeof(char)*31, calculateOffset(0, 4));
+	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, iinq_int, iinq_get_field_type(0, 1));
+	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, iinq_null_terminated_string, iinq_get_field_type(0, 2));
+	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, iinq_int, iinq_get_field_type(0, 3));
+	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, IINQ_BITS_FOR_NULL(3), iinq_calculate_offset(0, 1));
+	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, IINQ_BITS_FOR_NULL(3)+sizeof(int), iinq_calculate_offset(0, 2));
+	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, IINQ_BITS_FOR_NULL(3)+sizeof(int)+sizeof(char)*31, iinq_calculate_offset(0, 3));
+	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, IINQ_BITS_FOR_NULL(3)+sizeof(int)*2+sizeof(char)*31, iinq_calculate_offset(0, 4));
 	ion_close_dictionary(&dictionary);
 }
 
@@ -136,7 +136,7 @@ test_insert_prepared_record_table1(
 	PLANCK_UNIT_ASSERT_STR_ARE_EQUAL(tc, char_value, ((char*) p->value)+sizeof(int)+IINQ_BITS_FOR_NULL(3));
 	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, int_value, NEUTRALIZE(((char*)p->value+sizeof(int))+sizeof(char)*31+IINQ_BITS_FOR_NULL(3), int));
 
-	ion_err_t error = execute(p);
+	ion_err_t error = iinq_execute_prepared(p);
 
 	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, err_ok, error);
 
@@ -154,7 +154,6 @@ test_insert_record_table1(
 ) {
 	iinq_execute_instantaneous(iinq_insert_0(IONIZE(id, int), char_value, IONIZE(int_value, int)));
 
-	PLANCK_UNIT_ASSERT_TRUE(tc, __IINQ_RESERVED == NULL);
 	test_record_exists_table1(tc, id);
 }
 
@@ -226,7 +225,7 @@ test_select_all_from_order_by_int_table1(
 
     start_time = ion_time();
 
-    iinq_result_set *rs1 = SQL_select("SELECT intvalue, intvalue, intvalue FROM Table1 ORDER BY ID;");
+    iinq_result_set_t *rs1 = SQL_select("SELECT * FROM Table1 ORDER BY ID;");
 
     end_time = ion_time();
     #if OUTPUT_TIMES
@@ -237,31 +236,25 @@ test_select_all_from_order_by_int_table1(
         PLANCK_UNIT_SET_FAIL(tc);
     }
 
-    PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, 3, rs1->num_fields);
+    PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, 3, rs1->instance->num_fields);
 
-    PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, 1, rs1->fields[0]);
-    PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, 2, rs1->fields[1]);
-    PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, 3, rs1->fields[2]);
-
-    PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, 0, rs1->num_wheres);
-    PLANCK_UNIT_ASSERT_TRUE(tc, NULL == rs1->wheres);
-
-    PLANCK_UNIT_ASSERT_FALSE(tc, rs1->dictionary_ref.temp_dictionary);
-    PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, 0, rs1->table_id);
-
-    PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, IINQ_BITS_FOR_NULL(3), rs1->offset[0]);
-    PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, IINQ_BITS_FOR_NULL(3)+sizeof(int), rs1->offset[1]);
-    PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, IINQ_BITS_FOR_NULL(3)+sizeof(int)+sizeof(char)*31, rs1->offset[2]);
+    PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, 1, rs1->instance->field_info[0].field_num);
+    PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, 2, rs1->instance->field_info[1].field_num);
+    PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, 3, rs1->instance->field_info[2].field_num);
 
     int old_id_value;
+    ion_boolean_t first = boolean_true;
     while (iinq_next(rs1)) {
         #if OUTPUT_QUERY_RESULTS
         printf("ID: %i, ", *iinq_get_int(rs1, 1));
         printf("CharValue: %s, ", iinq_get_string(rs1, 2));
         printf("IntValue: %d\n", *iinq_get_int(rs1, 3));
         #endif
-        PLANCK_UNIT_ASSERT_TRUE(tc, *iinq_get_int(rs1, 1) > old_id_value)
+        if (!first) {
+            PLANCK_UNIT_ASSERT_TRUE(tc, *iinq_get_int(rs1, 1) > old_id_value);
+        }
         old_id_value = *iinq_get_int(rs1, 1);
+        first = boolean_false;
     }
     #if OUTPUT_QUERY_RESULTS
     printf("\n");
@@ -301,8 +294,7 @@ iinq_get_suite1(
 	PLANCK_UNIT_ADD_TO_SUITE(suite, test_create_table1);
 	PLANCK_UNIT_ADD_TO_SUITE(suite, test_insert_records_table1);
 	PLANCK_UNIT_ADD_TO_SUITE(suite, test_insert_records_prep_table1);
-	PLANCK_UNIT_ADD_TO_SUITE(suite, test_insert_null_key_table1);
-	PLANCK_UNIT_ADD_TO_SUITE(suite, test_insert_duplicate_key_table1);
+	PLANCK_UNIT_ADD_TO_SUITE(suite, test_select_all_from_order_by_int_table1);
 	PLANCK_UNIT_ADD_TO_SUITE(suite, test_drop_table1);
 
 	return suite;

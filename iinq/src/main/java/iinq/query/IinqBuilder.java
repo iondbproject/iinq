@@ -8,6 +8,7 @@ import java.util.Iterator;
 
 import iinq.IinqSelection;
 import iinq.callable.IinqProjection;
+import iinq.functions.select.operators.ExternalSortOperator;
 import iinq.functions.select.operators.ProjectionOperator;
 import iinq.functions.select.operators.SelectionOperator;
 import iinq.functions.select.operators.TableScanOperator;
@@ -543,13 +544,13 @@ public class IinqBuilder extends QueryBuilder
             String sqlDirection = node.getDirection(i);
             
             sort.append(' ');
-			IinqSort.DIRECTION direction;
+			IinqSort.IINQ_DIRECTION direction;
             if (sqlDirection.equals("ASC")) {
 				sort.append("+");
-				direction = IinqSort.DIRECTION.ASC;
+				direction = IinqSort.IINQ_DIRECTION.IINQ_ASC;
 			} else {
 				sort.append("-");
-				direction = IinqSort.DIRECTION.DESC;
+				direction = IinqSort.IINQ_DIRECTION.IINQ_DESC;
 			}
             sort.append(fieldName);
             int fieldNum = table.getFieldPosition(fieldName);
@@ -559,6 +560,8 @@ public class IinqBuilder extends QueryBuilder
         // Set sort expression
         query.setParameter("iinqSort", iinqSort);
         query.setParameter("sort", sort.toString());
+
+		((IinqQuery) query).addOperator(new ExternalSortOperator(iinqSort, ((IinqQuery) query).getNewestOperator()));
 	}
 		
 	/**

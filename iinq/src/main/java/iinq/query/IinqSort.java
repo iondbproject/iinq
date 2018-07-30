@@ -7,18 +7,18 @@ public class IinqSort {
 	protected int limit;
 	protected ArrayList<IinqSortElement> sortElements = new ArrayList<>();
 
-	public enum DIRECTION {
-		ASC,
-		DESC
+	public enum IINQ_DIRECTION {
+		IINQ_ASC,
+		IINQ_DESC
 	}
 
 	class IinqSortElement {
-		private DIRECTION direction;
+		private IINQ_DIRECTION direction;
 		private int tableId;
 		private int fieldNum;
 		private int dataType;
 
-		IinqSortElement(DIRECTION direction, int tableId, int fieldNum, int dataType) {
+		IinqSortElement(IINQ_DIRECTION direction, int tableId, int fieldNum, int dataType) {
 			this.direction = direction;
 			this.tableId = tableId;
 			this.fieldNum = fieldNum;
@@ -30,7 +30,7 @@ public class IinqSort {
 		this.limit = limit;
 	}
 
-	public void addSortElement(DIRECTION direction, int tableId, int fieldNum, int dataType) {
+	public void addSortElement(IINQ_DIRECTION direction, int tableId, int fieldNum, int dataType) {
 		sortElements.add(new IinqSortElement(direction, tableId, fieldNum, dataType));
 	}
 
