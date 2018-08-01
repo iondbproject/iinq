@@ -43,20 +43,17 @@ public class SelectionInitFunction extends OperatorInitFunction {
 						"\t\n" +
 						"\tint i;\n" +
 						"\tfor (i = 0; i < num_conditions; i++) {\n" +
-/*						"\t\tselection->conditions[i].field_info = malloc(sizeof(iinq_field_info_t));\n" +
-						"\t\tif (NULL == selection->conditions[i].field_info) {\n" +
-						"\t\t\tgoto ERROR;\n" +
-						"\t\t}\n" +*/
+						"\t\tiinq_table_id_t table_id = input_operator->instance->field_info[conditions[i].where_field-1].table_id;\n" +
+						"\t\tiinq_field_num_t field_num = input_operator->instance->field_info[conditions[i].where_field-1].field_num;\n" +
 						"\t\tselection->conditions[i].where_field = conditions[i].where_field;\n" +
-						"\t\tselection->conditions[i].field_info.field_num = conditions[i].field_info.field_num;\n" +
-						"\t\tsize_t value_size = iinq_calculate_offset(input_operator->instance->field_info[i].table_id, input_operator->instance->field_info[i].field_num+1)-iinq_calculate_offset(input_operator->instance->field_info[i].table_id, input_operator->instance->field_info[i].field_num);\n" +
+						"\t\tsize_t value_size = iinq_calculate_offset(table_id, field_num + 1)-iinq_calculate_offset(table_id, field_num);\n" +
 						"\t\tselection->conditions[i].field_value = malloc(value_size);\n" +
 						"\t\tif (NULL == selection->conditions[i].field_value) {\n" +
 						"\t\t\tgoto ERROR;\n" +
 						"\t\t}\n" +
 						"\t\tselection->conditions[i].bool_operator = conditions[i].bool_operator;\n" +
 						"\t\t\n" +
-						"\t\tswitch (iinq_get_field_type(input_operator->instance->field_info[i].table_id, input_operator->instance->field_info[i].field_num)) {\n" +
+						"\t\tswitch (iinq_get_field_type(table_id, field_num)) {\n" +
 						"\t\t\tcase iinq_int:\n" +
 						"\t\t\t\t* (int *) selection->conditions[i].field_value = NEUTRALIZE(conditions[i].field_value, int);\n" +
 						"\t\t\t\tbreak;\n" +
@@ -76,7 +73,7 @@ public class SelectionInitFunction extends OperatorInitFunction {
 						"\treturn operator;\n" +
 						"\t\n" +
 						"\tERROR:\n" +
-						"\t;\n" +
+						"\t;" +
 						"}\n\n");
 	}
 }
