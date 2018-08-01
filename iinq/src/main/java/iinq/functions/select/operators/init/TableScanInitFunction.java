@@ -28,6 +28,7 @@ public class TableScanInitFunction extends OperatorInitFunction {
 						"\n" +
 						"\ttable_scan = (iinq_table_scan_t *) operator->instance;\n" +
 						"\ttable_scan->super.type = iinq_table_scan_e;\n" +
+						"\ttable_scan->super.num_fields = num_fields;\n" +
 						"\tpredicate = &table_scan->predicate;\n" +
 						"\terror = dictionary_build_predicate(predicate, predicate_all_records);\n\n" +
 						"\tif (err_ok != error) {\n" +

@@ -161,7 +161,7 @@ void
 test_insert_records_table1(
 	planck_unit_test_t      *tc
 ) {
-	unsigned int                     i;
+	intmax_t                     i;
 	volatile unsigned long	start_time, end_time;
 
 	start_time = ion_time();
@@ -171,9 +171,9 @@ test_insert_records_table1(
 		#if OUTPUT_INSERT_PROGRESS
 		if (i%OUTPUT_INSERT_PROGRESS_FREQUENCY == 0 || i == NUM_REGULAR_INSERTS-1)
 		#if defined(ARDUINO)
-            printf("Inserting regular (%u): %u%%\n", NUM_REGULAR_INSERTS, (i+1)*100/NUM_REGULAR_INSERTS);
+            printf("Inserting regular (%d): %d%%\n", NUM_REGULAR_INSERTS, (i+1)*100/NUM_REGULAR_INSERTS);
 		#else
-		    printf("Inserting regular (%u): %u%%\r", NUM_REGULAR_INSERTS, (i+1)*100/NUM_REGULAR_INSERTS); fflush(stdout);
+		    printf("Inserting regular (%d): %d%%\r", NUM_REGULAR_INSERTS, (i+1)*100/NUM_REGULAR_INSERTS); fflush(stdout);
 		#endif
 		#endif
 	}
@@ -181,7 +181,7 @@ test_insert_records_table1(
 
 	end_time = ion_time();
 	#if OUTPUT_TIMES
-	printf("%u records inserted. Time taken: %lu\n", NUM_REGULAR_INSERTS, end_time - start_time);
+	printf("%d records inserted. Time taken: %lu\n", NUM_REGULAR_INSERTS, end_time - start_time);
 	#endif
 }
 
@@ -189,7 +189,7 @@ void
 test_insert_records_prep_table1(
 	planck_unit_test_t      *tc
 ) {
-	unsigned int                     i;
+	intmax_t                     i;
 	volatile unsigned long	start_time, end_time;
 
 	start_time = ion_time();
@@ -199,9 +199,9 @@ test_insert_records_prep_table1(
     #if OUTPUT_INSERT_PROGRESS
     if (i%OUTPUT_INSERT_PROGRESS_FREQUENCY == 0 || i == NUM_PREPARED_INSERTS-1)
     #if defined(ARDUINO)
-        printf("Inserting prepared (%u): %u%%\n", NUM_PREPARED_INSERTS, (i+1)*100/NUM_PREPARED_INSERTS);
+        printf("Inserting prepared (%d): %d%%\n", NUM_PREPARED_INSERTS, (i+1)*100/NUM_PREPARED_INSERTS);
     #else
-        printf("Inserting prepared (%u): %u%%\r", NUM_PREPARED_INSERTS, (i+1)*100/NUM_PREPARED_INSERTS); fflush(stdout);
+        printf("Inserting prepared (%d): %d%%\r", NUM_PREPARED_INSERTS, (i+1)*100/NUM_PREPARED_INSERTS); fflush(stdout);
     #endif
     #endif
 	}
@@ -209,7 +209,7 @@ test_insert_records_prep_table1(
 
 	end_time = ion_time();
 	#if OUTPUT_TIMES
-	printf("%u records inserted. Time taken: %lu\n", NUM_PREPARED_INSERTS, end_time - start_time);
+	printf("%d records inserted. Time taken: %lu\n", NUM_PREPARED_INSERTS, end_time - start_time);
 	#endif
 }
 

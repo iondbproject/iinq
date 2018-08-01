@@ -62,7 +62,7 @@ public class ExternalSortInitFunction extends OperatorInitFunction {
 						"\n" +
 						"\t/* Filter before sorting. Use existing table scan operator*/\n" +
 						"\twhile (input_operator->next(input_operator)) {\n" +
-						"\t\tif (write_page_remaining < (total_orderby_size /*+ key_size*/ + IINQ_BITS_FOR_NULL(num_fields) + value_size)) {\n" +
+						"\t\tif (write_page_remaining < (total_orderby_size + IINQ_BITS_FOR_NULL(num_fields) + value_size)) {\n" +
 						"\t\t\tchar x = 0;\n" +
 						"\n" +
 						"\t\t\tfor (i = 0; i < write_page_remaining; i++) {\n" +
@@ -90,8 +90,8 @@ public class ExternalSortInitFunction extends OperatorInitFunction {
 						"\n" +
 						"\t\tint j;\n" +
 						"\t\tfor (j = 0; j < num_fields; j++) {\n" +
-						"\t\t\tiinq_field_num_t field_num;\n" +
-						"\t\t\tiinq_table_id_t table_id;\n" +
+						"\t\t\tiinq_field_num_t field_num = input_operator->instance->field_info[j].field_num;\n" +
+						"\t\t\tiinq_table_id_t table_id = input_operator->instance->field_info[j].table_id;\n" +
 						"\t\t\tsize_t field_size = iinq_calculate_offset(table_id, field_num + 1) - iinq_calculate_offset(table_id, field_num);\n" +
 						"\t\t\tif (1 != fwrite(input_operator->instance->fields[j], field_size, 1, file)) {\n" +
 						"\t\t\t\tbreak;\n" +
@@ -124,15 +124,15 @@ public class ExternalSortInitFunction extends OperatorInitFunction {
 						"\tcontext->n\t\t= num_orderby;\n" +
 						"\n" +
 						"\n" +
-						"\tion_err_t error = ion_external_sort_init(es, file, context, iinq_sort_compare, /*key_size + */0,\n" +
-						"\t\t\t\t\t\t\t\t   /*key_size + */value_size + IINQ_BITS_FOR_NULL(num_fields) + total_orderby_size, IINQ_PAGE_SIZE, boolean_false,\n" +
+						"\tion_err_t error = ion_external_sort_init(es, file, context, iinq_sort_compare, 0,\n" +
+						"\t\t\t\t\t\t\t\t   IINQ_BITS_FOR_NULL(num_fields) + value_size + total_orderby_size, IINQ_PAGE_SIZE, boolean_false,\n" +
 						"\t\t\t\t\t\t\t\t   ION_FILE_SORT_FLASH_MINSORT);\n" +
 						"\n" +
 						"\tuint16_t buffer_size = ion_external_sort_bytes_of_memory_required(es, 0, boolean_false);\n" +
 						"\n" +
 						"\tchar *buffer = malloc(buffer_size);\n" +
 						"\t// recordbuf needs enough room for the sort field and the table tuple (sort field is stored twice)\n" +
-						"\tchar *record_buf = malloc((total_orderby_size /*+ key_size*/ + IINQ_BITS_FOR_NULL(num_fields) + value_size));\n" +
+						"\tchar *record_buf = malloc((total_orderby_size + IINQ_BITS_FOR_NULL(num_fields) + value_size));\n" +
 						"\toperator->instance->null_indicators = record_buf + total_orderby_size;\n" +
 						"\n" +
 						"\toperator->instance->num_fields = num_fields;\n" +
@@ -151,7 +151,6 @@ public class ExternalSortInitFunction extends OperatorInitFunction {
 						"\tinput_operator->destroy(&input_operator);\n" +
 						"\n" +
 						"\n" +
-						// TODO: difference between buffer and record_buf?
 						"\texternal_sort->buffer = buffer;\n" +
 						"\n" +
 						"\texternal_sort->record_buf = record_buf;\n" +
