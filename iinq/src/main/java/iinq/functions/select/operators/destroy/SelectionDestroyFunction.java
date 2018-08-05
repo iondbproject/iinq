@@ -16,6 +16,7 @@ public class SelectionDestroyFunction extends OperatorDestroyFunction {
 						"\t\t\t\t\t\tfree(selection->conditions[i].field_value);\n" +
 						"\t\t\t\t\t}\n" +
 						"\t\t\t\t}\n" +
+						"\t\t\t\tfree(selection->conditions);" +
 						"\t\t\t}\n" +
 						"\t\t\t\n" +
 						"\t\t\tif (NULL != selection->super.input_operators) {\n" +
