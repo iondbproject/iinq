@@ -128,8 +128,8 @@ public class SelectionNextFunction extends OperatorNextFunction {
 						"\t\t}\n" +
 						"\t} while (!selection_result);\n" +
 						"\n" +
-						"\tif (selection_result)" +
-						"\t\tselection->status.count++;\n" +
+						"\tif (selection_result)\n" +
+						"\t\toperator->status.count++;\n" +
 						"\n" +
 						"\treturn selection_result;\n" +
 						"}\n\n");

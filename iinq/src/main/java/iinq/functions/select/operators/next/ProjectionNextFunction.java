@@ -16,6 +16,7 @@ public class ProjectionNextFunction extends OperatorNextFunction {
 						"\t\t\t\tiinq_clear_null_indicator(projection->super.null_indicators, i+1);\n" +
 						"\t\t\t}\n" +
 						"\t\t}\n" +
+						"\t\toperator->status.count++;\n" +
 						"\t}\n" +
 						"\treturn result;\n" +
 						"}\n\n");

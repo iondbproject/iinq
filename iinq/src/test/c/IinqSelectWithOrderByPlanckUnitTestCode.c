@@ -46,7 +46,7 @@ unsigned int num_records;
 #define OUTPUT_TIMES            0
 #define OUTPUT_SQL_STATEMENTS   1
 #define OUTPUT_INSERT_PROGRESS	1
-#define OUTPUT_INSERT_PROGRESS_FREQUENCY    25
+#define OUTPUT_INSERT_PROGRESS_FREQUENCY    100
 
 void
 test_create_table1(
@@ -88,19 +88,22 @@ test_record_exists_table1(
 ) {
 	ion_dictionary_t dictionary;
 	ion_dictionary_handler_t handler;
-	ion_err_t error = iinq_open_source(0, &dictionary, &handler);
+    ion_value_t value = malloc(sizeof(int)*2 + sizeof(char) * 31);
 
+    if (NULL == value) {
+        PLANCK_UNIT_SET_FAIL(tc);
+    }
+
+	ion_err_t error = iinq_open_source(0, &dictionary, &handler);
 	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, err_ok, error);
 
-	ion_value_t value = malloc(sizeof(int)*2 + sizeof(char) * 31);
-	if (NULL == value)
-		PLANCK_UNIT_SET_FAIL(tc);
 	ion_status_t status = dictionary_get(&dictionary, IONIZE(id, int), value);
+
 	free(value);
+    ion_close_dictionary(&dictionary);
 
 	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, err_ok, status.error);
 	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, 1, status.count);
-	ion_close_dictionary(&dictionary);
 }
 
 void
