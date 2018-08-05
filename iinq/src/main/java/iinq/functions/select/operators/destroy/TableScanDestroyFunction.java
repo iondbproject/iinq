@@ -6,11 +6,11 @@ import iinq.functions.IinqFunction;
 public class TableScanDestroyFunction extends OperatorDestroyFunction {
 	public TableScanDestroyFunction() {
 		super("iinq_table_scan_destroy",
-				"void iinq_table_scan_destroy(iinq_query_operator_t **operator);\n",
-				"void iinq_table_scan_destroy(iinq_query_operator_t **operator) {\n" +
-						"\tif (NULL != *operator) {\n" +
-						"\t\tif (NULL != (*operator)->instance){\n" +
-						"\t\t\tiinq_table_scan_t *table_scan = (iinq_table_scan_t *) (*operator)->instance;\n" +
+				"void iinq_table_scan_destroy(iinq_query_operator_t **query_operator);\n",
+				"void iinq_table_scan_destroy(iinq_query_operator_t **query_operator) {\n" +
+						"\tif (NULL != *query_operator) {\n" +
+						"\t\tif (NULL != (*query_operator)->instance){\n" +
+						"\t\t\tiinq_table_scan_t *table_scan = (iinq_table_scan_t *) (*query_operator)->instance;\n" +
 						"\n" +
 						"\t\t\tif (NULL != table_scan->super.field_info) {\n" +
 						"\t\t\t\tfree(table_scan->super.field_info);\n" +
@@ -36,8 +36,8 @@ public class TableScanDestroyFunction extends OperatorDestroyFunction {
 						"\n" +
 						"\t\t\tfree(table_scan);\n" +
 						"\t\t}\n" +
-						"\t\tfree(*operator);\n" +
-						"\t\t*operator = NULL;\n" +
+						"\t\tfree(*query_operator);\n" +
+						"\t\t*query_operator = NULL;\n" +
 						"\t}" +
 						"}\n\n"
 

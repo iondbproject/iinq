@@ -3,11 +3,11 @@ package iinq.functions.select.operators.destroy;
 public class ProjectionDestroyFunction extends OperatorDestroyFunction {
 	public ProjectionDestroyFunction() {
 		super("iinq_projection_destroy",
-				"void iinq_projection_destroy(iinq_query_operator_t **operator);\n",
-				"void iinq_projection_destroy(iinq_query_operator_t **operator) {\n" +
-						"\tif (*operator != NULL) {\n" +
-						"\t\tif ((*operator)->instance != NULL) {\n" +
-						"\t\t\tiinq_projection_t *projection = (iinq_projection_t *) (*operator)->instance;\n" +
+				"void iinq_projection_destroy(iinq_query_operator_t **query_operator);\n",
+				"void iinq_projection_destroy(iinq_query_operator_t **query_operator) {\n" +
+						"\tif (*query_operator != NULL) {\n" +
+						"\t\tif ((*query_operator)->instance != NULL) {\n" +
+						"\t\t\tiinq_projection_t *projection = (iinq_projection_t *) (*query_operator)->instance;\n" +
 						"\t\t\t\n" +
 						"\t\t\tif (NULL != projection->input_field_nums) {\n" +
 						"\t\t\t\tfree(projection->input_field_nums);\n" +
@@ -32,8 +32,8 @@ public class ProjectionDestroyFunction extends OperatorDestroyFunction {
 						"\t\t\t\n" +
 						"\t\t\tfree(projection);\n" +
 						"\t\t}\n" +
-						"\t\tfree(*operator);\n" +
-						"\t\t*operator = NULL;\n" +
+						"\t\tfree(*query_operator);\n" +
+						"\t\t*query_operator = NULL;\n" +
 						"\t}\n" +
 						"}\n\n");
 	}

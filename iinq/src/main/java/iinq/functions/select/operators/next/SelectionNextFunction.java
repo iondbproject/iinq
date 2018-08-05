@@ -3,11 +3,11 @@ package iinq.functions.select.operators.next;
 public class SelectionNextFunction extends OperatorNextFunction {
 	public SelectionNextFunction() {
 		super("iinq_selection_next",
-				"ion_boolean_t iinq_selection_next(iinq_query_operator_t *operator);\n",
-				"ion_boolean_t iinq_selection_next(iinq_query_operator_t *operator) {\n" +
+				"ion_boolean_t iinq_selection_next(iinq_query_operator_t *query_operator);\n",
+				"ion_boolean_t iinq_selection_next(iinq_query_operator_t *query_operator) {\n" +
 						"\tint i;\n" +
 						"\tion_boolean_t selection_result;\n" +
-						"\tiinq_selection_t *selection = (iinq_selection_t *) operator->instance;\n" +
+						"\tiinq_selection_t *selection = (iinq_selection_t *) query_operator->instance;\n" +
 						"\tdo {\n" +
 						"\t\tif (!selection->super.input_operators[0]->next(selection->super.input_operators[0])) {\n" +
 						"\t\t\treturn boolean_false;\n" +
@@ -18,8 +18,8 @@ public class SelectionNextFunction extends OperatorNextFunction {
 						"\n" +
 						"\t\tfor (i = 0; i < selection->num_conditions; i++) {\n" +
 						"\t\t\tcurr_condition = &selection->conditions[i];\n" +
-						"\t\t\tiinq_table_id_t table_id = operator->instance->input_operators[0]->instance->field_info[curr_condition->where_field-1].table_id;\n" +
-						"\t\t\tiinq_field_num_t field_num = operator->instance->input_operators[0]->instance->field_info[curr_condition->where_field-1].field_num;\n" +
+						"\t\t\tiinq_table_id_t table_id = query_operator->instance->input_operators[0]->instance->field_info[curr_condition->where_field-1].table_id;\n" +
+						"\t\t\tiinq_field_num_t field_num = query_operator->instance->input_operators[0]->instance->field_info[curr_condition->where_field-1].field_num;\n" +
 						"\t\t\tcurr_value = selection->super.fields[curr_condition->where_field-1];\n" +
 						"\t\t\tiinq_field_t\tfield_type\t\t\t\t= iinq_get_field_type(table_id, field_num);\n" +
 						"\n" +
@@ -129,7 +129,7 @@ public class SelectionNextFunction extends OperatorNextFunction {
 						"\t} while (!selection_result);\n" +
 						"\n" +
 						"\tif (selection_result)\n" +
-						"\t\toperator->status.count++;\n" +
+						"\t\tquery_operator->status.count++;\n" +
 						"\n" +
 						"\treturn selection_result;\n" +
 						"}\n\n");
