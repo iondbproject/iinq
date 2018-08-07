@@ -29,6 +29,11 @@ public class TestIinqExecute {
 	private static final String selectFromWhereOrderByTestingOutputDirectory = selectFromWhereOrderByTestingDirectory + "/generated";
 	private static final String selectFromWhereOrderByTestingOutputName = "iinq_testing_functions";
 
+	private static final String performanceTestDirectory = "../../iondb/src/iinq/iinq_testing/performance_testing/";
+	private static final String performanceTestUserFile = performanceTestDirectory + "test_iinq_device.c";
+	private static final String performanceTestOutputDirectory = performanceTestDirectory + "/generated";
+	private static final String performanceTestOutputName = "iinq_testing_functions";
+
 	private static final String useExisting = "false";
 	
 	private static void setSystemPropertiesForIinqInterface() {
@@ -44,7 +49,18 @@ public class TestIinqExecute {
 	}
 
 	@Test
-	public void testFull() throws SQLException, InvalidArgumentException, RelationNotFoundException, IOException {
+	public void testInsertAndSelectFromWhereSingleTable() throws IOException {
+		setSystemPropertiesForIinqInterface();
+		Path sourceFile = Paths.get("src/test/c/IinqInsertAndSelectSingleTableTestCode.c");
+		Path destFile = Paths.get(interfaceUserFile);
+
+		Files.copy(sourceFile, destFile, REPLACE_EXISTING);
+
+		IinqExecute.main(null);
+	}
+
+	@Test
+	public void testFull() throws IOException {
 		setSystemPropertiesForIinqInterface();
 		Path sourceFile = Paths.get("src/test/c/IinqFullTestCode.c");
 		Path destFile = Paths.get(interfaceUserFile);
@@ -56,10 +72,13 @@ public class TestIinqExecute {
 	}
 
 	@Test
-	public void testInsertAndSelectFromWhereSingleTable() throws IOException {
-		setSystemPropertiesForIinqInterface();
-		Path sourceFile = Paths.get("src/test/c/IinqInsertAndSelectSingleTableTestCode.c");
-		Path destFile = Paths.get(interfaceUserFile);
+	public void testPerformanceTestPlanckUnit() throws IOException {
+		setSystemProperties(performanceTestUserFile, performanceTestOutputDirectory, performanceTestOutputName, interfaceDir, useExisting);
+		System.setProperty("COMMENT_OUT_EXISTING_FUNCTIONS", "false");
+		System.setProperty("DEBUG", "true");
+
+		Path sourceFile = Paths.get("src/test/c/IinqPerformanceTestCode.c");
+		Path destFile = Paths.get(performanceTestUserFile);
 
 		Files.copy(sourceFile, destFile, REPLACE_EXISTING);
 

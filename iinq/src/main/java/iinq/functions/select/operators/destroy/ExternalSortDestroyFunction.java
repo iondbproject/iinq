@@ -23,9 +23,16 @@ public class ExternalSortDestroyFunction extends OperatorDestroyFunction {
 						"\t\t\t}\n" +
 						"\n" +
 						"\t\t\tif (NULL != external_sort->es) {\n" +
-						"\t\t\t\tfclose(external_sort->es->input_file);\n" +
+						"\t\t\t\tif (NULL != external_sort->es->input_file) {\n" +
+						"\t\t\t\t\tfclose(external_sort->es->input_file);\n" +
+						"\t\t\t\t\tfremove(\"orderby\");\n" +
+						"\t\t\t\t}\n" +
 						"\n" +
 						"\t\t\t\tif (NULL != external_sort->es->context) {\n" +
+						"\t\t\t\t\tif (NULL != ((iinq_sort_context_t *) external_sort->es->context)->parts) {\n" +
+						"\t\t\t\t\t\tfree(((iinq_sort_context_t *) external_sort->es->context)->parts);\n" +
+						"\t\t\t\t\t}\n" +
+						"\n"+
 						"\t\t\t\t\tfree(external_sort->es->context);\n" +
 						"\t\t\t\t}\n" +
 						"\n" +
