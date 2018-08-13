@@ -185,7 +185,7 @@ public class WebQuery
 			{	// Do nothing.  Return tuples AS IS.
 			}
 			else
-			{	// Build a projection operator			    
+			{	// Build a projection operatorType
 				this.proj.getChild(0).setOutputRelation(op.getOutputRelation());
 				// Fix up the output relation so that build projection will find fields even if have aliases
 				ArrayList<LQExprNode> expressions = this.proj.getExpressions();

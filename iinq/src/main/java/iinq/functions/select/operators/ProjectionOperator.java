@@ -20,4 +20,12 @@ public class ProjectionOperator extends IinqOperator {
 	public String generateInitFunctionCall() {
 		return String.format("%s(%s, %d, %s)", getInitFunction().getName(), getInputOperators().get(0).generateInitFunctionCall(), projection.getNumFields(), projection.getIinqProjectionList());
 	}
+
+	public boolean isDictionaryProjection() {
+		return inputOperators.get(0) instanceof DictionaryOperator;
+	}
+
+	public IinqOperator getInputOperator() {
+		return inputOperators.get(0);
+	}
 }

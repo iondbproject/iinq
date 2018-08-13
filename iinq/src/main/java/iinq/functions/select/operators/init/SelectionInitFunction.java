@@ -9,25 +9,25 @@ public class SelectionInitFunction extends OperatorInitFunction {
 						"\t\treturn NULL;\n" +
 						"\t}\n" +
 						"\t\n" +
-						"\tiinq_query_operator_t *operator = malloc(sizeof(iinq_query_operator_t));\n" +
-						"\tif (NULL == operator) {\n" +
+						"\tiinq_query_operator_t *operatorType = malloc(sizeof(iinq_query_operator_t));\n" +
+						"\tif (NULL == operatorType) {\n" +
 						"\t\tinput_operator->destroy(&input_operator);\n" +
 						"\t\treturn NULL;\n" +
 						"\t}\n" +
 						"\t\n" +
-						"\toperator->instance = malloc(sizeof(iinq_selection_t));\n" +
-						"\tif (NULL == operator->instance) {\n" +
-						"\t\tfree(operator);\n" +
+						"\toperatorType->instance = malloc(sizeof(iinq_selection_t));\n" +
+						"\tif (NULL == operatorType->instance) {\n" +
+						"\t\tfree(operatorType);\n" +
 						"\t\tinput_operator->destroy(&input_operator);\n" +
 						"\t\treturn NULL;\n" +
 						"\t}\n" +
 						"\t\n" +
-						"\tiinq_selection_t *selection = (iinq_selection_t *) operator->instance;\n" +
+						"\tiinq_selection_t *selection = (iinq_selection_t *) operatorType->instance;\n" +
 						"\t\n" +
 						"\tselection->super.input_operators = malloc(sizeof(iinq_query_operator_t *));\n" +
 						"\tif (NULL == selection->super.input_operators) {\n" +
 						"\t\tfree(selection);\n" +
-						"\t\tfree(operator);\n" +
+						"\t\tfree(operatorType);\n" +
 						"\t\tinput_operator->destroy(&input_operator);\n" +
 						"\t\treturn NULL;\n" +
 						"\t}\n" +
@@ -46,7 +46,7 @@ public class SelectionInitFunction extends OperatorInitFunction {
 						"\tif (NULL == selection->conditions) {\n" +
 						"\t\tfree(selection->super.input_operators);\n" +
 						"\t\tfree(selection);\n" +
-						"\t\tfree(operator);\n" +
+						"\t\tfree(operatorType);\n" +
 						"\t\tinput_operator->destroy(&input_operator);\n" +
 						"\t\treturn NULL;\n" +
 						"\t}\n" +
@@ -66,7 +66,7 @@ public class SelectionInitFunction extends OperatorInitFunction {
 						"\t\t\tfree(selection->conditions);\n" +
 						"\t\t\tfree(selection->super.input_operators);\n" +
 						"\t\t\tfree(selection);\n" +
-						"\t\t\tfree(operator);\n" +
+						"\t\t\tfree(operatorType);\n" +
 						"\t\t\tinput_operator->destroy(&input_operator);\n" +
 						"\t\t\treturn NULL;\n" +
 						"\t\t}\n" +
@@ -86,10 +86,10 @@ public class SelectionInitFunction extends OperatorInitFunction {
 						"\t\t\t\n" +
 						"\t}\n" +
 						"\t\n" +
-						"\toperator->next = iinq_selection_next;\n" +
-						"\toperator->destroy = iinq_selection_destroy;\n" +
+						"\toperatorType->next = iinq_selection_next;\n" +
+						"\toperatorType->destroy = iinq_selection_destroy;\n" +
 						"\t\n" +
-						"\treturn operator;\n" +
+						"\treturn operatorType;\n" +
 						"}\n\n");
 	}
 }

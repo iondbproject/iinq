@@ -3,7 +3,9 @@ package iinq.query;
 import com.sun.javaws.exceptions.InvalidArgumentException;
 import iinq.IinqSelection;
 import iinq.functions.PredicateFunction;
+import iinq.functions.select.operators.DictionaryOperator;
 import iinq.functions.select.operators.IinqOperator;
+import iinq.functions.select.operators.init.DictionaryInitFunction;
 import iinq.metadata.IinqDatabase;
 import iinq.metadata.IinqTable;
 import unity.annotation.SourceField;
@@ -340,7 +342,7 @@ public class IinqQuery extends WebQuery {
 							 * strcmp(source_tuple->field, compareString) > 0 */
 			condition.append(String.format("strcmp(get_string(*it, %d)", fieldIndex));
 			if (null == operator) {
-								/* operator was not <> or != */
+								/* operatorType was not <> or != */
 				if (filter.charAt(i + 1) == '=') {
 									/* Operator is two characters e.g <=, >= */
 					operator = filter.substring(i, i + 2);
@@ -348,7 +350,7 @@ public class IinqQuery extends WebQuery {
 				} else {
 									/* Operator is a single character e.g <, >, = */
 					if (filter.charAt(i) == '=') {
-										/* Equality operator */
+										/* Equality operatorType */
 						operator = "==";
 					} else {
 										/* <, > operators */
@@ -371,7 +373,7 @@ public class IinqQuery extends WebQuery {
 				} else {
 					/* Operator is a single character e.g <, >, = */
 					if (filter.charAt(i) == '=') {
-						/* Equality operator */
+						/* Equality operatorType */
 						operator = "==";
 					} else {
 						/* <, > operators */
@@ -439,5 +441,9 @@ public class IinqQuery extends WebQuery {
 
 	public HashMap<String, IinqOperator> getOperators() {
 		return operators;
+	}
+
+	public DictionaryInitFunction getDictionaryInitFunction() {
+		return (DictionaryInitFunction) ((DictionaryOperator) getParameterObject("dictionaryOp")).getInitFunction();
 	}
 }

@@ -1,4 +1,5 @@
 import com.sun.javaws.exceptions.InvalidArgumentException;
+import com.sun.org.apache.xpath.internal.operations.Bool;
 import iinq.IinqExecute;
 import org.junit.Test;
 
@@ -34,14 +35,16 @@ public class TestIinqExecute {
 	private static final String performanceTestOutputDirectory = performanceTestDirectory + "/generated";
 	private static final String performanceTestOutputName = "iinq_testing_functions";
 
-	private static final String useExisting = "false";
+	private static final boolean useExisting = false;
+	private static final boolean allowDuplicates = false;
 	
 	private static void setSystemPropertiesForIinqInterface() {
-		setSystemProperties(interfaceUserFile, interfaceOutputDirectory, interfaceOutputName, interfaceDir, useExisting);
+		setSystemProperties(interfaceUserFile, interfaceOutputDirectory, interfaceOutputName, interfaceDir, useExisting, true);
 	}
 
-	private static void setSystemProperties(String userFile, String outputDirectory, String outputName, String interfaceDirectory, String useExisting) {
-		System.setProperty("USE_EXISTING", useExisting);
+	private static void setSystemProperties(String userFile, String outputDirectory, String outputName, String interfaceDirectory, boolean useExisting, boolean allowDuplicates) {
+		System.setProperty("ALLOW_DUPLICATES", Boolean.toString(allowDuplicates));
+		System.setProperty("USE_EXISTING", Boolean.toString(useExisting));
 		System.setProperty("USER_FILE", userFile);
 		System.setProperty("OUTPUT_DIRECTORY", outputDirectory);
 		System.setProperty("OUTPUT_NAME", outputName);
@@ -73,9 +76,9 @@ public class TestIinqExecute {
 
 	@Test
 	public void testPerformanceTestPlanckUnit() throws IOException {
-		setSystemProperties(performanceTestUserFile, performanceTestOutputDirectory, performanceTestOutputName, interfaceDir, useExisting);
+		setSystemProperties(performanceTestUserFile, performanceTestOutputDirectory, performanceTestOutputName, interfaceDir, useExisting, true);
 		System.setProperty("COMMENT_OUT_EXISTING_FUNCTIONS", "false");
-		System.setProperty("DEBUG", "true");
+		System.setProperty("DEBUG", "false");
 
 		Path sourceFile = Paths.get("src/test/c/IinqPerformanceTestCode.c");
 		Path destFile = Paths.get(performanceTestUserFile);
@@ -87,7 +90,7 @@ public class TestIinqExecute {
 
 	@Test
 	public void testInsertAndSelectFromWhereSingleTablePlanckUnit() throws IOException {
-		setSystemProperties(selectFromWhereTestingUserFile, selectFromWhereTestingOutputDirectory, selectFromWhereTestingOutputName, interfaceDir, useExisting);
+		setSystemProperties(selectFromWhereTestingUserFile, selectFromWhereTestingOutputDirectory, selectFromWhereTestingOutputName, interfaceDir, useExisting, allowDuplicates);
 		System.setProperty("COMMENT_OUT_EXISTING_FUNCTIONS", "false");
 		System.setProperty("DEBUG", "true");
 
@@ -101,7 +104,7 @@ public class TestIinqExecute {
 
 	@Test
 	public void testInsertAndSelectFromWhereOrderBySingleTablePlanckUnit() throws IOException {
-		setSystemProperties(selectFromWhereOrderByTestingUserFile, selectFromWhereOrderByTestingOutputDirectory, selectFromWhereOrderByTestingOutputName, interfaceDir, useExisting);
+		setSystemProperties(selectFromWhereOrderByTestingUserFile, selectFromWhereOrderByTestingOutputDirectory, selectFromWhereOrderByTestingOutputName, interfaceDir, useExisting, allowDuplicates);
 		System.setProperty("COMMENT_OUT_EXISTING_FUNCTIONS", "false");
 		System.setProperty("DEBUG", "true");
 

@@ -1,167 +1,175 @@
 package iinq;
 
-import com.sun.javaws.exceptions.InvalidArgumentException;
+import iinq.functions.select.operators.predicates.AllRecordsPredicate;
+import iinq.functions.select.operators.predicates.EqualityPredicate;
+import iinq.functions.select.operators.predicates.IonPredicate;
+import iinq.functions.select.operators.predicates.RangePredicate;
 import iinq.metadata.IinqTable;
 import unity.annotation.SourceField;
 
-import javax.management.relation.RelationNotFoundException;
-import java.io.IOException;
-import java.sql.SQLFeatureNotSupportedException;
-import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Iterator;
 
-public class IinqSelection {
-	protected ArrayList<String> whereValues; 			/* Value that is being added to another value value to update a value. */
-	protected ArrayList<String> whereOperators; 		/* Whether values are being updated through addition or subtraction. */
-	protected ArrayList<Integer> whereFieldTypes;
-	protected ArrayList<Integer> whereFieldNums;
-	protected int numConditions;
+public class IinqSelection{
+	protected ArrayList<IinqSelectionPredicate> selectionPredicates;
+	protected boolean containsKeyPredicate;
 
 	public IinqSelection() {
-		this.numConditions = 0;
-		this.whereValues = new ArrayList<>();
-		this.whereOperators = new ArrayList<>();
-		this.whereFieldTypes = new ArrayList<>();
-		this.whereFieldNums = new ArrayList<>();
+		this.selectionPredicates = new ArrayList<>();
+		containsKeyPredicate = false;
 	}
 
-	public IinqSelection(ArrayList<String> conditionFields, IinqTable table) {
+	public IinqSelection(ArrayList<String> predicateFields, IinqTable table) {
 		this();
 
-		if (conditionFields != null) {
-			Iterator<String> it = conditionFields.iterator();
+		if (predicateFields != null) {
+			Iterator<String> it = predicateFields.iterator();
 
 			while (it.hasNext()) {
-				addCondition(it.next(), table);
+				addPredicate(it.next(), table);
 			}
 		}
-/*		for (int i = 0; i < numConditions; i++) {
-			int pos = -1, len = -1;
-			*//* Set up value, operator, and condition for each WHERE clause *//*
-			if (conditionFields.get(i).contains("!=")) {
-				pos = conditionFields.get(i).indexOf("!=");
-				len = 2;
-				this.whereOperators.add("iinq_not_equal");
-			} else if (conditionFields.get(i).contains("<>")) {
-				pos = conditionFields.get(i).indexOf("<>");
-				len = 2;
-				this.whereOperators.add("iinq_not_equal");
-			} else if (conditionFields.get(i).contains("<=")) {
-				pos = conditionFields.get(i).indexOf("<=");
-				len = 2;
-				this.whereOperators.add("iinq_less_than_equal_to");
-			} else if (conditionFields.get(i).contains(">=")) {
-				pos = conditionFields.get(i).indexOf(">=");
-				len = 2;
-				this.whereOperators.add("iinq_greater_than_equal_to");
-			} else if (conditionFields.get(i).contains("=")) {
-				pos = conditionFields.get(i).indexOf("=");
-				len = 1;
-				this.whereOperators.add("iinq_equal");
-			} else if (conditionFields.get(i).contains("<")) {
-				pos = conditionFields.get(i).indexOf("<");
-				len = 1;
-				this.whereOperators.add("iinq_less_than");
-			} else if (conditionFields.get(i).contains(">")) {
-				pos = conditionFields.get(i).indexOf(">");
-				len = 1;
-				this.whereOperators.add("iinq_greater_than");
-			}
-
-			String fieldName = conditionFields.get(i).substring(0, pos).trim();
-			whereValues.add(conditionFields.get(i).substring(pos + len).trim());
-			SourceField field = table.getField(fieldName);
-			whereFieldNums.add(field.getOrdinalPosition());
-			whereFieldTypes.add(field.getDataType());
-
-		}*/
 	}
 
-	public void addCondition(String condition, IinqTable table) {
+	public void addPredicate(String predicateString, IinqTable table) {
 		int pos = -1, len = -1;
-		/* Set up value, operator, and condition for each WHERE clause */
-		if (condition.contains("!=")) {
-			pos = condition.indexOf("!=");
+		/* Set up value, operatorType, and predicate for each WHERE clause */
+		int operatorType = -1;
+		if (predicateString.contains("!=")) {
+			pos = predicateString.indexOf("!=");
 			len = 2;
-			this.whereOperators.add("iinq_not_equal");
-		} else if (condition.contains("<>")) {
-			pos = condition.indexOf("<>");
+			operatorType = IinqPredicateOperators.NOT_EQUAL;
+		} else if (predicateString.contains("<>")) {
+			pos = predicateString.indexOf("<>");
 			len = 2;
-			this.whereOperators.add("iinq_not_equal");
-		} else if (condition.contains("<=")) {
-			pos = condition.indexOf("<=");
+			operatorType = IinqPredicateOperators.NOT_EQUAL;
+		} else if (predicateString.contains("<=")) {
+			pos = predicateString.indexOf("<=");
 			len = 2;
-			this.whereOperators.add("iinq_less_than_equal_to");
-		} else if (condition.contains(">=")) {
-			pos = condition.indexOf(">=");
+			operatorType = IinqPredicateOperators.LESS_THAN_EQUAL;
+		} else if (predicateString.contains(">=")) {
+			pos = predicateString.indexOf(">=");
 			len = 2;
-			this.whereOperators.add("iinq_greater_than_equal_to");
-		} else if (condition.contains("=")) {
-			pos = condition.indexOf("=");
+			operatorType = IinqPredicateOperators.GREATER_THAN_EQUAL;
+		} else if (predicateString.contains("=")) {
+			pos = predicateString.indexOf("=");
 			len = 1;
-			this.whereOperators.add("iinq_equal");
-		} else if (condition.contains("<")) {
-			pos = condition.indexOf("<");
+			operatorType = IinqPredicateOperators.EQUAL;
+		} else if (predicateString.contains("<")) {
+			pos = predicateString.indexOf("<");
 			len = 1;
-			this.whereOperators.add("iinq_less_than");
-		} else if (condition.contains(">")) {
-			pos = condition.indexOf(">");
+			operatorType = IinqPredicateOperators.LESS_THAN;
+		} else if (predicateString.contains(">")) {
+			pos = predicateString.indexOf(">");
 			len = 1;
-			this.whereOperators.add("iinq_greater_than");
+			operatorType = IinqPredicateOperators.GREATER_THAN;
 		}
 
-		String fieldName = condition.substring(0, pos).trim();
-		whereValues.add(condition.substring(pos + len).trim());
+		String fieldName = predicateString.substring(0, pos).trim();
+		String value =predicateString.substring(pos + len).trim();
 		SourceField field = table.getField(fieldName);
-		whereFieldNums.add(field.getOrdinalPosition());
-		whereFieldTypes.add(field.getDataType());
-		numConditions++;
+		int fieldNum = field.getOrdinalPosition();
+		int fieldType = field.getDataType();
+		boolean isKeyPredicate = false;
+		// Projection may have removed key field at this point, resulting in a NullPointerException.
+		try {
+			isKeyPredicate = table.getPrimaryKeyFields().contains(field);
+		} catch (Exception e) {
+
+		}
+
+		if (!this.containsKeyPredicate && isKeyPredicate) {
+			this.containsKeyPredicate = true;
+		}
+
+		selectionPredicates.add(new IinqSelectionPredicate(value, operatorType, fieldType, fieldNum, isKeyPredicate));
 	}
 
-	public ArrayList<String> getWhereValues() {
-		return whereValues;
+	public int getNumPredicates() {
+		return selectionPredicates.size();
 	}
 
-	public ArrayList<String> getWhereOperators() {
-		return whereOperators;
+	public boolean containsKeyPredicate() {
+		return containsKeyPredicate;
 	}
 
-	public ArrayList<Integer> getWhereFieldTypes() {
-		return whereFieldTypes;
-	}
-
-	public ArrayList<Integer> getWhereFieldNums() {
-		return whereFieldNums;
-	}
-
-	public int getNumConditions() {
-		return numConditions;
-	}
-
-	public String generateIinqConditionList() {
-		if (numConditions == 0) {
+	public String toIinqConditionListString() {
+		if (getNumPredicates() == 0) {
 			return null;
 		} else {
 			StringBuilder conditionList = new StringBuilder();
 			conditionList.append("IINQ_CONDITION_LIST(");
-			for (int i = 0; i < numConditions; i++) {
-				conditionList.append("IINQ_CONDITION(");
-				conditionList.append(whereFieldNums.get(i));
+			Iterator<IinqSelectionPredicate> it = selectionPredicates.iterator();
+			while (it.hasNext()) {
+				conditionList.append(it.next().toIinqConditionString());
 				conditionList.append(", ");
-				conditionList.append(whereOperators.get(i));
-				conditionList.append(", ");
-				if (whereFieldTypes.get(i) == Types.INTEGER) {
-					conditionList.append(String.format("IONIZE(%s, int)", whereValues.get(i)));
-				} else {
-					conditionList.append(whereValues.get(i));
-				}
-				conditionList.append("), ");
 			}
 			conditionList.setLength(conditionList.length()-2);
 			conditionList.append(")");
 
 			return conditionList.toString();
 		}
+	}
+
+	public ArrayList<IinqSelectionPredicate> getKeyPredicateConditions() {
+		if (containsKeyPredicate) {
+			ArrayList<IinqSelectionPredicate> keyPredicates = new ArrayList<>();
+			Iterator<IinqSelectionPredicate> it = selectionPredicates.iterator();
+			while (it.hasNext()) {
+				IinqSelectionPredicate predicate = it.next();
+				if (predicate.isKeyPredicate)
+					keyPredicates.add(predicate);
+			}
+
+			return keyPredicates;
+		} else {
+			return null;
+		}
+	}
+
+	public IonPredicate optimizePredicate() {
+		ArrayList<IinqSelectionPredicate> keyPredicates = getKeyPredicateConditions();
+		if (keyPredicates != null) {
+			switch (keyPredicates.size()) {
+				// TODO: add inequality predicate
+				case 1: // only works for equality
+					if (keyPredicates.get(0).operatorType == IinqPredicateOperators.EQUAL) {
+						selectionPredicates.remove(keyPredicates.get(0));
+						return new EqualityPredicate(keyPredicates.get(0).value);
+					}
+					break;
+				case 2: // only works for range TODO: handle ranges where comparison operators are less than and greater than
+					if (keyPredicates.get(0).operatorType == IinqPredicateOperators.LESS_THAN_EQUAL && keyPredicates.get(1).operatorType == IinqPredicateOperators.GREATER_THAN_EQUAL) {
+						selectionPredicates.remove(keyPredicates.get(0));
+						selectionPredicates.remove(keyPredicates.get(1));
+						return new RangePredicate(keyPredicates.get(0).value, keyPredicates.get(1).value);
+					} else if (keyPredicates.get(0).operatorType == IinqPredicateOperators.GREATER_THAN_EQUAL && keyPredicates.get(1).operatorType == IinqPredicateOperators.LESS_THAN_EQUAL) {
+						selectionPredicates.remove(keyPredicates.get(0));
+						selectionPredicates.remove(keyPredicates.get(1));
+						return new RangePredicate(keyPredicates.get(1).value, keyPredicates.get(0).value);
+					}
+					break;
+				default: // can only extract range (based on selectivity, equality is better in most cases when composite keys are used)
+					Iterator<IinqSelectionPredicate> it = keyPredicates.iterator();
+					IinqSelectionPredicate upperBound = null;
+					IinqSelectionPredicate lowerBound = null;
+					while (it.hasNext() && (lowerBound == null || upperBound == null)) {
+						IinqSelectionPredicate predicate = it.next();
+						if (predicate.operatorType == IinqPredicateOperators.GREATER_THAN_EQUAL) {
+							lowerBound = predicate;
+						} else if (predicate.operatorType == IinqPredicateOperators.LESS_THAN_EQUAL) {
+							upperBound = predicate;
+						}
+					}
+					if (lowerBound != null && upperBound != null) {
+						selectionPredicates.remove(lowerBound);
+						selectionPredicates.remove(upperBound);
+						return new RangePredicate(lowerBound.value, upperBound.value);
+					}
+
+					break;
+			}
+		}
+		return new AllRecordsPredicate();
 	}
 }

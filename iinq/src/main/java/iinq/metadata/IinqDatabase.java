@@ -7,6 +7,7 @@ import iinq.callable.update.IinqUpdate;
 import iinq.functions.*;
 import iinq.functions.calculated.CalculatedFunctions;
 import iinq.functions.select.operators.IinqOperator;
+import iinq.functions.select.operators.init.DictionaryInitFunction;
 import iinq.query.IinqQuery;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
@@ -51,6 +52,7 @@ public class IinqDatabase {
 	private HashMap<Integer, String> tableIds = new HashMap<>();
 	private HashMap<String, IinqTable> iinqTables = new HashMap<>();
 	private HashMap<String, String> operatorStructDefinitions = new HashMap<>();
+	private DictionaryInitFunction dictionaryInitFunction = null;
 	private CalculatedFunctions calculatedFunctions = null;
 	private HashMap<String, IinqOperator> operators = new HashMap<>();
 	private boolean debug;
@@ -351,6 +353,11 @@ public class IinqDatabase {
 
 	public void executeQuery(String sql, String return_val) throws SQLException, RelationNotFoundException, IOException, InvalidArgumentException {
 		IinqQuery query = executor.executeQuery(sql);
+		if (dictionaryInitFunction != null) {
+			query.getDictionaryInitFunction().addAllPredicateTypes(dictionaryInitFunction);
+		}
+		query.getDictionaryInitFunction().generateDefinition();
+		dictionaryInitFunction = query.getDictionaryInitFunction();
 		operators.putAll(query.getOperators());
 		queries.add(query);
 	}

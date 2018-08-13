@@ -60,7 +60,7 @@ public class ExternalSortInitFunction extends OperatorInitFunction {
 						"\n" +
 						"\tint write_page_remaining = IINQ_PAGE_SIZE;\n" +
 						"\n" +
-						"\t/* Filter before sorting. Use existing table scan operator*/\n" +
+						"\t/* Filter before sorting. Use existing table scan operatorType*/\n" +
 						"\twhile (input_operator->next(input_operator)) {\n" +
 						"\t\tif (write_page_remaining < (total_orderby_size + IINQ_BITS_FOR_NULL(num_fields) + value_size)) {\n" +
 						"\t\t\tchar x = 0;\n" +
@@ -107,10 +107,10 @@ public class ExternalSortInitFunction extends OperatorInitFunction {
 						"\t\tfclose(file);\n" +
 						"\t}\n" +
 						"\n" +
-						"\tiinq_query_operator_t *operator = malloc(sizeof(iinq_query_operator_t));\n" +
-						"\toperator->instance = malloc(sizeof(iinq_external_sort_t));\n" +
-						"\toperator->instance->type = iinq_external_sort_e;\n" +
-						"\tiinq_external_sort_t *external_sort = (iinq_external_sort_t *) operator->instance;\n" +
+						"\tiinq_query_operator_t *operatorType = malloc(sizeof(iinq_query_operator_t));\n" +
+						"\toperatorType->instance = malloc(sizeof(iinq_external_sort_t));\n" +
+						"\toperatorType->instance->type = iinq_external_sort_e;\n" +
+						"\tiinq_external_sort_t *external_sort = (iinq_external_sort_t *) operatorType->instance;\n" +
 						"\n" +
 						"\tion_external_sort_t *es = malloc(sizeof(ion_external_sort_t));\n" +
 						"\texternal_sort->es = es;\n" +
@@ -133,18 +133,18 @@ public class ExternalSortInitFunction extends OperatorInitFunction {
 						"\tchar *buffer = malloc(buffer_size);\n" +
 						"\t// recordbuf needs enough room for the sort field and the table tuple (sort field is stored twice)\n" +
 						"\tchar *record_buf = malloc((total_orderby_size + IINQ_BITS_FOR_NULL(num_fields) + value_size));\n" +
-						"\toperator->instance->null_indicators = record_buf + total_orderby_size;\n" +
+						"\toperatorType->instance->null_indicators = record_buf + total_orderby_size;\n" +
 						"\n" +
-						"\toperator->instance->num_fields = num_fields;\n" +
-						"\toperator->instance->field_info = malloc(sizeof(iinq_field_info_t)*num_fields);\n" +
-						"\tmemcpy(operator->instance->field_info, input_operator->instance->field_info, sizeof(iinq_field_info_t)*num_fields);\n" +
-						"\toperator->instance->fields = malloc(sizeof(ion_value_t)*num_fields);\n" +
+						"\toperatorType->instance->num_fields = num_fields;\n" +
+						"\toperatorType->instance->field_info = malloc(sizeof(iinq_field_info_t)*num_fields);\n" +
+						"\tmemcpy(operatorType->instance->field_info, input_operator->instance->field_info, sizeof(iinq_field_info_t)*num_fields);\n" +
+						"\toperatorType->instance->fields = malloc(sizeof(ion_value_t)*num_fields);\n" +
 						"\n" +
 						"\tsize_t offset = total_orderby_size + IINQ_BITS_FOR_NULL(num_fields);\n" +
 						"\tfor (i = 0; i < num_fields; i++) {\n" +
-						"\t\tiinq_table_id_t table_id = operator->instance->field_info[i].table_id;\n" +
-						"\t\tiinq_field_num_t field_num = operator->instance->field_info[i].field_num;\n" +
-						"\t\toperator->instance->fields[i] = record_buf + offset;\n" +
+						"\t\tiinq_table_id_t table_id = operatorType->instance->field_info[i].table_id;\n" +
+						"\t\tiinq_field_num_t field_num = operatorType->instance->field_info[i].field_num;\n" +
+						"\t\toperatorType->instance->fields[i] = record_buf + offset;\n" +
 						"\t\toffset += iinq_calculate_offset(table_id, field_num + 1) - iinq_calculate_offset(table_id, field_num);\n" +
 						"\t}\n" +
 						"\n" +
@@ -160,10 +160,10 @@ public class ExternalSortInitFunction extends OperatorInitFunction {
 						"\terror = ion_external_sort_init_cursor(es, cursor, buffer, buffer_size);\n" +
 						"\texternal_sort->cursor = cursor;\n" +
 						"\n" +
-						"\toperator->next = iinq_external_sort_next;\n" +
-						"\toperator->destroy = iinq_external_sort_destroy;\n" +
+						"\toperatorType->next = iinq_external_sort_next;\n" +
+						"\toperatorType->destroy = iinq_external_sort_destroy;\n" +
 						"\n" +
-						"\treturn operator;\n" +
+						"\treturn operatorType;\n" +
 						"\n" +
 						"ERROR:\n" +
 						"\treturn NULL;\n" +

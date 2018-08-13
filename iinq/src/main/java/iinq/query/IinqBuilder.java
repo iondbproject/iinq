@@ -6,12 +6,9 @@ import java.util.Date;
 import java.util.HashSet;
 import java.util.Iterator;
 
-import iinq.IinqSelection;
 import iinq.callable.IinqProjection;
-import iinq.functions.select.operators.ExternalSortOperator;
-import iinq.functions.select.operators.ProjectionOperator;
-import iinq.functions.select.operators.SelectionOperator;
-import iinq.functions.select.operators.TableScanOperator;
+import iinq.functions.select.operators.*;
+import iinq.functions.select.operators.init.DictionaryInitFunction;
 import iinq.metadata.IinqDatabase;
 import iinq.metadata.IinqTable;
 import unity.annotation.SourceField;
@@ -20,7 +17,6 @@ import unity.engine.Relation;
 import unity.generic.jdbc.Parameter;
 import unity.generic.query.QueryBuilder;
 import unity.generic.query.WebQuery;
-import unity.query.GQFieldRef;
 import unity.query.GQTableRef;
 import unity.query.LQCondNode;
 import unity.query.LQDupElimNode;
@@ -69,6 +65,14 @@ public class IinqBuilder extends QueryBuilder
 	
 	    // Traverse tree to build query
 		processNode(query, currentNode);
+
+		DictionaryOperator dictOp = ((DictionaryOperator) query.getParameterObject("dictionaryOp"));
+		Object selectOp = query.getParameterObject("selection");
+		if (selectOp != null)
+			dictOp.optimizePredicate((SelectionOperator) selectOp);
+		((DictionaryInitFunction) dictOp.getInitFunction()).addPredicateType(dictOp.getPredicateType());
+		((DictionaryInitFunction) dictOp.getInitFunction()).generateDefinition();
+
 		return query;
 	}
 		
@@ -94,8 +98,8 @@ public class IinqBuilder extends QueryBuilder
 		if (((IinqQuery) query).getNewestOperator() instanceof ProjectionOperator) {
 			return;
 		}
+
 		IinqTable table = (IinqTable) query.getParameterObject("projectionTable");
-		boolean tableProjection = node.getChild().getType() != LQTreeConstants.TABLE;
 		boolean selectAll = node.isSelectAll();
 		Attribute[] attr = null;
 		//StringBuilder fields = new StringBuilder();
@@ -129,6 +133,7 @@ public class IinqBuilder extends QueryBuilder
 
 		// Only a single selection operation is allowed for now. If a second selection operation is attempted after a projection (potential for field numbers to change), the selection will fail
 		if (query.getParameter("selection") != null) {
+			SelectionOperator selectOp = (SelectionOperator) query.getParameterObject("selection");
 			query.setParameter("selectionFinished", true);
 		}
 
@@ -249,7 +254,7 @@ public class IinqBuilder extends QueryBuilder
 	}		
 	
 	/**
-     * Builds a selection operator.
+     * Builds a selection operatorType.
      * 
      * @param node
      *     selection node
@@ -272,7 +277,7 @@ public class IinqBuilder extends QueryBuilder
     }   
     
     /**
-     * Builds a selection operator.
+     * Builds a selection operatorType.
      * 
      * @param node
      *     selection node
@@ -310,8 +315,7 @@ public class IinqBuilder extends QueryBuilder
 			selectOp = (SelectionOperator) query.getParameterObject("selection");
 		}
 
-
-		selectOp.addCondition(selectionString, (IinqTable) query.getParameterObject("projectionTable"));
+		selectOp.addPredicate(selectionString, (IinqTable) query.getParameterObject("projectionTable"));
 
         query.setParameter("selection", selectOp);
 
@@ -351,8 +355,6 @@ public class IinqBuilder extends QueryBuilder
 	 *      expression node being converted    
 	 * @param query 
 	 *      IINQ query being built
-	 * @param condition
-	 * 		filter condition
 	 * @return 
 	 *      String representation of expression
 	 * @throws SQLException 
@@ -447,7 +449,7 @@ public class IinqBuilder extends QueryBuilder
 	}
 	
 	/**
-     * Builds a GROUP BY operator.  Not supported.
+     * Builds a GROUP BY operatorType.  Not supported.
      * 
      * @param node
      *     grouping node
@@ -589,10 +591,13 @@ public class IinqBuilder extends QueryBuilder
 		// create a copy of the table to manipulate for projections
 		query.setParameter("projectionTable", new IinqTable(database.getIinqTable(tableName)));
 
+		DictionaryOperator dictionaryOp = new DictionaryOperator(database.getIinqTable(tableName));
+		query.setParameter("dictionaryOp", dictionaryOp);
+
 		// Set the table
 		this.table = tref.getTable();
 
-		((IinqQuery) query).addOperator(new TableScanOperator(database.getIinqTable(tableName)));
+		((IinqQuery) query).addOperator(dictionaryOp);
 	}
 
 
@@ -688,7 +693,7 @@ public class IinqBuilder extends QueryBuilder
             }
         }
        
-        throw new SQLException("Comparison operator not supported: "+op);    
+        throw new SQLException("Comparison operatorType not supported: "+op);
     }		
     
 	/**

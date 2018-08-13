@@ -83,6 +83,8 @@ public class IinqExecute {
 
 	private static boolean debug = false;
 
+	private static boolean allowDuplicates = false;
+
 	private static IinqDatabase iinqDatabase;
 
 	public static void main(String args[]) {
@@ -98,6 +100,10 @@ public class IinqExecute {
 		if (System.getProperty("COMMENT_OUT_EXISTING_FUNCTIONS") != null) {
 			commentOutExistingFunctions = Boolean.parseBoolean(System.getProperty("COMMENT_OUT_EXISTING_FUNCTIONS"));
 		}
+
+/*		if (System.getProperty("ALLOW_DUPLICATES") != null) {
+			allowDuplicates = Boolean.parseBoolean(System.getProperty("ALLOW_DUPLICATES"));
+		}*/
 
 		if (System.getProperty("DEBUG") != null) {
 			debug = Boolean.parseBoolean(System.getProperty("DEBUG"));
@@ -175,9 +181,6 @@ public class IinqExecute {
 					else if ((sql.toUpperCase()).contains("DROP TABLE")) {
 						drop_table(sql);
 					} else if ((sql.toUpperCase()).contains("SELECT")) {
-						if (sql.contains("SELECT * FROM Table1 WHERE ID <= 50;")){
-							System.out.println();
-						}
 						select(sql);
 					}
 				}
@@ -365,8 +368,12 @@ public class IinqExecute {
 		contents.append(generateTopHeader(iinqFunctionOutputDirectory, iinqInterfaceDirectory));
 
 		if (debug) {
-			contents.append("#define IINQ_DEBUG		1\n");
+			contents.append("#define IINQ_DEBUG		1\n\n");
 		}
+
+/*		if (allowDuplicates) {
+			contents.append("#define IINQ_ALLOW_DUPLICATES	1\n\n");
+		}*/
 
 		contents.append(iinqDatabase.getOperatorStructDefinitions());
 		contents.append(iinqDatabase.getFunctionHeaders());

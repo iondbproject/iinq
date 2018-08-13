@@ -45,7 +45,7 @@ public class IinqDelete implements Callable {
     public IinqDelete(int tableId, IinqSelection where) {
         this.tableId = tableId;
         if (where != null) {
-            numWheres = where.getNumConditions();
+            numWheres = where.getNumPredicates();
             this.where = where;
         } else {
             numWheres = 0;
@@ -60,7 +60,7 @@ public class IinqDelete implements Callable {
         functionCall.append(numWheres);
         if (numWheres > 0) {
             functionCall.append(", ");
-            functionCall.append(where.generateIinqConditionList());
+            functionCall.append(where.toIinqConditionListString());
         }
         functionCall.append(")");
         return functionCall.toString();

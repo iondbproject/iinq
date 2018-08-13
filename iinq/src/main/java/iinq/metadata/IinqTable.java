@@ -4,6 +4,7 @@ import com.sun.javaws.exceptions.InvalidArgumentException;
 import iinq.functions.SchemaKeyword;
 import unity.annotation.AnnotatedSourceTable;
 import unity.annotation.SourceField;
+import unity.annotation.SourceKey;
 
 import java.sql.Types;
 import java.util.*;
@@ -39,7 +40,16 @@ public class IinqTable extends AnnotatedSourceTable {
 					field.getOrdinalPosition(), null);
 			this.addField(fieldCopy);
 		}
-		//setSourceFields(sourceFields);
+		this.copyKey(table.getPrimaryKey());
+	}
+
+	public void copyKey(SourceKey key) {
+		Iterator<SourceField> it = key.getFields().iterator();
+		ArrayList<SourceField> copiedKeyFields = new ArrayList<>();
+		while (it.hasNext()) {
+			copiedKeyFields.add(getField(it.next().getColumnName()));
+		}
+		this.setPrimaryKey(new SourceKey(copiedKeyFields, key.getKeyType(), key.getName()));
 	}
 
 	private AnnotatedSourceTable getAnnotatedSourceTable() {
@@ -200,6 +210,10 @@ public class IinqTable extends AnnotatedSourceTable {
 
 	public void setTableId(int tableId) {
 		this.tableId = tableId;
+	}
+
+	public ArrayList<SourceField> getPrimaryKeyFields() {
+		return this.getPrimaryKey().getFields();
 	}
 
 	public ArrayList<Integer> getPrimaryKeyIndices() {

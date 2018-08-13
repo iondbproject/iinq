@@ -98,6 +98,12 @@ public class UpdateFunction extends IinqFunction {
 				"\t\t\t\t\t}\n" +
 				"\t\t\t\t\tstrncpy(value, updates[i].field_value, size);\n\t\t\t\t}\n\t\t\t}\n\t\t}\n\n" +
 				"\t\tif (key_changed) {\n" +
+				"\t\t\t#if IINQ_ALLOW_DUPLICATES\n" +
+				"\t\t\tion_status_t ion_status;\n" +
+				"\t\t\tion_status = dictionary_delete(&dictionary, ion_record.key);\n" +
+				"\t\t\tion_status = dictionary_insert(&dictionary, new_key, ion_record.value);\n" +
+				"\t\t\terror = err_ok;\n" +
+				"\t\t\t#else\n" +
 				"\t\t\tion_predicate_t dup_predicate;\n" +
 				"\t\t\tion_dict_cursor_t *dup_cursor = NULL;\n" +
 				"\t\t\tdictionary_build_predicate(&dup_predicate, predicate_equality, new_key);\n" +
@@ -111,6 +117,7 @@ public class UpdateFunction extends IinqFunction {
 				"\t\t\t\terror = err_ok;\n" +
 				"\t\t\t}\n" +
 				"\t\t\tdup_cursor->destroy(&dup_cursor);\n" +
+				"\t\t\t#endif\n" +
 				"\t\t} else {\n" +
 				"\t\t\terror = dictionary_update(&dictionary, ion_record.key, ion_record.value).error;\n\n" +
 				"\t\t}\n" +

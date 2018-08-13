@@ -534,6 +534,109 @@ test_select_all_where_less_than_equal_table1(
 }
 
 void
+test_select_all_where_range_key_table1(
+	planck_unit_test_t      *tc
+) {
+	volatile unsigned long start_time, end_time;
+
+	#if OUTPUT_SQL_STATEMENTS
+	printf("SELECT * FROM Table1 WHERE ID < 75 AND ID > 25;\n");
+	#endif
+
+	start_time = ion_time();
+
+ 	iinq_result_set_t *rs1 = SQL_select("SELECT * FROM Table1 WHERE ID <= 75 AND ID >= 25;");
+
+	end_time = ion_time();
+	#if OUTPUT_TIMES
+	printf("Time taken: %lu\n\n", end_time - start_time);
+	#endif
+
+	if (NULL == rs1 || err_ok != rs1->status.error) {
+	    PLANCK_UNIT_SET_FAIL(tc);
+	}
+
+	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, 3, rs1->instance->num_fields);
+
+	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, 1, rs1->instance->field_info[0].field_num);
+	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, 2, rs1->instance->field_info[1].field_num);
+	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, 3, rs1->instance->field_info[2].field_num);
+
+    // Selection operator would be removed in optimization. Input operator should be dictionary operator.
+	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, iinq_dictionary_operator_e, rs1->instance->input_operators[0]->instance->type);
+
+	while (iinq_next(rs1)) {
+		#if OUTPUT_QUERY_RESULTS
+		printf("ID: %i, ", *iinq_get_int(rs1, 1));
+		printf("CharValue: %s, ", iinq_get_string(rs1, 2));
+		printf("IntValue: %d\n", *iinq_get_int(rs1, 3));
+		#endif
+        PLANCK_UNIT_ASSERT_FALSE(tc, NULL == iinq_get_int(rs1, 1));
+        PLANCK_UNIT_ASSERT_FALSE(tc, NULL == iinq_get_string(rs1, 1));
+        PLANCK_UNIT_ASSERT_FALSE(tc, NULL == iinq_get_int(rs1, 3));
+		PLANCK_UNIT_ASSERT_TRUE(tc, *iinq_get_int(rs1, 1) >= 25);
+		PLANCK_UNIT_ASSERT_TRUE(tc, *iinq_get_int(rs1, 1) <= 75);
+	}
+	#if OUTPUT_QUERY_RESULTS
+	printf("\n");
+	#endif
+
+	iinq_close_result_set(rs1);
+	PLANCK_UNIT_ASSERT_TRUE(tc, NULL == rs1);
+}
+
+void
+test_select_all_where_equal_key_table1(
+	planck_unit_test_t      *tc
+) {
+	volatile unsigned long start_time, end_time;
+
+	#if OUTPUT_SQL_STATEMENTS
+	printf("SELECT * FROM Table1 WHERE ID = 50;\n");
+	#endif
+
+	start_time = ion_time();
+
+ 	iinq_result_set_t *rs1 = SQL_select("SELECT * FROM Table1 WHERE ID = 50;");
+
+	end_time = ion_time();
+	#if OUTPUT_TIMES
+	printf("Time taken: %lu\n\n", end_time - start_time);
+	#endif
+
+	if (NULL == rs1 || err_ok != rs1->status.error) {
+	    PLANCK_UNIT_SET_FAIL(tc);
+	}
+
+	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, 3, rs1->instance->num_fields);
+
+	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, 1, rs1->instance->field_info[0].field_num);
+	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, 2, rs1->instance->field_info[1].field_num);
+	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, 3, rs1->instance->field_info[2].field_num);
+
+    // Selection operator would be removed in optimization. Input operator should be dictionary operator.
+	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, iinq_dictionary_operator_e, rs1->instance->input_operators[0]->instance->type);
+
+	while (iinq_next(rs1)) {
+		#if OUTPUT_QUERY_RESULTS
+		printf("ID: %i, ", *iinq_get_int(rs1, 1));
+		printf("CharValue: %s, ", iinq_get_string(rs1, 2));
+		printf("IntValue: %d\n", *iinq_get_int(rs1, 3));
+		#endif
+        PLANCK_UNIT_ASSERT_FALSE(tc, NULL == iinq_get_int(rs1, 1));
+        PLANCK_UNIT_ASSERT_FALSE(tc, NULL == iinq_get_string(rs1, 1));
+        PLANCK_UNIT_ASSERT_FALSE(tc, NULL == iinq_get_int(rs1, 3));
+		PLANCK_UNIT_ASSERT_TRUE(tc, *iinq_get_int(rs1, 1) == 50);
+	}
+	#if OUTPUT_QUERY_RESULTS
+	printf("\n");
+	#endif
+
+	iinq_close_result_set(rs1);
+	PLANCK_UNIT_ASSERT_TRUE(tc, NULL == rs1);
+}
+
+void
 test_select_all_where_not_equal_table1(
 	planck_unit_test_t      *tc
 ) {
@@ -840,7 +943,11 @@ test_insert_duplicate_key_table1(
     ion_err_t error = iinq_execute_prepared(p);
     iinq_close_statement(p);
 
+    #if IINQ_ALLOW_DUPLICATES
+	PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, err_ok, error);
+    #else
     PLANCK_UNIT_ASSERT_INT_ARE_EQUAL(tc, err_duplicate_key, error);
+    #endif
 }
 
 void
@@ -878,6 +985,8 @@ iinq_get_suite1(
 	PLANCK_UNIT_ADD_TO_SUITE(suite, test_select_all_where_greater_than_equal_table1);
 	PLANCK_UNIT_ADD_TO_SUITE(suite, test_select_all_where_less_than_table1);
 	PLANCK_UNIT_ADD_TO_SUITE(suite, test_select_all_where_less_than_equal_table1);
+	PLANCK_UNIT_ADD_TO_SUITE(suite, test_select_all_where_equal_key_table1);
+	PLANCK_UNIT_ADD_TO_SUITE(suite, test_select_all_where_range_key_table1);
 	PLANCK_UNIT_ADD_TO_SUITE(suite, test_select_all_where_not_equal_table1);
 	PLANCK_UNIT_ADD_TO_SUITE(suite, test_select_all_where_multiple_conditions_table1);
 	PLANCK_UNIT_ADD_TO_SUITE(suite, test_select_all_where_str_equal);

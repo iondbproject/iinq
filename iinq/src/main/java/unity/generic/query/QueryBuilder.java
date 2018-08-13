@@ -24,7 +24,7 @@ import unity.query.LQTreeConstants;
 import unity.util.StringFunc;
 
 /**
- * An abstract class for converting a logical query tree into a URL query (REST API) for a web service.  Subclasses override the methods that convert each relational operator.
+ * An abstract class for converting a logical query tree into a URL query (REST API) for a web service.  Subclasses override the methods that convert each relational operatorType.
  * 
  */
 @SuppressWarnings("nls")
@@ -253,7 +253,7 @@ public abstract class QueryBuilder
 	}
 	
 	/**
-	 * Builds a selection operator.
+	 * Builds a selection operatorType.
 	 * 
 	 * @param node
 	 *     selection node
@@ -269,7 +269,7 @@ public abstract class QueryBuilder
 	}	
 	
 	/**
-     * Builds a GROUP BY operator.  
+     * Builds a GROUP BY operatorType.
      * 
      * @param node
      *     grouping node

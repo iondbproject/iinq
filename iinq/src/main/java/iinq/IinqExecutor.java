@@ -10,14 +10,10 @@ import iinq.callable.update.ImplicitFieldInfo;
 import iinq.callable.update.UpdateField;
 import iinq.functions.calculated.ExecuteFunction;
 import iinq.functions.PreparedInsertFunction;
-import iinq.functions.select.operators.ExternalSortOperator;
-import iinq.functions.select.operators.IinqOperator;
-import iinq.functions.select.operators.TableScanOperator;
 import iinq.metadata.IinqDatabase;
 import iinq.metadata.IinqTable;
 import iinq.query.IinqBuilder;
 import iinq.query.IinqQuery;
-import iinq.query.IinqSort;
 import unity.annotation.AnnotatedSourceDatabase;
 import unity.jdbc.UnityPreparedStatement;
 import unity.parser.GlobalParser;
@@ -31,7 +27,6 @@ import java.sql.Statement;
 import java.sql.Types;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 
 public class IinqExecutor {
 	private IinqDatabase iinqDatabase;
@@ -78,7 +73,7 @@ public class IinqExecutor {
 		}
 
 		LQCondNode conditionNode = updateNode.getCondition();
-		ArrayList<String> conditions = null;
+		ArrayList<String> predicates = null;
 		int num_conditions = 0;
 		if (conditionNode != null) {
 			LQSelNode selNode = new LQSelNode();
@@ -88,19 +83,19 @@ public class IinqExecutor {
 			IinqQuery query = builder.toQuery();
 			Object filters = query.getParameterObject("filter");
 			if (filters instanceof ArrayList) {
-				conditions = (ArrayList) filters;
-				num_conditions = conditions.size();
+				predicates = (ArrayList) filters;
+				num_conditions = predicates.size();
 			} else if (filters instanceof String) {
 				num_conditions = 1;
-				conditions = new ArrayList<>();
-				conditions.add((String) filters);
+				predicates = new ArrayList<>();
+				predicates.add((String) filters);
 			}
 		}
 
 		/* Calculate number of fields to update in statement */
 		int num_fields = updateNode.getNumFields();
 
-		IinqSelection where = new IinqSelection(conditions, table);
+		IinqSelection where = new IinqSelection(predicates, table);
 
 		String[] fields = new String[updateNode.getNumFields()];
 		LQExprNode[] fieldValues = new LQExprNode[updateNode.getNumFields()];
@@ -122,7 +117,7 @@ public class IinqExecutor {
 			update_value = fieldValues[j].getContent().toString();
 			String updateOperator = null;
 
-			/* Check if update value contains an operator */
+			/* Check if update value contains an operatorType */
 			if (fieldValues[j].getContent().equals("+")) {
 				updateOperator = "iinq_add";
 				implicit_field = fieldValues[j].getChild(0).getContent().toString();

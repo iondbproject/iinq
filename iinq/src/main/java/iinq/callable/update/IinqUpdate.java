@@ -48,7 +48,7 @@ public class IinqUpdate implements Callable {
     public IinqUpdate(int tableId, IinqSelection where, int num_u, IinqUpdateFieldList fieldList) {
         this.tableId = tableId;
         if (where != null) {
-            this.numWheres = where.getNumConditions();
+            this.numWheres = where.getNumPredicates();
             this.where = where;
         } else {
             numWheres = 0;
@@ -67,7 +67,7 @@ public class IinqUpdate implements Callable {
         functionCall.append(numUpdates);
         if (numWheres > 0) {
             functionCall.append(", ");
-            functionCall.append(where.generateIinqConditionList());
+            functionCall.append(where.toIinqConditionListString());
         }
         functionCall.append(", ");
         functionCall.append(updateFieldList.generateUpdateList());

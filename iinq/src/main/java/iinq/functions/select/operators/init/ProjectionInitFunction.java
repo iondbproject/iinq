@@ -9,30 +9,30 @@ public class ProjectionInitFunction extends OperatorInitFunction {
 						"\t\treturn NULL;\n" +
 						"\t}\n" +
 						"\t\n" +
-						"\tiinq_query_operator_t *operator = malloc(sizeof(iinq_query_operator_t));\n" +
-						"\tif (NULL == operator) {\n" +
+						"\tiinq_query_operator_t *operatorType = malloc(sizeof(iinq_query_operator_t));\n" +
+						"\tif (NULL == operatorType) {\n" +
 						"\t\tinput_operator->destroy(&input_operator);\n" +
 						"\t\treturn NULL;\n" +
 						"\t}\n" +
 						"\n" +
-						"\toperator->instance = malloc(sizeof(iinq_projection_t));\n" +
-						"\tif (NULL == operator->instance) {\n" +
-						"\t\tfree(operator);\n" +
+						"\toperatorType->instance = malloc(sizeof(iinq_projection_t));\n" +
+						"\tif (NULL == operatorType->instance) {\n" +
+						"\t\tfree(operatorType);\n" +
 						"\t\tinput_operator->destroy(&input_operator);\n" +
 						"\t\treturn NULL;\n" +
 						"\t}\n" +
 						"\n" +
-						"\toperator->next = iinq_projection_next;\n" +
-						"\toperator->destroy = iinq_projection_destroy;\n" +
+						"\toperatorType->next = iinq_projection_next;\n" +
+						"\toperatorType->destroy = iinq_projection_destroy;\n" +
 						"\n" +
-						"\tiinq_projection_t *projection = (iinq_projection_t *) operator->instance;\n" +
+						"\tiinq_projection_t *projection = (iinq_projection_t *) operatorType->instance;\n" +
 						"\tprojection->super.type = iinq_projection_e;\n" +
 						"\t\n" +
 						"\tprojection->super.num_input_operators = 1;\n" +
 						"\tprojection->super.input_operators = malloc(sizeof(iinq_query_operator_t));\n" +
 						"\tif (NULL == projection->super.input_operators) {\n" +
 						"\t\tfree(projection);\n" +
-						"\t\tfree(operator);\n" +
+						"\t\tfree(operatorType);\n" +
 						"\t\tinput_operator->destroy(&input_operator);\n" +
 						"\t\treturn NULL;\n" +
 						"\t}\n" +
@@ -44,7 +44,7 @@ public class ProjectionInitFunction extends OperatorInitFunction {
 						"\tif (NULL == projection->input_field_nums) {\n" +
 						"\t\tfree(projection->super.input_operators);\n" +
 						"\t\tfree(projection);\n" +
-						"\t\tfree(operator);\n" +
+						"\t\tfree(operatorType);\n" +
 						"\t\tinput_operator->destroy(&input_operator);\n" +
 						"\t\treturn NULL;\n" +
 						"\t}\n" +
@@ -56,7 +56,7 @@ public class ProjectionInitFunction extends OperatorInitFunction {
 						"\t\tfree(projection->input_field_nums);" +
 						"\t\tfree(projection->super.input_operators);\n" +
 						"\t\tfree(projection);\n" +
-						"\t\tfree(operator);\n" +
+						"\t\tfree(operatorType);\n" +
 						"\t\tinput_operator->destroy(&input_operator);\n" +
 						"\t\treturn NULL;\n" +
 						"\t}\n" +
@@ -66,7 +66,7 @@ public class ProjectionInitFunction extends OperatorInitFunction {
 						"\t\tfree(projection->super.null_indicators);\n" +
 						"\t\tfree(projection->super.input_operators);\n" +
 						"\t\tfree(projection);\n" +
-						"\t\tfree(operator);\n" +
+						"\t\tfree(operatorType);\n" +
 						"\t\tinput_operator->destroy(&input_operator);\n" +
 						"\t\treturn NULL;\n" +
 						"\t}\n" +
@@ -77,7 +77,7 @@ public class ProjectionInitFunction extends OperatorInitFunction {
 						"\t\tfree(projection->super.null_indicators);\n" +
 						"\t\tfree(projection->super.input_operators);\n" +
 						"\t\tfree(projection);\n" +
-						"\t\tfree(operator);\n" +
+						"\t\tfree(operatorType);\n" +
 						"\t\tinput_operator->destroy(&input_operator);\n" +
 						"\t\treturn NULL;\n" +
 						"\t}\n" +
@@ -88,9 +88,9 @@ public class ProjectionInitFunction extends OperatorInitFunction {
 						"\t\tprojection->super.fields[i] = input_operator->instance->fields[field_nums[i]-1];\n" +
 						"\t}\n" +
 						"\n" +
-						"\toperator->status = ION_STATUS_OK(0);\n" +
+						"\toperatorType->status = ION_STATUS_OK(0);\n" +
 						"\n" +
-						"\treturn operator;\n" +
+						"\treturn operatorType;\n" +
 						"}\n\n");
 	}
 }

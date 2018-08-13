@@ -3,9 +3,9 @@ package iinq.functions.select.operators.struct;
 import java.util.Arrays;
 import java.util.LinkedHashSet;
 
-public class TableScanStruct extends OperatorStruct {
-	public TableScanStruct() {
-		super("iinq_table_scan",
+public class DictionaryStruct extends OperatorStruct {
+	public DictionaryStruct() {
+		super("iinq_dictionary_operator",
 				new LinkedHashSet<>(Arrays.asList(
 						new StructMember("dictionary", "ion_dictionary_t"),
 						new StructMember("handler", "ion_dictionary_handler_t"),
